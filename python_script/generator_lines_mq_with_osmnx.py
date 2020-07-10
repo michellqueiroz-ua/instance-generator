@@ -45,6 +45,10 @@ from shapely.geometry import MultiLineString
 from shapely.geometry import MultiPolygon
 from shapely.geometry import Polygon
 import pickle
+from multiprocessing import Pool
+from multiprocessing import cpu_count
+import time
+import gc
 
 try:
     import tkinter as tk
@@ -163,8 +167,8 @@ class Network:
         #returns distance in meters from origin_node to destination_node
         try:
             #distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
-            destination_node = str(destination_node)
-            distance_walk = self.shortest_path_walk.loc[origin_node, destination_node]
+            #destination_node = str(destination_node)
+            distance_walk = self.shortest_path_walk.loc[(origin_node, destination_node)]
             #distance_walk = self.dict_shortest_path_length_walk[origin_node][destination_node]
             #get the speed of the given travel mode
             #i = self.get_travel_mode_index("walking")
@@ -492,9 +496,9 @@ def find_new_stop_location(inst, locations, unc_locations, bus_stops):
                 #print(u, v)
                 if u != v:
                     #print(u, v)
-                    sv = str(v)
-                    if str(inst.network.shortest_path_walk.loc[u, sv]) != 'nan':
-                        total_distance += int(inst.network.shortest_path_walk.loc[u, sv])
+                    #sv = str(v)
+                    if str(inst.network.shortest_path_walk.loc[(u, v)]) != 'nan':
+                        total_distance += int(inst.network.shortest_path_walk.loc[(u, v)])
                     else:
                         pass
                         #print('nnnn')
@@ -520,8 +524,8 @@ def assign_location_to_nearest_stop(inst, locations, bus_stops):
             v = locations[loc_stop]['osmid_drive']
             sv = str(v)
             try:
-                if inst.network.shortest_path_walk.loc[u, sv] < min_dist:
-                    min_dist = inst.network.shortest_path_drive.loc[u, sv]
+                if inst.network.shortest_path_walk.loc[(u, v)] < min_dist:
+                    min_dist = inst.network.shortest_path_drive.loc[(u, v)]
                     locations[loc]['nearest_stop'] = stop
             except KeyError:
                 pass
@@ -549,9 +553,9 @@ def reset_location_stop(inst, locations, locations_assigned_to_stop, bus_stops):
             for loc2 in range(len(locations_assigned_to_stop)):  
                 v = locations[loc2]['osmid_drive']
                 if u != v:
-                    sv = str(v)
+                    #sv = str(v)
                     try:
-                        total_distance += inst.network.shortest_path_drive.loc[u, sv]
+                        total_distance += inst.network.shortest_path_drive.loc[(u, v)]
                     except KeyError:
                         pass
             
@@ -586,8 +590,8 @@ def k_medoids(inst, locations, unc_locations, bus_stops):
             v = locations[loc_stop]['osmid_drive']
             sv = str(v)
             try:
-                if str(inst.network.shortest_path_drive.loc[u, sv]) != 'nan':
-                    sum_distances += inst.network.shortest_path_drive.loc[u, sv]
+                if str(inst.network.shortest_path_drive.loc[(u, v)]) != 'nan':
+                    sum_distances += inst.network.shortest_path_drive.loc[(u, v)]
             except KeyError:
                 pass
 
@@ -614,7 +618,7 @@ def loc_is_covered(inst, loc, locations, bus_stops):
         try:
             
             sv = str(v)
-            dist = inst.network.shortest_path_walk.loc[u, sv]
+            dist = inst.network.shortest_path_walk.loc[(u, v)]
             
             if str(dist) != 'nan':
                 walk_time = int(math.ceil(dist/inst.network.walk_speed))
@@ -1370,59 +1374,115 @@ def get_zones_csv(inst, G_walk, G_drive, polygon):
 
     return zones
 
-def get_distance_matrix_csv(inst, G_walk, G_drive):
+def shortest_path_nx(G, u, v):
 
+    try:
+        shortest_path_length = nx.dijkstra_path_length(G, u, v, weight='length')
+        return shortest_path_length
+    except nx.NetworkXNoPath:
+        return -1
+
+def shortest_path_nx_ss(G, u):
+
+    shortest_path_length_u = {}
+    shortest_path_length_u = nx.single_source_dijkstra_path_length(G, u, weight='length')
+    return shortest_path_length_u
+
+def chunker(seq, size):
+    return (seq[pos:pos + size] for pos in range(0, len(seq), size))
+
+def get_distance_matrix_csv(inst, G_walk, G_drive):
     shortest_path_walk = []
     shortest_path_drive = []
+    
+    num_of_cpu = cpu_count()
+    num_of_cpu = num_of_cpu - 1
+    pool = Pool(processes=num_of_cpu)
+    #pool = Pool(processes=2)
+    
+    start = time.process_time()
 
     save_dir_csv = os.path.join(inst.save_dir, 'csv')
-
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
-
+    
     path_dist_csv_file_walk = os.path.join(save_dir_csv, inst.output_file_base+'.dist.walk.csv')
     path_dist_csv_file_drive = os.path.join(save_dir_csv, inst.output_file_base+'.dist.drive.csv')
-
+    
     if os.path.isfile(path_dist_csv_file_walk):
         print('is file dist walk')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
-        shortest_path_walk.rename(columns={'Unnamed: 0':'osmid'}, inplace=True)
-        shortest_path_walk.set_index(['osmid'], inplace=True)
-
+        #shortest_path_walk.rename(columns={'Unnamed: 0':'osmid'}, inplace=True)
+        shortest_path_walk.set_index(['osmid_origin', 'osmid_destination'], inplace=True)
     else:
         print('calculating all shortest paths walk network')
         
-        dict_shortest_path_length_walk = dict(nx.all_pairs_dijkstra_path_length(G_walk, weight='length'))
-        shortest_path_walk = pd.DataFrame.from_dict(dict_shortest_path_length_walk)
-        shortest_path_walk.to_csv(path_dist_csv_file_walk)
+        shortest_path_walk = pd.DataFrame()
 
-        shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
-        shortest_path_walk.rename(columns={'Unnamed: 0':'osmid'}, inplace=True)
-        shortest_path_walk.set_index(['osmid'], inplace=True)
-
-        dict_shortest_path_length_walk.clear()
+        list_nodes = list(G_walk.nodes)
+        count_divisions = 0
         
+        for group_nodes in chunker(list_nodes, num_of_cpu*2):
+            shortest_path_length_walk = []
+            print(count_divisions)
+            count_divisions += 1
+            #print (group_nodes)
+            results = pool.starmap(shortest_path_nx_ss, [(G_walk, u) for u in group_nodes])
+            
+            j=0
+            for u in group_nodes:
+                for v in G_walk.nodes():
+                    dist_uv = -1
+                    try:
+                        dist_uv = int(results[j][v])
+                    except KeyError:
+                        pass
+                    if dist_uv != -1:
+                        d = {
+                        'osmid_origin': u,
+                        'osmid_destination': v,
+                        'shortest_distance': dist_uv
+                        }
+                        shortest_path_length_walk.append(d)
 
+                j+=1
+
+            shortest_path_walk = shortest_path_walk.append(shortest_path_length_walk, ignore_index=True)
+            del shortest_path_length_walk
+            del results
+            gc.collect()
+
+        #shortest_path_walk = pd.DataFrame(shortest_path_length_walk)
+        shortest_path_walk.to_csv(path_dist_csv_file_walk)
+        shortest_path_walk.set_index(['osmid_origin', 'osmid_destination'], inplace=True)
+        shortest_path_length_walk.clear()
+        print("total time", time.process_time() - start)
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
         shortest_path_drive = pd.read_csv(path_dist_csv_file_drive)
-        shortest_path_drive.rename(columns={'Unnamed: 0':'osmid'}, inplace=True)
-        shortest_path_drive.set_index(['osmid'], inplace=True)
-
+        #shortest_path_drive.rename(columns={'Unnamed: 0':'osmid'}, inplace=True)
+        shortest_path_drive.set_index(['osmid_origin', 'osmid_destination'], inplace=True)
     else:
-        print('calculating all shortest paths drive network') 
-        
-        dict_shortest_path_length = dict(nx.all_pairs_dijkstra_path_length(G_drive, weight='length'))
-        shortest_path_drive = pd.DataFrame.from_dict(dict_shortest_path_length)
+        print('calculating all shortest paths drive network')
+        dict_shortest_path_length_drive = []
+        for u in G_drive.nodes():
+            results = pool.starmap(shortest_path_nx, [(G_drive, u, v) for v in G_drive.nodes()])
+            j=0
+            for v in G_drive.nodes():
+                if results[j] != -1:
+                    d = {
+                        'osmid_origin': u,
+                        'osmid_destination': v,
+                        'shortest_distance': results[j],
+                    }
+                    dict_shortest_path_length_drive.append(d)
+                j+=1
+            results.clear()
+        shortest_path_drive = pd.DataFrame(dict_shortest_path_length_drive)
         shortest_path_drive.to_csv(path_dist_csv_file_drive)
-
-        shortest_path_drive = pd.read_csv(path_dist_csv_file_drive)
-        shortest_path_drive.rename(columns={'Unnamed: 0':'osmid'}, inplace=True)
-        shortest_path_drive.set_index(['osmid'], inplace=True)
-        
+        shortest_path_drive.set_index(['osmid_origin', 'osmid_destination'], inplace=True)
         dict_shortest_path_length.clear()
-
 
     return shortest_path_walk, shortest_path_drive
 
@@ -1498,8 +1558,8 @@ def get_bus_stops_matrix_csv(inst, G_walk, shortest_path_walk, G_drive, shortest
                     try:
                         osmid_origin_stop = stop1['osmid_drive']
                         osmid_destination_stop = stop2['osmid_drive']
-                        sosmid_destination_stop = str(osmid_destination_stop)
-                        path_length = shortest_path_drive.loc[osmid_origin_stop, sosmid_destination_stop]
+                        #sosmid_destination_stop = str(osmid_destination_stop)
+                        path_length = shortest_path_drive.loc[(osmid_origin_stop, osmid_destination_stop)]
                     except KeyError:
                         unreachable_nodes = unreachable_nodes + 1
                     
