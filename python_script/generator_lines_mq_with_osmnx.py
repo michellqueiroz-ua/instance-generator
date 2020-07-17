@@ -49,6 +49,9 @@ from multiprocessing import Pool
 from multiprocessing import cpu_count
 import time
 import gc
+import ray
+from streamlit import caching
+
 
 try:
     import tkinter as tk
@@ -77,6 +80,9 @@ class RequestDistribution:
         if self.pdf == "uniform":
             self.min_time = x
             self.max_time = y
+
+        if self.pdf == "poisson":
+            self.average_min = x
         
         self.num_requests = num_requests
         
@@ -106,6 +112,10 @@ class RequestDistribution:
 
         if self.pdf == "uniform":
             self.demand = np.random.uniform(self.min_time, self.max_time, self.num_requests)
+
+        if self.pdf == "poisson":
+            #for poisson distribution the number of requests is related to the size of the time window
+            self.demand = np.random.poisson(self.average_min, self.num_requests)
 
     def randomly_set_origin_zones(self, num_zones):
 
@@ -167,8 +177,8 @@ class Network:
         #returns distance in meters from origin_node to destination_node
         try:
             #distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
-            #destination_node = str(destination_node)
-            distance_walk = self.shortest_path_walk.loc[(origin_node, destination_node)]
+            destination_node = str(destination_node)
+            distance_walk = self.shortest_path_walk.loc[origin_node, destination_node]
             #distance_walk = self.dict_shortest_path_length_walk[origin_node][destination_node]
             #get the speed of the given travel mode
             #i = self.get_travel_mode_index("walking")
@@ -196,16 +206,17 @@ class Network:
                 #distance_bus = self.distance_matrix.loc[origin, destination]
                 #travel_time = self.travel_time_matrix.loc[(origin, destination,hour), 'travel_time']
 
-                curr_weight = 'travel_time_' + str(hour)
+                #curr_weight = 'travel_time_' + str(hour)
                 
                 origin_osmid = self.bus_stops.loc[origin, 'osmid_drive']
                 destination_osmid = self.bus_stops.loc[destination, 'osmid_drive']
                 
-                i = self.bus_stops.loc[origin, 'itid']
-                j = self.bus_stops.loc[destination, 'itid']
+                #i = self.bus_stops.loc[origin, 'itid']
+                #j = self.bus_stops.loc[destination, 'itid']
                 
                 #travel_time = nx.dijkstra_path_length(self.G_drive, origin_osmid, destination_osmid, weight=curr_weight)
-                travel_time = self.travel_time_matrix.loc[(i, j, hour), 'eta_travel_time']
+                #travel_time = self.travel_time_matrix.loc[(i, j, hour), 'eta_travel_time']
+                travel_time = self.travel_time_matrix.loc[(origin_osmid, destination_osmid), 'eta_travel_time']
                 #print(travel_time2)
                 
                 eta_bus = travel_time
@@ -239,8 +250,8 @@ class Network:
                 if travel_mode_string == "bus":
                     #i = int(self.distance_matrix.loc[(index_o,index_d), 'origin_id'])
                     #j = int(self.distance_matrix.loc[(index_o,index_d), 'destination_id'])
-                    i = int(origin_stop['itid'])
-                    j = int(destination_stop['itid'])
+                    #i = int(origin_stop['itid'])
+                    #j = int(destination_stop['itid'])
                     
                     #setting the speed value for the travel time matrix
                     #itm = self.get_travel_mode_index("bus")
@@ -253,11 +264,11 @@ class Network:
                     #getting the distance value
                     #distance_bus = self.distance_matrix.loc[index_o, index_d]
                     #travel_time = self.travel_time_matrix.loc[(origin, destination,hour), 'travel_time']
-                    curr_weight = 'travel_time_' + str(hour)
+                    #curr_weight = 'travel_time_' + str(hour)
                     origin = origin_stop['osmid_drive']
                     destination = destination_stop['osmid_drive']
                     #od_travel_time = nx.dijkstra_path_length(self.G_drive, origin, destination, weight=curr_weight)
-                    od_travel_time = self.travel_time_matrix.loc[(i, j, hour), 'eta_travel_time']
+                    od_travel_time = self.travel_time_matrix.loc[(origin, destination), 'eta_travel_time']
 
                     #calculating travel time and storing in travel_time matrix
                     if od_travel_time >= 0:
@@ -284,8 +295,6 @@ class Network:
 
         return (-1, -1)
 
-        
-
 class Instance:
 
     def __init__(self, max_walking, min_early_departure, max_early_departure, request_demand, day_of_the_week, num_replicates, bus_factor, get_fixed_lines, max_speed_factor, save_dir, output_file_base):
@@ -299,11 +308,13 @@ class Instance:
         self.num_replicates = num_replicates
         self.bus_factor = bus_factor
         self.save_dir = save_dir
+        #self.input_file_base = input_file_base
         self.output_file_base = output_file_base
         self.day_of_the_week = day_of_the_week
         self.get_fixed_lines = get_fixed_lines #bool
         self.max_speed_factor = max_speed_factor
         self.all_requests = {}
+        #self.folder_path_deconet = None
         
     def update_network(self, G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed):
         #print('creating network')
@@ -496,9 +507,9 @@ def find_new_stop_location(inst, locations, unc_locations, bus_stops):
                 #print(u, v)
                 if u != v:
                     #print(u, v)
-                    #sv = str(v)
-                    if str(inst.network.shortest_path_walk.loc[(u, v)]) != 'nan':
-                        total_distance += int(inst.network.shortest_path_walk.loc[(u, v)])
+                    sv = str(v)
+                    if str(inst.network.shortest_path_walk.loc[u, sv]) != 'nan':
+                        total_distance += int(inst.network.shortest_path_walk.loc[u, sv])
                     else:
                         pass
                         #print('nnnn')
@@ -524,8 +535,8 @@ def assign_location_to_nearest_stop(inst, locations, bus_stops):
             v = locations[loc_stop]['osmid_drive']
             sv = str(v)
             try:
-                if inst.network.shortest_path_walk.loc[(u, v)] < min_dist:
-                    min_dist = inst.network.shortest_path_drive.loc[(u, v)]
+                if inst.network.shortest_path_walk.loc[u, sv] < min_dist:
+                    min_dist = inst.network.shortest_path_drive.loc[u, sv]
                     locations[loc]['nearest_stop'] = stop
             except KeyError:
                 pass
@@ -553,9 +564,9 @@ def reset_location_stop(inst, locations, locations_assigned_to_stop, bus_stops):
             for loc2 in range(len(locations_assigned_to_stop)):  
                 v = locations[loc2]['osmid_drive']
                 if u != v:
-                    #sv = str(v)
+                    sv = str(v)
                     try:
-                        total_distance += inst.network.shortest_path_drive.loc[(u, v)]
+                        total_distance += inst.network.shortest_path_drive.loc[u, sv]
                     except KeyError:
                         pass
             
@@ -590,8 +601,8 @@ def k_medoids(inst, locations, unc_locations, bus_stops):
             v = locations[loc_stop]['osmid_drive']
             sv = str(v)
             try:
-                if str(inst.network.shortest_path_drive.loc[(u, v)]) != 'nan':
-                    sum_distances += inst.network.shortest_path_drive.loc[(u, v)]
+                if str(inst.network.shortest_path_drive.loc[u, sv]) != 'nan':
+                    sum_distances += inst.network.shortest_path_drive.loc[u, sv]
             except KeyError:
                 pass
 
@@ -618,7 +629,7 @@ def loc_is_covered(inst, loc, locations, bus_stops):
         try:
             
             sv = str(v)
-            dist = inst.network.shortest_path_walk.loc[(u, v)]
+            dist = inst.network.shortest_path_walk.loc[u, sv]
             
             if str(dist) != 'nan':
                 walk_time = int(math.ceil(dist/inst.network.walk_speed))
@@ -1025,13 +1036,15 @@ def generate_requests(inst, replicate):
                         eta_walk_origin = inst.network.return_estimated_arrival_walk_osmnx(origin_node_walk, osmid_possible_stop)
                         if eta_walk_origin >= 0 and eta_walk_origin <= inst.max_walking:
                             stops_origin.append(index)
-                            stops_origin_id.append(int(stop_node['itid']))
+                            #stops_origin_id.append(int(stop_node['itid']))
+                            stops_origin_id.append(int(stop_node['stop_id']))
                             stops_origin_walking_distance.append(eta_walk_origin)
 
                         eta_walk_destination = inst.network.return_estimated_arrival_walk_osmnx(destination_node_walk, osmid_possible_stop)        
                         if eta_walk_destination >= 0 and eta_walk_destination <= inst.max_walking:
                             stops_destination.append(index)
-                            stops_destination_id.append(int(stop_node['itid']))
+                            #stops_destination_id.append(int(stop_node['itid']))
+                            stops_origin_id.append(int(stop_node['stop_id']))
                             stops_destination_walking_distance.append(eta_walk_destination)
 
                 #print('aqui')
@@ -1142,10 +1155,26 @@ def create_nn_model(init_mode='normal', activation='relu', dropout_rate=0.0, wei
     
     return nn_model
 
-def get_routes_csv(inst, G_walk, G_drive, polygon):
+def plot_pt_fixed_lines(inst, G, pt_fixed_lines):
+
+    
+    pt_lines_folder = os.path.join(inst.save_dir_images, 'pt_fixed_lines')
+
+    if not os.path.isdir(pt_lines_folder):
+        os.mkdir(pt_lines_folder)
+
+    for index, lines in pt_fixed_lines.iterrows():
+        #bus_stop_list_nodes.append(stop['osmid_walk'])
+
+        nc = ['r' if (str(node) in lines['osm_nodes']) else '#336699' for node in G.nodes()]
+        ns = [12 if (str(node) in lines['osm_nodes']) else 6 for node in G.nodes()]
+        fig, ax = ox.plot_graph(G, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=pt_lines_folder+'/'+str(index)+'_'+str(lines['name'])+'.pt_fixed_lines.png')
+        plt.close(fig)
+
+def get_fixed_lines_csv(inst, G_walk, G_drive, polygon):
 
     api_osm = osm.OsmApi()
-    transport_routes = []
+    pt_fixed_lines = []
 
     save_dir_csv = os.path.join(inst.save_dir, 'csv')
 
@@ -1157,7 +1186,7 @@ def get_routes_csv(inst, G_walk, G_drive, polygon):
 
     if os.path.isfile(path_pt_lines_csv_file):
         print('is file pt routes')
-        transport_routes = pd.read_csv(path_pt_lines_csv_file)
+        pt_fixed_lines = pd.read_csv(path_pt_lines_csv_file)
 
     else:
         index_line = 0
@@ -1227,17 +1256,6 @@ def get_routes_csv(inst, G_walk, G_drive, polygon):
 
                     if len(filtered_nodes_osm) > 1:
 
-                        #if len(filtered_nodes_osm) > 10:
-                            #nc = ['r' if (node in filtered_nodes_osm) else '#336699' for node in G_drive.nodes()]
-                            #ns = [12 if (node in filtered_nodes_osm) else 6 for node in G_drive.nodes()]
-                            #fig, ax = ox.plot_graph(G_drive, node_size=ns, node_color=nc, node_zorder=2)
-                            #fig, ax = ox.plot_graph(G_drive, node_size=ns, node_color=nc, node_zorder=2, save=True, filename='route_nodes_antwerp')
-                
-                            #try:
-                            #    fig, ax = ox.plot_graph_route(G_drive, filtered_nodes_osm, route_linewidth=6, node_size=0, bgcolor='k')
-                            #except AttributeError:
-                            #    pass
-
                         d = {
                             'index_line': index_line,
                             'name': name,
@@ -1249,7 +1267,7 @@ def get_routes_csv(inst, G_walk, G_drive, polygon):
                             'frequency': frequency,
                         }
                         
-                        transport_routes.append(d)
+                        pt_fixed_lines.append(d)
 
                         index_line += 1
                         #plt.show()
@@ -1258,13 +1276,163 @@ def get_routes_csv(inst, G_walk, G_drive, polygon):
                 pass
 
         
-        transport_routes = pd.DataFrame(transport_routes)
-        transport_routes.to_csv(path_pt_lines_csv_file)
+        pt_fixed_lines = pd.DataFrame(pt_fixed_lines)
+        pt_fixed_lines.to_csv(path_pt_lines_csv_file)
 
-    if len(transport_routes) > 0:
-        transport_routes.set_index(['index_line'], inplace=True)
+        #plot_pt_fixed_lines(inst, G_drive, pt_fixed_lines)
     
-    return transport_routes
+    return pt_fixed_lines
+
+def get_all_shortest_paths_fix_lines(inst, fixed_lines, network_nodes):
+    
+
+    print('shortest route fixed lines')
+
+    #for index, row in inst.network.shortest_path_drive.iterrows():
+    shortest_path_line = []
+    for index1, nodeu in network_nodes.iterrows():
+        u = nodeu['stop_I']
+        for index2, nodev in network_nodes.iterrows():
+            v = nodev['stop_I']
+            #for p_id, p_info in people.items():
+            shortest_fixed_line_route = [-1, math.inf]
+
+            for route_id in fixed_lines:
+                
+                try:
+                    #calculate shortest path using fixed line of id "route_id" between nodes u and v
+                    shortest_travel_time = nx.dijkstra_path_length(fixed_lines['route_graph'], u, v, weight='duration_avg')
+                    print(shortest_travel_time)
+                    if shortest_travel_time < shortest_fixed_line_route[1]:
+                        shortest_fixed_line_route[0] = route_id
+                        shortest_fixed_line_route[1] = shortest_travel_time
+                    
+                except (nx.NetworkXNoPath, KeyError):
+                    pass
+
+            if shortest_fixed_line_route[0] != -1:
+                row = {}
+                row['origin_osmid'] = u
+                row['destination_osmid'] = v
+                
+                row['line_id'] = shortest_fixed_line_route[0]
+                row['eta'] = shortest_fixed_line_route[1]
+
+                shortest_path_line.append(row)
+
+    return shortest_path_line
+
+@ray.remote
+def get_nodes_osm(G_walk, G_drive, lat, lon):
+
+    node_point = (lat, lon)
+    #network_nodes.loc[index, 'lat']
+                
+    u, v, key = ox.get_nearest_edge(G_walk, node_point)
+    node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(lat, lon, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
+    
+    u, v, key = ox.get_nearest_edge(G_drive, node_point)
+    node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(lat, lon, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
+    
+    return (node_walk, node_drive)
+
+def get_fixed_lines_deconet(inst, G_walk, G_drive, folder_path):
+
+    #num_of_cpu = cpu_count()
+
+    save_dir_csv = os.path.join(inst.save_dir, 'csv')
+
+    if not os.path.isdir(folder_path):
+        print('folder does not exist')
+        return -1
+
+    network_nodes_filename = folder_path+'/network_nodes.csv'
+    if os.path.isfile(network_nodes_filename):
+        network_nodes = pd.read_csv(network_nodes_filename, delimiter=";")
+        #print(network_nodes.head())
+        #print(network_nodes.keys())
+        #map the network nodes to open street maps
+
+        G_walk_id = ray.put(G_walk)
+        G_drive_id = ray.put(G_drive)
+        osm_nodes = ray.get([get_nodes_osm.remote(G_walk_id, G_drive_id, node['lat'], node['lon']) for index, node in network_nodes.iterrows()])
+
+        j=0
+        for index, node in network_nodes.iterrows():
+            
+            node_walk = osm_nodes[j][0]
+            node_drive = osm_nodes[j][1]
+
+            network_nodes.loc[index, 'osmid_walk'] = node_walk
+            network_nodes.loc[index, 'osmid_drive'] = node_drive
+            j += 1
+
+        '''
+        for index, node in network_nodes.iterrows():
+            node_point = (node['lat'], node['lon'])
+            #network_nodes.loc[index, 'lat']
+                
+            u, v, key = ox.get_nearest_edge(G_walk, node_point)
+            node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(node['lat'], node['lon'], G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
+            
+            u, v, key = ox.get_nearest_edge(G_drive, node_point)
+            node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(node['lat'], node['lon'], G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
+            
+            network_nodes.loc[index, 'osmid_walk'] = node_walk
+            network_nodes.loc[index, 'osmid_drive'] = node_drive
+        '''
+
+        subway_lines_filename = folder_path+'/network_subway.csv'
+        print('entering subway lines')
+        if os.path.isfile(subway_lines_filename):
+            subway_lines = pd.read_csv(subway_lines_filename, delimiter=";")
+            #subway_lines.set_index(['from_stop_I', 'to_stop_I'], inplace=True)
+
+            dict_subway_lines = {}
+
+            for index, row in subway_lines.iterrows():
+                
+                rts = row['route_I_counts'].split(',')
+                #print(rts)
+                for r in rts:
+
+                    rtuple = r.split(':')
+                    route_id = int(rtuple[0]) #id
+                    occur = int(rtuple[1]) #number of occurences
+                    
+                    if route_id not in dict_subway_lines:
+                        dict_subway_lines[route_id] = {}
+                        dict_subway_lines[route_id]['route_graph'] = nx.DiGraph() #creates a graph for the given line/route
+
+                    if int(row['from_stop_I']) not in dict_subway_lines[route_id]['route_graph'].nodes():
+                            dict_subway_lines[route_id]['route_graph'].add_node(row['from_stop_I'])
+
+                    if int(row['to_stop_I']) not in dict_subway_lines[route_id]['route_graph'].nodes():
+                        dict_subway_lines[route_id]['route_graph'].add_node(row['to_stop_I'])
+
+                    dict_subway_lines[route_id]['route_graph'].add_edge(row['from_stop_I'], row['to_stop_I'], weight=row['duration_avg'])
+
+            for route in dict_subway_lines:
+                print(route)
+                print(dict_subway_lines[route])
+
+            subway_lines.set_index(['from_stop_I', 'to_stop_I'], inplace=True)
+            
+            shortest_path_subway = get_all_shortest_paths_fix_lines(inst, dict_subway_lines, network_nodes)
+
+            path_csv_file_subway_lines = os.path.join(save_dir_csv, inst.output_file_base+'.subway.lines.csv')
+            shortest_path_subway = pd.DataFrame(shortest_path_subway)
+            shortest_path_subway.to_csv(path_csv_file_subway_lines)
+            
+
+
+        tram_lines_filename = folder_path+'/network_tram.csv'
+        if os.path.isfile(tram_lines_filename):
+            tram_lines = pd.read_csv(tram_lines_filename, delimiter=";")
+
+        bus_lines_filename = folder_path+'/network_bus.csv'
+        if os.path.isfile(bus_lines_filename):
+            bus_lines = pd.read_csv(bus_lines_filename, delimiter=";")
 
 def get_zones_csv(inst, G_walk, G_drive, polygon):
 
@@ -1275,6 +1443,11 @@ def get_zones_csv(inst, G_walk, G_drive, polygon):
 
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
+
+    zones_folder = os.path.join(inst.save_dir_images, 'zones')
+
+    if not os.path.isdir(zones_folder):
+        os.mkdir(zones_folder)
 
     path_zones_csv_file = os.path.join(save_dir_csv, inst.output_file_base+'.zones.csv')
 
@@ -1339,16 +1512,19 @@ def get_zones_csv(inst, G_walk, G_drive, polygon):
                             north, south, east, west = ox.utils_geo.bbox_from_point(zone_center_point, distance)
                             polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
 
+                            #plot here the center point zone in the walk network
                             nc = ['r' if (node == osmid_walk) else '#336699' for node in G_walk.nodes()]
                             ns = [16 if (node == osmid_walk) else 1 for node in G_walk.nodes()]
                             zone_filename = str(zone_id)+'_'+zone_name+'_walk.png'
-                            fig, ax = ox.plot_graph(G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=inst.save_dir_images+'/'+zone_filename)
+                            fig, ax = ox.plot_graph(G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
+                            plt.close(fig)
 
                             #plot here the center point zone in the drive network
                             nc = ['r' if (node == osmid_drive) else '#336699' for node in G_drive.nodes()]
                             ns = [16 if (node == osmid_drive) else 1 for node in G_drive.nodes()]
                             zone_filename = str(zone_id)+'_'+zone_name+'_drive.png'
-                            fig, ax = ox.plot_graph(G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=inst.save_dir_images+'/'+zone_filename)
+                            fig, ax = ox.plot_graph(G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
+                            plt.close(fig)
 
                             n = {
                                 'index': index,
@@ -1382,6 +1558,7 @@ def shortest_path_nx(G, u, v):
     except nx.NetworkXNoPath:
         return -1
 
+@ray.remote
 def shortest_path_nx_ss(G, u):
 
     shortest_path_length_u = {}
@@ -1396,12 +1573,11 @@ def get_distance_matrix_csv(inst, G_walk, G_drive):
     shortest_path_drive = []
     
     num_of_cpu = cpu_count()
-    num_of_cpu = num_of_cpu - 1
-    pool = Pool(processes=num_of_cpu)
+    #num_of_cpu = num_of_cpu - 1
+    #ray.init(num_cpus=num_of_cpu)
+    #pool = Pool(processes=num_of_cpu)
     #pool = Pool(processes=2)
     
-    start = time.process_time()
-
     save_dir_csv = os.path.join(inst.save_dir, 'csv')
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
@@ -1413,24 +1589,30 @@ def get_distance_matrix_csv(inst, G_walk, G_drive):
         print('is file dist walk')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
         #shortest_path_walk.rename(columns={'Unnamed: 0':'osmid'}, inplace=True)
-        shortest_path_walk.set_index(['osmid_origin', 'osmid_destination'], inplace=True)
+        shortest_path_walk.set_index(['osmid_origin'], inplace=True)
     else:
         print('calculating all shortest paths walk network')
-        
-        shortest_path_walk = pd.DataFrame()
-
-        list_nodes = list(G_walk.nodes)
+        start = time.process_time()
         count_divisions = 0
-        
-        for group_nodes in chunker(list_nodes, num_of_cpu*2):
+
+        shortest_path_walk = pd.DataFrame()
+        list_nodes = list(G_walk.nodes)
+        G_walk_id = ray.put(G_walk)
+
+        for group_nodes in chunker(list_nodes, num_of_cpu*4):
+
             shortest_path_length_walk = []
-            print(count_divisions)
-            count_divisions += 1
-            #print (group_nodes)
-            results = pool.starmap(shortest_path_nx_ss, [(G_walk, u) for u in group_nodes])
-            
+            #pool = Pool(processes=num_of_cpu)
+            #results = pool.starmap(shortest_path_nx_ss, [(G_walk, u) for u in group_nodes])
+            #pool.close()
+            #pool.join()
+            results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u) for u in group_nodes])
+
+            #fazer aqui o mesmo que la em baixo com o travel time?
             j=0
             for u in group_nodes:
+                d = {}
+                d['osmid_origin'] = u
                 for v in G_walk.nodes():
                     dist_uv = -1
                     try:
@@ -1438,12 +1620,8 @@ def get_distance_matrix_csv(inst, G_walk, G_drive):
                     except KeyError:
                         pass
                     if dist_uv != -1:
-                        d = {
-                        'osmid_origin': u,
-                        'osmid_destination': v,
-                        'shortest_distance': dist_uv
-                        }
-                        shortest_path_length_walk.append(d)
+                        d[v] = dist_uv
+                shortest_path_length_walk.append(d)
 
                 j+=1
 
@@ -1452,39 +1630,110 @@ def get_distance_matrix_csv(inst, G_walk, G_drive):
             del results
             gc.collect()
 
-        #shortest_path_walk = pd.DataFrame(shortest_path_length_walk)
+        
         shortest_path_walk.to_csv(path_dist_csv_file_walk)
-        shortest_path_walk.set_index(['osmid_origin', 'osmid_destination'], inplace=True)
-        shortest_path_length_walk.clear()
+        shortest_path_walk.set_index(['osmid_origin'], inplace=True)
         print("total time", time.process_time() - start)
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
         shortest_path_drive = pd.read_csv(path_dist_csv_file_drive)
         #shortest_path_drive.rename(columns={'Unnamed: 0':'osmid'}, inplace=True)
-        shortest_path_drive.set_index(['osmid_origin', 'osmid_destination'], inplace=True)
+        shortest_path_drive.set_index(['osmid_origin'], inplace=True)
     else:
         print('calculating all shortest paths drive network')
-        dict_shortest_path_length_drive = []
-        for u in G_drive.nodes():
-            results = pool.starmap(shortest_path_nx, [(G_drive, u, v) for v in G_drive.nodes()])
-            j=0
+
+        
+        list_nodes = list(G_drive.nodes)
+        G_drive_id = ray.put(G_drive)
+        start = time.process_time()
+
+        #NOT dividing nodes in chunks
+        shortest_path_length_drive = []
+        results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u) for u in list_nodes])
+
+        j=0
+        for u in list_nodes:
+            d = {}
+            d['osmid_origin'] = u
             for v in G_drive.nodes():
-                if results[j] != -1:
-                    d = {
-                        'osmid_origin': u,
-                        'osmid_destination': v,
-                        'shortest_distance': results[j],
-                    }
-                    dict_shortest_path_length_drive.append(d)
+                dist_uv = -1
+                try:
+                    dist_uv = int(results[j][v])
+                except KeyError:
+                    pass
+                if dist_uv != -1:
+                    d[v] = dist_uv
+            shortest_path_length_drive.append(d)
+
+            j+=1
+            del d
+
+        #shortest_path_drive = shortest_path_drive.append(shortest_path_length_drive, ignore_index=True)
+        shortest_path_drive = pd.DataFrame(shortest_path_length_drive)
+        del shortest_path_length_drive
+        del results
+        gc.collect()
+
+        #dividing nodes in chunks
+        '''
+        for group_nodes in chunker(list_nodes, num_of_cpu*4):
+            
+            shortest_path_length_drive = []
+            results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u) for u in group_nodes])
+
+            j=0
+            for u in group_nodes:
+                d = {}
+                d['osmid_origin'] = u
+                for v in G_drive.nodes():
+                    dist_uv = -1
+                    try:
+                        dist_uv = int(results[j][v])
+                    except KeyError:
+                        pass
+                    if dist_uv != -1:
+                        d[v] = dist_uv
+                shortest_path_length_drive.append(d)
+
                 j+=1
-            results.clear()
-        shortest_path_drive = pd.DataFrame(dict_shortest_path_length_drive)
+
+            shortest_path_drive = shortest_path_drive.append(shortest_path_length_drive, ignore_index=True)
+            del shortest_path_length_drive
+            del results
+            gc.collect()
+        '''
+        
+        #shortest_path_drive = pd.DataFrame(dict_shortest_path_length_drive)
         shortest_path_drive.to_csv(path_dist_csv_file_drive)
-        shortest_path_drive.set_index(['osmid_origin', 'osmid_destination'], inplace=True)
-        dict_shortest_path_length.clear()
+        shortest_path_drive.set_index(['osmid_origin'], inplace=True)
+        print("total time", time.process_time() - start)
+        #shortest_path_length_drive.clear()
 
     return shortest_path_walk, shortest_path_drive
+
+@ray.remote
+def get_bus_stop(G_walk, G_drive, index, poi):
+
+    if poi['highway'] == 'bus_stop':
+        bus_stop_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
+        
+        u, v, key = ox.get_nearest_edge(G_walk, bus_stop_point)
+        bus_stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
+        
+        u, v, key = ox.get_nearest_edge(G_drive, bus_stop_point)
+        bus_stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
+        
+        d = {
+            'stop_id': index,
+            'osmid_walk': bus_stop_node_walk,
+            'osmid_drive': bus_stop_node_drive,
+            'lat': poi.geometry.centroid.y,
+            'lon': poi.geometry.centroid.x,
+            #'itid': -1
+        }
+
+        return d
 
 def get_bus_stops_matrix_csv(inst, G_walk, shortest_path_walk, G_drive, shortest_path_drive, polygon_drive):
 
@@ -1501,6 +1750,7 @@ def get_bus_stops_matrix_csv(inst, G_walk, shortest_path_walk, G_drive, shortest
         bus_stops.set_index(['stop_id'], inplace=True)
 
     else:
+        start = time.process_time()
         print('creating file bus stops')
 
         #retrieve bus stops
@@ -1509,12 +1759,16 @@ def get_bus_stops_matrix_csv(inst, G_walk, shortest_path_walk, G_drive, shortest
         }
         poi_bus_stops = ox.pois_from_polygon(polygon_drive, tags=tags)
 
+        G_walk_id = ray.put(G_walk)
+        G_drive_id = ray.put(G_drive)
+        bus_stops = ray.get([get_bus_stop.remote(G_walk_id, G_drive_id, index, poi) for index, poi in poi_bus_stops.iterrows()]) 
+         
+        '''
         bus_stops = []
         for index, poi in poi_bus_stops.iterrows():
             if poi['highway'] == 'bus_stop':
                 bus_stop_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
                 
-
                 u, v, key = ox.get_nearest_edge(G_walk, bus_stop_point)
                 bus_stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
                 
@@ -1527,14 +1781,16 @@ def get_bus_stops_matrix_csv(inst, G_walk, shortest_path_walk, G_drive, shortest
                     'osmid_drive': bus_stop_node_drive,
                     'lat': poi.geometry.centroid.y,
                     'lon': poi.geometry.centroid.x,
-                    'itid': -1
+                    #'itid': -1
                 }
             
                 bus_stops.append(d)
+        '''
 
         bus_stops = pd.DataFrame(bus_stops)
         bus_stops.set_index(['stop_id'], inplace=True)
-        
+        print("total time", time.process_time() - start)
+
         print('number of bus stops before cleaning: ', len(bus_stops))
 
         drop_index_list = []
@@ -1558,8 +1814,8 @@ def get_bus_stops_matrix_csv(inst, G_walk, shortest_path_walk, G_drive, shortest
                     try:
                         osmid_origin_stop = stop1['osmid_drive']
                         osmid_destination_stop = stop2['osmid_drive']
-                        #sosmid_destination_stop = str(osmid_destination_stop)
-                        path_length = shortest_path_drive.loc[(osmid_origin_stop, osmid_destination_stop)]
+                        sosmid_destination_stop = str(osmid_destination_stop)
+                        path_length = shortest_path_drive.loc[osmid_origin_stop, sosmid_destination_stop]
                     except KeyError:
                         unreachable_nodes = unreachable_nodes + 1
                     
@@ -1573,12 +1829,63 @@ def get_bus_stops_matrix_csv(inst, G_walk, shortest_path_walk, G_drive, shortest
 
     return bus_stops
 
-def get_travel_time_matrix_osmnx_csv(inst): 
+@ray.remote
+def calc_travel_time_od(inst, origin, destination, shortest_path_drive):
+
+    #curr_weight = 'travel_time_' + str(hour)
+    #curr_weight = 'travel_time' 
+    
+    try:
+        sdestination = str(destination)
+        eta_travel_time = shortest_path_drive.loc[origin, sdestination]
+    except KeyError:
+        eta_travel_time = -1
+
+    if eta_travel_time >= 0:
+        return eta_travel_time
+    else:
+        return -1
+    #return row
+
+@ray.remote
+def calc_travel_time_od2(inst, origin, destination, shortest_path_drive, bus_stops):
+
+    #curr_weight = 'travel_time_' + str(hour)
+    #curr_weight = 'travel_time' 
+    row = {}
+    row['origin_id'] = origin
+    row['destination_id'] = destination
+    eta_travel_time = -1
+    
+    try:
+        sdestination = str(bus_stops.loc[destination, 'osmid_drive'])
+        eta_travel_time = shortest_path_drive.loc[bus_stops.loc[origin, 'osmid_drive'], sdestination]
+    except KeyError:
+        pass
+
+
+    if eta_travel_time >= 0:
+        row['eta_travel_time'] = eta_travel_time
+        #return eta_travel_time
+    else:
+        row['eta_travel_time'] = -1
+
+    return row
+
+#not time dependent. for a time dependent create other function later
+def get_travel_time_matrix_osmnx_csv(inst, bus_stops, shortest_path_drive, shortest_path_walk): 
     
     travel_time_matrix = []
     counter = 0
     save_dir_csv = os.path.join(inst.save_dir, 'csv')
-        
+
+    num_of_cpu = cpu_count()
+    #num_of_cpu = num_of_cpu - 1
+    num_of_cpu = int(num_of_cpu)
+
+    #ray.init(num_cpus=num_of_cpu)
+    
+    
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
 
@@ -1588,47 +1895,89 @@ def get_travel_time_matrix_osmnx_csv(inst):
     if os.path.isfile(path_csv_file):
         print('is file travel time')
         travel_time_matrix = pd.read_csv(path_csv_file)
-
         #print('rows travel time', len(travel_time_matrix))
-
     else:
-        print('not file')
-        #for hour in range(24):
-        for hour in range(1):
-            for index_o, origin_stop in inst.network.bus_stops.iterrows():
-                for index_d, destination_stop in inst.network.bus_stops.iterrows():
-                    row = {}
-                    row['stop_origin_id'] = int(origin_stop['itid'])
-                    row['stop_destination_id'] = int(destination_stop['itid'])
-                    
-                    curr_weight = 'travel_time_' + str(hour)
-                    origin = origin_stop['osmid_drive']
-                    destination = destination_stop['osmid_drive']
-                    
-                    try:
-                        eta_travel_time = nx.dijkstra_path_length(inst.network.G_drive, origin, destination, weight=curr_weight)
-                        counter += 1
-                        #print(counter)
-                    except nx.NetworkXNoPath:
-                        eta_travel_time = -1
+        print('creating file estimated travel time')
+        start = time.process_time()
+        #travel_time_matrix = pd.DataFrame()
+        
+        list_nodes = []
+        for index, row in bus_stops.iterrows():
+            list_nodes.append(index)
 
-                    row['stop_origin_osmid'] = origin
-                    row['stop_destination_osmid'] = destination
-                    row['hour'] = hour
+        shortest_path_drive_id = ray.put(shortest_path_drive)
+        inst_id = ray.put(inst)
+        bus_stops_id = ray.put(bus_stops)
+        
+        #for origin in list_nodes:
 
-                    #calculating travel time and storing in travel_time matrix
-                    if eta_travel_time >= 0:
-                        row['eta_travel_time'] = eta_travel_time
-                    else:
-                        row['eta_travel_time'] = -1
-                       
-                    travel_time_matrix.append(row)  
+        for origin in list_nodes:            
+            #for group_nodes in chunker(list_nodes, num_of_cpu*4):
 
+            #not parallel
+            '''
+            for destination in list_nodes:
+                counter += 1
+                row = {}
+                row['stop_origin_osmid'] = bus_stops.loc[origin, 'osmid_drive']
+                row['stop_destination_osmid'] = bus_stops.loc[destination, 'osmid_drive']
+                row['eta_travel_time'] = calc_travel_time_od(inst, origin, destination, shortest_path_drive)
+                travel_time_matrix = travel_time_matrix.append(row, ignore_index=True)
+                del row
+            '''
+
+            #with multiprocessing
+            '''
+            pool = Pool(processes=num_of_cpu)
+            results = pool.starmap(calc_travel_time_od, [(inst, origin, destination, shortest_path_drive, 0) for destination in list_nodes])
+            pool.close()
+            pool.join()
+
+            j=0
+            for destination in list_nodes:
+                counter += 1
+                row = {}
+                #row['stop_origin_id'] = bus_stops.loc[origin, 'itid']
+                #row['stop_destination_id'] = bus_stops.loc[destination, 'itid']
+                row['stop_origin_osmid'] = bus_stops.loc[origin, 'osmid_drive']
+                row['stop_destination_osmid'] = bus_stops.loc[destination, 'osmid_drive']
+                row['eta_travel_time'] = results[j]
+                travel_time_matrix = travel_time_matrix.append(row, ignore_index=True)
+                j += 1
+            '''
+
+            #with ray
+            results = ray.get([calc_travel_time_od2.remote(inst_id, origin, destination, shortest_path_drive_id, bus_stops_id) for destination in list_nodes])
+            for row in results:
+                #travel_time_matrix = travel_time_matrix.append(row, ignore_index=True)
+                travel_time_matrix.append(row)
+                counter += 1
+
+            del results
+
+            '''
+            j=0
+            for destination in list_nodes:
+                counter += 1
+                row = {}
+                row['origin_osmid'] = bus_stops.loc[origin, 'osmid_drive']
+                row['destination_osmid'] = bus_stops.loc[destination, 'osmid_drive']
+                row['eta_travel_time'] = results[j]
+                travel_time_matrix = travel_time_matrix.append(row, ignore_index=True)
+                j += 1
+                del row
+            '''
+
+            #print('paths so far', counter)
+            #print("total time so far", time.process_time() - start)
+            #del results
+            gc.collect()    
+                               
         travel_time_matrix = pd.DataFrame(travel_time_matrix)
-
         travel_time_matrix.to_csv(path_csv_file)
+        print("total time", time.process_time() - start)
 
-    travel_time_matrix.set_index(['stop_origin_id', 'stop_destination_id', 'hour'], inplace=True)
+    travel_time_matrix.set_index(['origin_id', 'destination_id'], inplace=True)
     return travel_time_matrix
        
 def get_max_speed_road(dict_edge):
@@ -2581,13 +2930,19 @@ def get_uber_speed_data_mean(G_drive, speed_data, day_of_the_week):
 
 def plot_bus_stops(inst):
 
+    stops_folder = os.path.join(inst.save_dir_images, 'bus_stops')
+
+    if not os.path.isdir(stops_folder):
+        os.mkdir(stops_folder)
+
     bus_stop_list_nodes = []
     for index, stop in inst.network.bus_stops.iterrows():
         bus_stop_list_nodes.append(stop['osmid_walk'])
 
     nc = ['r' if (node in bus_stop_list_nodes) else '#336699' for node in inst.network.G_walk.nodes()]
     ns = [12 if (node in bus_stop_list_nodes) else 6 for node in inst.network.G_walk.nodes()]
-    fig, ax = ox.plot_graph(inst.network.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=inst.save_dir_images+'/pre_existing_stops_walk.png')
+    fig, ax = ox.plot_graph(inst.network.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/pre_existing_stops_walk.png')
+    plt.close(fig)
 
     bus_stop_list_nodes = []
     for index, stop in inst.network.bus_stops.iterrows():
@@ -2595,7 +2950,8 @@ def plot_bus_stops(inst):
 
     nc = ['r' if (node in bus_stop_list_nodes) else '#336699' for node in inst.network.G_drive.nodes()]
     ns = [12 if (node in bus_stop_list_nodes) else 6 for node in inst.network.G_drive.nodes()]
-    fig, ax = ox.plot_graph(inst.network.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=inst.save_dir_images+'/pre_existing_stops_drive.png')
+    fig, ax = ox.plot_graph(inst.network.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/pre_existing_stops_drive.png')
+    plt.close(fig)
 
 def create_network(place_name, walk_speed, speed_data, inst):
 
@@ -2607,7 +2963,6 @@ def create_network(place_name, walk_speed, speed_data, inst):
     ‘all’ – download all (non-private) OSM streets and paths
     ‘all_private’ – download all OSM streets and paths, including private-access ones
     '''
-
     api_osm = osm.OsmApi() 
 
     print('Now genarating network_data')
@@ -2639,11 +2994,21 @@ def create_network(place_name, walk_speed, speed_data, inst):
     #create graph to plot zones here           
     print('number of zones', len(zones))
 
-    if inst.get_fixed_lines:
-        print('Trying to get fixed transport routes')
-        transport_routes = get_routes_csv(inst, G_walk, G_drive, polygon_drive)
-        print('number of routes', len(transport_routes))
-    
+    print('Trying to get fixed transport routes')
+    if inst.get_fixed_lines == 'osm':
+
+        pt_fixed_lines = get_fixed_lines_csv(inst, G_walk, G_drive, polygon_drive)
+        print('number of routes', len(pt_fixed_lines))
+    else:
+        if inst.get_fixed_lines == 'deconet':
+
+            #this could be changed for a server or something else
+            folder_path_deconet = inst.output_file_base+'/'+'deconet'
+            if not os.path.isdir(folder_path_deconet):
+                print('ERROR: deconet files do not exist')
+            else:
+                get_fixed_lines_deconet(inst, G_walk, G_drive, folder_path_deconet)
+
     print('Now genarating time_travel_data')
     max_speed_mean_overall = 0
     counter_max_speeds = 0
@@ -2659,12 +3024,16 @@ def create_network(place_name, walk_speed, speed_data, inst):
     print('overall mean max speed mph', max_speed_mean_overall*2.237)
     print('overall mean max speed m/s', max_speed_mean_overall)
 
+    #COME BACK TO THIS LATER - TIME DEPENDENT TIME TRAVEL
     #colocar range ser o time window do request generation?
     #for hour in range(24):
+
+    '''
     for hour in range(1):
         for (u,v,k) in G_drive.edges(data=True):
             hour_key = 'travel_time_' + str(hour)
 
+            #0 after [u][v] is necessary to access the edge data
             edge_length = G_drive[u][v][0]['length']
             
             if speed_data != "max":
@@ -2693,31 +3062,32 @@ def create_network(place_name, walk_speed, speed_data, inst):
             eta_travel_time =  int(math.ceil(edge_length/edge_speed))
 
             G_drive[u][v][0][hour_key] = eta_travel_time
-                
-    itid = 0
+    '''
+
+    #itid = 0
     #updates the 'itid in bus_stops'
-    for index, stop in bus_stops.iterrows():
-        bus_stops.loc[index, 'itid'] = int(itid)
-        itid = itid + 1
+    #for index, stop in bus_stops.iterrows():
+    #    bus_stops.loc[index, 'itid'] = int(itid)
+    #    itid = itid + 1
+
+    travel_time_matrix = get_travel_time_matrix_osmnx_csv(inst, bus_stops, shortest_path_drive, shortest_path_walk)
 
     inst.update_network(G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed)
+    inst.network.update_travel_time_matrix(travel_time_matrix)
     
     plot_bus_stops(inst)
-
-    travel_time_matrix = get_travel_time_matrix_osmnx_csv(inst)
-
-    inst.network.update_travel_time_matrix(travel_time_matrix)
-
+    
 if __name__ == '__main__':
 
-    
+    caching.clear_cache()
+
     request_demand = []
     
     vehicle_fleet = []
     
     #default for some parameters
 
-    get_fixed_lines = False
+    get_fixed_lines = "osm"
     
     num_replicates = 1
     
@@ -2774,7 +3144,14 @@ if __name__ == '__main__':
                 max_walking = max_walking*3600
 
         if sys.argv[i] == "--get_fixed_lines":
-            get_fixed_lines = True
+            #get_fixed_lines = True
+            
+            if sys.argv[i+1] == "osm":
+                get_fixed_lines = "osm"
+
+            if sys.argv[i+1] == "deconet":
+                get_fixed_lines = "deconet"
+
 
         if sys.argv[i] == "--time_window":
             
@@ -3029,10 +3406,16 @@ if __name__ == '__main__':
 
     if is_network_generation:
 
+        num_of_cpu = cpu_count()
+        #num_of_cpu = num_of_cpu - 1
+        ray.init(num_cpus=num_of_cpu)
+
         save_dir = os.getcwd()+'/'+output_file_base
         print(save_dir)
         if not os.path.isdir(save_dir):
             os.mkdir(save_dir)
+
+        #input_dir = os.getcwd()+'/'+output_file_base
 
         #create network
         print(place_name)
@@ -3054,12 +3437,14 @@ if __name__ == '__main__':
 
         #create the instance's network
         create_network(place_name, walk_speed, speed_data, inst)
+        print('over network')
 
         network_class_file = pickle_dir+'/'+inst.output_file_base+'.network.class.pkl'
         output_inst_class = open(network_class_file, 'wb')
         pickle.dump(inst, output_inst_class, pickle.HIGHEST_PROTOCOL)
         del inst
         output_inst_class.close()
+        caching.clear_cache()
 
     if is_request_generation:
         
@@ -3078,6 +3463,9 @@ if __name__ == '__main__':
             
         for replicate in range(inst.num_replicates):
             generate_requests(inst, replicate)
+
+        del inst
+        caching.clear_cache()
             
     #print('cluster demand testing')
     #cluster_travel_demand(inst)
