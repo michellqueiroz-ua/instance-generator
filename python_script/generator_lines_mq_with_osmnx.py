@@ -924,7 +924,6 @@ def cluster_travel_demand(param, network, num_points=20, request_density_treshol
     new_stops.to_csv(path_new_bus_stops)
 
     travel_time_matrix_new_stops = get_travel_time_matrix_osmnx_csv(param, new_stops, network.shortest_path_drive, network.shortest_path_walk, filename='.travel.time.new.stops.csv')
-
 ###start stop locations
 
 '''
@@ -1176,7 +1175,6 @@ def generate_requests(param, network, replicate):
 '''
 
 def plot_pt_fixed_lines(param, G, pt_fixed_lines):
-
     
     pt_lines_folder = os.path.join(param.save_dir_images, 'pt_fixed_lines')
 
@@ -1303,6 +1301,32 @@ def get_fixed_lines_csv(param, G_walk, G_drive, polygon):
     
     return pt_fixed_lines
 
+def plot_fixed_lines(param, network):
+
+    #plot all nodes in the network that have a fixed line passing by
+    fl_stations_walk = [] 
+    fl_stations_drive = []
+
+    for node in network.nodes_covered_fixed_lines:
+
+        fl_station_walk = network.deconet_network_nodes.loc[int(node), 'osmid_walk']
+        fl_station_drive = network.deconet_network_nodes.loc[int(node), 'osmid_drive']
+        
+        fl_stations_walk.append(fl_station_walk)
+        fl_stations_drive.append(fl_station_drive)
+
+    stops_folder = os.path.join(param.save_dir_images, 'bus_stops')
+    nc = ['r' if (node in fl_stations_drive) else '#336699' for node in network.G_drive.nodes()]
+    ns = [12 if (node in fl_stations_drive) else 6 for node in network.G_drive.nodes()]
+    fig, ax = ox.plot_graph(network.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/fixed_lines_nodes_drive.png')
+    plt.close(fig)
+
+    nc = ['r' if (node in fl_stations_walk) else '#336699' for node in network.G_walk.nodes()]
+    ns = [12 if (node in fl_stations_walk) else 6 for node in network.G_walk.nodes()]
+    fig, ax = ox.plot_graph(network.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/fixed_lines_nodes_walk.png')
+    plt.close(fig)
+
+
 @ray.remote
 def find_shortest_path_fl(u, v, fixed_lines):
     #u = int(nodeu['stop_I'])
@@ -1342,7 +1366,7 @@ def get_all_shortest_paths_fix_lines(param, fixed_lines, network_nodes):
             if node not in graph_nodes:
                 graph_nodes.append(node)
 
-    print(graph_nodes)
+    #print(graph_nodes)
 
 
     fixed_lines_id = ray.put(fixed_lines)
@@ -1359,50 +1383,14 @@ def get_all_shortest_paths_fix_lines(param, fixed_lines, network_nodes):
             
             if all_shortest_fixed_line_route[j][0] != -1:
                 row = {}
-                row['origin_osmid'] = u
-                row['destination_osmid'] = v
-                
+                #network IDs
+                row['origin_Id'] = u
+                row['destination_Id'] = v
                 row['line_id'] = all_shortest_fixed_line_route[j][0]
                 row['eta'] = all_shortest_fixed_line_route[j][1]
 
                 shortest_path_line.append(row)
                 j+=1
-
-
-    #for index, row in network.shortest_path_drive.iterrows():
-    '''
-    for index1, nodeu in network_nodes.iterrows():
-        u = int(nodeu['stop_I'])
-        for index2, nodev in network_nodes.iterrows():
-            v = int(nodev['stop_I'])
-            #for p_id, p_info in people.items():
-            shortest_fixed_line_route = [-1, math.inf]
-
-            for route_id in fixed_lines:
-                
-                if (u in fixed_lines[route_id]['route_graph'].nodes()) and (v in fixed_lines[route_id]['route_graph'].nodes()):
-                    try:
-                        #calculate shortest path using fixed line of id "route_id" between nodes u and v
-                        shortest_travel_time = nx.dijkstra_path_length(fixed_lines[route_id]['route_graph'], u, v, weight='duration_avg')
-                        print("travel time", shortest_travel_time)
-                        if shortest_travel_time < shortest_fixed_line_route[1]:
-                            shortest_fixed_line_route[0] = route_id
-                            shortest_fixed_line_route[1] = shortest_travel_time
-                        
-                    except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
-                        #print("no path")
-                        pass
-
-            if shortest_fixed_line_route[0] != -1:
-                row = {}
-                row['origin_osmid'] = u
-                row['destination_osmid'] = v
-                
-                row['line_id'] = shortest_fixed_line_route[0]
-                row['eta'] = shortest_fixed_line_route[1]
-
-                shortest_path_line.append(row)
-    '''
 
     return shortest_path_line
 
@@ -1420,10 +1408,10 @@ def get_nodes_osm(G_walk, G_drive, lat, lon):
     
     return (node_walk, node_drive)
 
-def get_fixed_lines_deconet(param, G_walk, G_drive, folder_path):
+def get_fixed_lines_deconet(param, network, folder_path):
 
     #num_of_cpu = cpu_count()
-
+    nodes_covered_fixed_lines = []
     ray.shutdown()
     ray.init(num_cpus=param.num_of_cpu)
 
@@ -1435,47 +1423,33 @@ def get_fixed_lines_deconet(param, G_walk, G_drive, folder_path):
 
     network_nodes_filename = folder_path+'/network_nodes.csv'
     if os.path.isfile(network_nodes_filename):
-        network_nodes = pd.read_csv(network_nodes_filename, delimiter=";")
+        deconet_network_nodes = pd.read_csv(network_nodes_filename, delimiter=";")
         #print(network_nodes.head())
         #print(network_nodes.keys())
         #map the network nodes to open street maps
 
-        G_walk_id = ray.put(G_walk)
-        G_drive_id = ray.put(G_drive)
+        G_walk_id = ray.put(network.G_walk)
+        G_drive_id = ray.put(network.G_drive)
         #for index, node in network_nodes.iterrows():
         #    all_nodes.append(node)
 
-        osm_nodes = ray.get([get_nodes_osm.remote(G_walk_id, G_drive_id, node['lat'], node['lon']) for index, node in network_nodes.iterrows()])
+        osm_nodes = ray.get([get_nodes_osm.remote(G_walk_id, G_drive_id, node['lat'], node['lon']) for index, node in deconet_network_nodes.iterrows()])
 
         j=0
-        network_nodes['osmid_walk'] = np.nan
-        network_nodes['osmid_drive'] = np.nan
-        for index, node in network_nodes.iterrows():
+        deconet_network_nodes['osmid_walk'] = np.nan
+        deconet_network_nodes['osmid_drive'] = np.nan
+        for index, node in deconet_network_nodes.iterrows():
             
             node_walk = osm_nodes[j][0]
             node_drive = osm_nodes[j][1]
 
-            network_nodes.loc[index, 'osmid_walk'] = node_walk
-            network_nodes.loc[index, 'osmid_drive'] = node_drive
+            deconet_network_nodes.loc[index, 'osmid_walk'] = node_walk
+            deconet_network_nodes.loc[index, 'osmid_drive'] = node_drive
             j += 1
+        
+        deconet_network_nodes.set_index('stop_I', inplace=True)
 
-        #network_nodes = network_nodes2
-
-        '''
-        for index, node in network_nodes.iterrows():
-            node_point = (node['lat'], node['lon'])
-            #network_nodes.loc[index, 'lat']
-                
-            u, v, key = ox.get_nearest_edge(G_walk, node_point)
-            node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(node['lat'], node['lon'], G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
-            
-            u, v, key = ox.get_nearest_edge(G_drive, node_point)
-            node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(node['lat'], node['lon'], G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
-            
-            network_nodes.loc[index, 'osmid_walk'] = node_walk
-            network_nodes.loc[index, 'osmid_drive'] = node_drive
-        '''
-
+        
         subway_lines_filename = folder_path+'/network_subway.csv'
         print('entering subway lines')
         if os.path.isfile(subway_lines_filename):
@@ -1504,24 +1478,32 @@ def get_fixed_lines_deconet(param, G_walk, G_drive, folder_path):
                     if int(row['to_stop_I']) not in dict_subway_lines[route_id]['route_graph'].nodes():
                         dict_subway_lines[route_id]['route_graph'].add_node(row['to_stop_I'])
 
+                    if row['from_stop_I'] not in nodes_covered_fixed_lines:
+                        nodes_covered_fixed_lines.append(int(row['from_stop_I']))
+
+                    if row['to_stop_I'] not in nodes_covered_fixed_lines:
+                        nodes_covered_fixed_lines.append(int(row['to_stop_I']))
+
                     dict_subway_lines[route_id]['route_graph'].add_edge(row['from_stop_I'], row['to_stop_I'], duration_avg=float(row['duration_avg']))
 
-            #for route in dict_subway_lines:
-
-                #print(route)
-                #print(dict_subway_lines[route]['route_graph'])
-                #print(dict_subway_lines[route]['route_graph'].nodes())
-                #for (u,v,k) in dict_subway_lines[route]['route_graph'].edges(data=True):
-                #    print(u, v, k)
-
-            #subway_lines.set_index(['from_stop_I', 'to_stop_I'], inplace=True)
             
-            shortest_path_subway = get_all_shortest_paths_fix_lines(param, dict_subway_lines, network_nodes)
+            #shortest_path_subway = get_all_shortest_paths_fix_lines(param, dict_subway_lines, deconet_network_nodes)
 
-            path_csv_file_subway_lines = os.path.join(save_dir_csv, param.output_file_base+'.subway.lines.csv')
-            shortest_path_subway = pd.DataFrame(shortest_path_subway)
-            shortest_path_subway.to_csv(path_csv_file_subway_lines)
+            #path_csv_file_subway_lines = os.path.join(save_dir_csv, param.output_file_base+'.subway.lines.csv')
+            #shortest_path_subway = pd.DataFrame(shortest_path_subway)
+            #shortest_path_subway.to_csv(path_csv_file_subway_lines)
             
+            #shortest_path_subway.set_index(['origin_Id', 'destination_Id'], inplace=True)
+            
+        #add network nodes e shortest_path_subway para network file
+       
+        #network.shortest_path_subway = shortest_path_subway
+        
+        network.deconet_network_nodes = deconet_network_nodes
+        network.nodes_covered_fixed_lines = nodes_covered_fixed_lines
+        network.subway_lines = dict_subway_lines
+
+        plot_fixed_lines(param, network)
 
         tram_lines_filename = folder_path+'/network_tram.csv'
         if os.path.isfile(tram_lines_filename):
@@ -1673,6 +1655,7 @@ def get_distance_matrix_csv(param, G_walk, G_drive):
     path_dist_csv_file_walk = os.path.join(save_dir_csv, param.output_file_base+'.dist.walk.csv')
     path_dist_csv_file_drive = os.path.join(save_dir_csv, param.output_file_base+'.dist.drive.csv')
     
+    '''
     if os.path.isfile(path_dist_csv_file_walk):
         print('is file dist walk')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
@@ -1717,6 +1700,7 @@ def get_distance_matrix_csv(param, G_walk, G_drive):
         
         shortest_path_walk.to_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
+    '''
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
@@ -3065,21 +3049,7 @@ def create_network(place_name, walk_speed, param):
     #create graph to plot zones here           
     print('number of zones', len(zones))
 
-    print('Trying to get fixed transport routes')
-    if param.get_fixed_lines == 'osm':
-
-        pt_fixed_lines = get_fixed_lines_csv(param, G_walk, G_drive, polygon_drive)
-        print('number of routes', len(pt_fixed_lines))
-    else:
-        if param.get_fixed_lines == 'deconet':
-
-            #this could be changed for a server or something else
-            folder_path_deconet = param.output_file_base+'/'+'deconet'
-            if not os.path.isdir(folder_path_deconet):
-                print('ERROR: deconet files do not exist')
-            else:
-                get_fixed_lines_deconet(param, G_walk, G_drive, folder_path_deconet)
-
+    
     print('Now genarating time_travel_data')
     max_speed_mean_overall = 0
     counter_max_speeds = 0
@@ -3154,6 +3124,28 @@ def create_network(place_name, walk_speed, param):
     
     plot_bus_stops(param, network)
     network_stats(param, network)
+
+    print('Trying to get fixed transport routes')
+    if param.get_fixed_lines == 'osm':
+
+        pt_fixed_lines = get_fixed_lines_csv(param, G_walk, G_drive, polygon_drive)
+        print('number of routes', len(pt_fixed_lines))
+    else:
+        if param.get_fixed_lines == 'deconet':
+
+            #this could be changed for a server or something else
+            folder_path_deconet = param.output_file_base+'/'+'deconet'
+            if not os.path.isdir(folder_path_deconet):
+                print('ERROR: deconet files do not exist')
+            else:
+                get_fixed_lines_deconet(param, network, folder_path_deconet)
+
+    list_bus_stops = []
+    for index, stop_node in network.bus_stops.iterrows():
+        list_bus_stops.append(index)
+
+    network.list_bus_stops = list_bus_stops
+
 
     return network
     
@@ -3589,8 +3581,8 @@ if __name__ == '__main__':
         for replicate in range(param.num_replicates):
             generate_requests(param, network, replicate)
 
-        print('placement of stops - testing')
-        cluster_travel_demand(param, network)
+        #print('placement of stops - testing')
+        #cluster_travel_demand(param, network)
 
         del param
         print("total time", time.process_time() - start)

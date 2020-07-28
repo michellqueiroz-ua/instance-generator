@@ -1,10 +1,145 @@
 import json
 import os
 import math
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 from shapely.geometry import Point
 
 import osmnx as ox
+
+def get_bus_stops(param, network, node_walk):
+
+    #return bus stops that within walking threshold from node_walk
+    stops = []
+    stops_walking_distance = []
+
+    for index in network.list_bus_stops:
+
+        osmid_possible_stop = int(network.bus_stops.loc[index, 'osmid_walk'])
+
+        eta_walk = network.return_estimated_arrival_walk_osmnx(node_walk, osmid_possible_stop)
+        
+        if eta_walk >= 0 and eta_walk <= param.max_walking:
+            stops.append(index)
+            stops_walking_distance.append(eta_walk_origin)
+
+    return stops, stops_walking_distance
+
+def get_subway_routes(param, network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive):
+    
+    subway_routes = []
+
+    #distance between origin and destinations nodes
+    dist_od = network.shortest_path_drive.loc[origin_node_drive, str(destination_node_drive)]
+
+    #fl_stations_walk = [] 
+    #fl_stations_drive = []
+
+    #check maybe KAPPA station here before this next loop
+
+    for lid in network.subway_lines:
+        #u,v are part of the subset of stations
+        d = {
+            'u': np.nan,
+            'v': np.nan,
+            'line_id': lid,
+            'eta': math.inf,
+            'dist_ou_drive': math.inf,
+            'dist_vd_drive': math.inf,
+            'case': np.nan,
+            #'dist_ou_walk': math.inf,
+            #'dist_vd_walk': math.inf,
+        }
+
+        for u in network.nodes_covered_fixed_lines:
+            for v in network.nodes_covered_fixed_lines:
+
+                if u != v :
+                
+                    try:
+
+                        eta = nx.dijkstra_path_length(network.subway_lines[lid]['route_graph'], u, v, weight='duration_avg')
+
+                        u_drive = int(network.deconet_network_nodes.loc[int(u), 'osmid_drive'])
+                        v_drive = int(network.deconet_network_nodes.loc[int(v), 'osmid_drive'])
+
+                        u_walk = int(network.deconet_network_nodes.loc[int(u), 'osmid_walk'])
+                        v_walk = int(network.deconet_network_nodes.loc[int(v), 'osmid_walk'])
+                        
+                        #distance from origin to node u and  #distance from v to destination
+                        dist_ou_drive = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
+                        dist_vd_drive = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
+
+                        dist_ou_walk = network.shortest_path_walk.loc[origin_node_walk, str(u_walk)]
+                        dist_vd_walk = network.shortest_path_walk.loc[v_walk, str(destination_node_walk)]
+
+                        eta_vd_walk = math.inf
+                        eta_ou_walk = math.inf
+
+                        if not math.isnan(dist_vd_walk):
+                            eta_vd_walk = int(math.ceil(dist_vd_walk/network.walk_speed))
+                        if not math.isnan(dist_ou_walk):
+                            eta_ou_walk = int(math.ceil(dist_ou_walk/network.walk_speed))
+
+                        #check if (u,v) gets the passenger closer to the destination
+                        if not math.isnan(dist_vd_drive):
+                            
+
+                            if (dist_vd_drive >= 0) and (dist_vd_drive < d['dist_vd_drive']):
+
+                                d['u'] = u
+                                d['v'] = v
+                                d['eta'] = eta
+                                if not math.isnan(dist_ou_drive):
+                                    d['dist_ou_drive'] = dist_ou_drive
+                                d['dist_vd_drive'] = dist_vd_drive
+
+                                #FIXED LINE ONLY
+                                if (eta_ou_walk < param.max_walking) and (eta_vd_walk < param.max_walking):
+                                    d['case'] = 1
+                                    #print('case 1')
+
+                                # ON DEMAND + FIXED LINE
+                                if (eta_ou_walk > param.max_walking) and (eta_vd_walk < param.max_walking):
+                                    d['case'] = 2
+
+                                # FIXED LINE + ON DEMAND
+                                if (eta_ou_walk < param.max_walking) and (eta_vd_walk > param.max_walking):
+                                    d['case'] = 3
+
+                                # ON DEMAND + FIXED LINE + ON DEMAND
+                                if (eta_ou_walk > param.max_walking) and (eta_vd_walk > param.max_walking):
+                                    d['case'] = 4
+                                
+
+                            else:
+                                #if it does not, check if distance from origin to station is smaller than before
+                                if (dist_vd_drive == d['dist_vd_drive']) and (dist_ou_drive < d['dist_ou_drive']):
+
+                                    d['u'] = u
+                                    d['v'] = v
+                                    d['eta'] = eta
+                                    if not math.isnan(dist_ou_drive):
+                                        d['dist_ou_drive'] = dist_ou_drive
+                                    d['dist_vd_drive'] = dist_vd_drive
+                                    
+
+                    except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
+
+                        pass
+
+        if not math.isnan(d['u']):
+            subway_routes.append(d)
+
+    #print(subway_routes)
+
+    #for route in subway_routes:
+
+    #    if route['case'] == 2:
+
+
+
 
 def generate_requests(param, network, replicate):
 
@@ -76,6 +211,7 @@ def generate_requests(param, network, replicate):
                 destination_point = []
                 unfeasible_request = True
                 
+                #def generate_feasible_request
                 while unfeasible_request:
 
                     #generate coordinates for origin and destination
@@ -123,10 +259,16 @@ def generate_requests(param, network, replicate):
                     #print(time_walking)
                     if time_walking > param.max_walking:
                         unfeasible_request = False
-                    
+                
+                origin_node_drive = ox.get_nearest_node(network.G_drive, origin_point)
+                destination_node_drive = ox.get_nearest_node(network.G_drive, destination_point)
+                
+                get_subway_routes(param, network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive)
+
                 stops_origin = []
                 stops_destination = []
 
+                #REMOVE THIS
                 #for distance matrix c++. regular indexing (0, 1, 2...)
                 stops_origin_id = []
                 stops_destination_id = []
