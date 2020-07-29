@@ -97,6 +97,9 @@ class Network:
         #indicates which nodes in the network are specifically bus stops
         self.bus_stops = bus_stops 
         self.num_stations = len(bus_stops)
+        self.bus_stops_ids = []
+        for index, stop_node in network.bus_stops.iterrows():
+            bus_stops_ids.append(index)
        
         self.zones = zones
 
@@ -107,13 +110,13 @@ class Network:
         
         self.all_requests = {}
 
-    def return_estimated_arrival_walk_osmnx(self, origin_node, destination_node):
+    def get_eta_walk(self, origin_node, destination_node):
 
-        #returns distance in meters from origin_node to destination_node
+        #returns estimated time walking in seconds from origin_node to destination_node
         try:
-            #distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
-            destination_node = str(destination_node)
-            distance_walk = self.shortest_path_walk.loc[origin_node, destination_node]
+            distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
+            #destination_node = str(destination_node)
+            #distance_walk = self.shortest_path_walk.loc[origin_node, destination_node]
             #distance_walk = self.dict_shortest_path_length_walk[origin_node][destination_node]
             #get the speed of the given travel mode
             #i = self.get_travel_mode_index("walking")

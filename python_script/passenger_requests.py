@@ -8,23 +8,29 @@ from shapely.geometry import Point
 
 import osmnx as ox
 
-def get_bus_stops(param, network, node_walk):
+def get_bus_stops(param, network, node_walk, to_node_walk):
 
     #return bus stops that within walking threshold from node_walk
+
+    #to_node_walk (true) => walking times are calculated to the node_walk to the stops
+    #to_node_walk (false) => walking times are calculated from the stops to the node_walk
+
     stops = []
-    stops_walking_distance = []
+    stops_walking_time = []
 
     for index in network.list_bus_stops:
 
         osmid_possible_stop = int(network.bus_stops.loc[index, 'osmid_walk'])
+        if to_node_walk:
+            eta_walk = network.get_eta_walk(osmid_possible_stop, node_walk)
+        else:
+            eta_walk = network.get_eta_walk(node_walk, osmid_possible_stop)
 
-        eta_walk = network.return_estimated_arrival_walk_osmnx(node_walk, osmid_possible_stop)
-        
         if eta_walk >= 0 and eta_walk <= param.max_walking:
             stops.append(index)
-            stops_walking_distance.append(eta_walk_origin)
+            stops_walking_time.append(eta_walk)
 
-    return stops, stops_walking_distance
+    return stops, stops_walking_time
 
 def get_subway_routes(param, network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive):
     
@@ -47,7 +53,7 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
             'eta': math.inf,
             'dist_ou_drive': math.inf,
             'dist_vd_drive': math.inf,
-            'case': np.nan,
+            'option': np.nan,
             #'dist_ou_walk': math.inf,
             #'dist_vd_walk': math.inf,
         }
@@ -71,8 +77,10 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
                         dist_ou_drive = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
                         dist_vd_drive = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
 
-                        dist_ou_walk = network.shortest_path_walk.loc[origin_node_walk, str(u_walk)]
-                        dist_vd_walk = network.shortest_path_walk.loc[v_walk, str(destination_node_walk)]
+                        #dist_ou_walk = network.shortest_path_walk.loc[origin_node_walk, str(u_walk)]
+                        #dist_vd_walk = network.shortest_path_walk.loc[v_walk, str(destination_node_walk)]
+                        dist_ou_walk = network.get_eta_walk(origin_node_walk, u_walk)
+                        dist_vd_walk = network.get_eta_walk(v_walk, destination_node_walk)
 
                         eta_vd_walk = math.inf
                         eta_ou_walk = math.inf
@@ -82,10 +90,10 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
                         if not math.isnan(dist_ou_walk):
                             eta_ou_walk = int(math.ceil(dist_ou_walk/network.walk_speed))
 
-                        #check if (u,v) gets the passenger closer to the destination
+                       
                         if not math.isnan(dist_vd_drive):
                             
-
+                            #check if (u,v) gets the passenger closer to the destination
                             if (dist_vd_drive >= 0) and (dist_vd_drive < d['dist_vd_drive']):
 
                                 d['u'] = u
@@ -96,50 +104,93 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
                                 d['dist_vd_drive'] = dist_vd_drive
 
                                 #FIXED LINE ONLY
-                                if (eta_ou_walk < param.max_walking) and (eta_vd_walk < param.max_walking):
-                                    d['case'] = 1
-                                    #print('case 1')
+                                if (eta_ou_walk <= param.max_walking) and (eta_vd_walk <= param.max_walking):
+                                    d['option'] = 1
+                                    d['walking_time_u'] = eta_ou_walk
+                                    d['walking_time_v'] = eta_vd_walk
 
                                 # ON DEMAND + FIXED LINE
-                                if (eta_ou_walk > param.max_walking) and (eta_vd_walk < param.max_walking):
-                                    d['case'] = 2
+                                if (eta_ou_walk > param.max_walking) and (eta_vd_walk <= param.max_walking):
+                                    d['option'] = 2
+                                    d['walking_time_v'] = eta_vd_walk
 
                                 # FIXED LINE + ON DEMAND
-                                if (eta_ou_walk < param.max_walking) and (eta_vd_walk > param.max_walking):
-                                    d['case'] = 3
-
+                                if (eta_ou_walk <= param.max_walking) and (eta_vd_walk > param.max_walking):
+                                    d['option'] = 3
+                                    d['walking_time_u'] = eta_ou_walk
+                                   
                                 # ON DEMAND + FIXED LINE + ON DEMAND
                                 if (eta_ou_walk > param.max_walking) and (eta_vd_walk > param.max_walking):
-                                    d['case'] = 4
+                                    d['option'] = 4
                                 
 
                             else:
-                                #if it does not, check if distance from origin to station is smaller than before
-                                if (dist_vd_drive == d['dist_vd_drive']) and (dist_ou_drive < d['dist_ou_drive']):
+                                #otherwise, check if distance from origin to station is smaller than before
+                                if not math.isnan(dist_ou_drive):
+                                    if (dist_vd_drive == d['dist_vd_drive']) and (dist_ou_drive < d['dist_ou_drive']):
 
-                                    d['u'] = u
-                                    d['v'] = v
-                                    d['eta'] = eta
-                                    if not math.isnan(dist_ou_drive):
+                                        d['u'] = u
+                                        d['v'] = v
+                                        d['eta'] = eta    
                                         d['dist_ou_drive'] = dist_ou_drive
-                                    d['dist_vd_drive'] = dist_vd_drive
-                                    
+                                        d['dist_vd_drive'] = dist_vd_drive
+
+                                        #FIXED LINE ONLY
+                                        if (eta_ou_walk <= param.max_walking) and (eta_vd_walk <= param.max_walking):
+                                            d['option'] = 1
+                                            d['walking_time_u'] = eta_ou_walk
+                                            d['walking_time_v'] = eta_vd_walk
+
+                                        # ON DEMAND + FIXED LINE
+                                        if (eta_ou_walk > param.max_walking) and (eta_vd_walk <= param.max_walking):
+                                            d['option'] = 2
+                                            d['walking_time_v'] = eta_vd_walk
+
+                                        # FIXED LINE + ON DEMAND
+                                        if (eta_ou_walk <= param.max_walking) and (eta_vd_walk > param.max_walking):
+                                            d['option'] = 3
+                                            d['walking_time_u'] = eta_ou_walk
+                                            
+                                        # ON DEMAND + FIXED LINE + ON DEMAND
+                                        if (eta_ou_walk > param.max_walking) and (eta_vd_walk > param.max_walking):
+                                            d['option'] = 4
+                                            
 
                     except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
 
                         pass
 
         if not math.isnan(d['u']):
+
+            u_walk = int(network.deconet_network_nodes.loc[int(d['u']), 'osmid_walk'])
+            v_walk = int(network.deconet_network_nodes.loc[int(d['v']), 'osmid_walk'])
+
+            if d['option'] == 2:
+                #get new drop off stops (around node u)
+                stops_u, walking_time_u = get_bus_stops(param, network, u_walk, to_node_walk=True)
+                d['stops_u'] = stops_u
+                d['walking_time_u'] = walking_time_u
+                
+            if d['option'] == 3:
+                #get new pick up stops (around node v)
+                stops_v, walking_time_v = get_bus_stops(param, network, v_walk, to_node_walk=False)
+                d['stops_v'] = stops_v
+                d['walking_time_v'] = walking_time_v
+
+            if d['option'] == 4:
+                #get new drop off stops (around node u)
+                stops_u, walking_time_u = get_bus_stops(param, network, u_walk, to_node_walk=True)
+                d['stops_u'] = stops_u
+                d['walking_time_u'] = walking_time_u
+
+                #get new pick up stations (around node v)
+                stops_v, walking_time_v = get_bus_stops(param, network, v_walk, to_node_walk=False)
+                d['stops_v'] = stops_v
+                d['walking_time_v'] = walking_time_v
+
             subway_routes.append(d)
-
-    #print(subway_routes)
-
-    #for route in subway_routes:
-
-    #    if route['case'] == 2:
-
-
-
+    
+    return subway_routes
 
 def generate_requests(param, network, replicate):
 
@@ -254,7 +305,7 @@ def generate_requests(param, network, replicate):
                     #print('chegou aq')
                     origin_node_walk = ox.get_nearest_node(network.G_walk, origin_point)
                     destination_node_walk = ox.get_nearest_node(network.G_walk, destination_point)
-                    time_walking = network.return_estimated_arrival_walk_osmnx(origin_node_walk, destination_node_walk)
+                    time_walking = network.get_eta_walk(origin_node_walk, destination_node_walk)
 
                     #print(time_walking)
                     if time_walking > param.max_walking:
@@ -263,8 +314,6 @@ def generate_requests(param, network, replicate):
                 origin_node_drive = ox.get_nearest_node(network.G_drive, origin_point)
                 destination_node_drive = ox.get_nearest_node(network.G_drive, destination_point)
                 
-                get_subway_routes(param, network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive)
-
                 stops_origin = []
                 stops_destination = []
 
@@ -279,18 +328,21 @@ def generate_requests(param, network, replicate):
                 if time_walking > param.max_walking: #if distance between origin and destination is too small the person just walks
                     #add the request
                     #calculates the stations which are close enough to the origin and destination of the request
-                    for index, stop_node in network.bus_stops.iterrows():
+                    for index in network.bus_stops_ids:
+                    #for index, node in network.bus_stops.iterrows():
 
-                        osmid_possible_stop = int(stop_node['osmid_walk'])
+                        #osmid_possible_stop = int(stop_node['osmid_walk'])
+                        osmid_possible_stop = int(network.bus_stops.loc[index, 'osmid_walk'])
 
-                        eta_walk_origin = network.return_estimated_arrival_walk_osmnx(origin_node_walk, osmid_possible_stop)
+                        eta_walk_origin = network.get_eta_walk(origin_node_walk, osmid_possible_stop)
                         if eta_walk_origin >= 0 and eta_walk_origin <= param.max_walking:
                             stops_origin.append(index)
                             #stops_origin_id.append(int(stop_node['itid']))
                             stops_origin_id.append(index)
                             stops_origin_walking_distance.append(eta_walk_origin)
 
-                        eta_walk_destination = network.return_estimated_arrival_walk_osmnx(destination_node_walk, osmid_possible_stop)        
+                        #eta_walk_destination = network.get_eta_walk(destination_node_walk, osmid_possible_stop) 
+                        eta_walk_destination = network.get_eta_walk(osmid_possible_stop, destination_node_walk)       
                         if eta_walk_destination >= 0 and eta_walk_destination <= param.max_walking:
                             stops_destination.append(index)
                             #stops_destination_id.append(int(stop_node['itid']))
@@ -353,11 +405,11 @@ def generate_requests(param, network, replicate):
                     #maybe add osmid also
                     request_data.update({'num_stops_origin': len(stops_origin_id)})
                     request_data.update({'stops_origin': stops_origin_id})
-                    request_data.update({'stops_origin_walking_distance': stops_origin_walking_distance})
+                    request_data.update({'walking_time_origin_to_stops': stops_origin_walking_distance})
 
                     request_data.update({'num_stops_destination': len(stops_destination_id)})
                     request_data.update({'stops_destination': stops_destination_id})
-                    request_data.update({'stops_destination_walking_distance': stops_destination_walking_distance})
+                    request_data.update({'walking_time_stops_to_destination': stops_destination_walking_distance})
 
                     #departure time
                     request_data.update({'dep_time': int(dep_time)})
@@ -367,6 +419,58 @@ def generate_requests(param, network, replicate):
                     # add request_data to instance_data container
                     all_requests.update({param.num_requests: request_data})
                     
+                    
+                    subway_routes = get_subway_routes(param, network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive)
+                    
+                    request_data.update({'num_subway_routes': len(subway_routes)})
+
+                    subway_line_ids = []
+                    for route in subway_routes:
+                        subway_line_ids.append(route['line_id'])
+
+                    request_data.update({'subway_line_ids': subway_line_ids})
+
+
+                    for route in subway_routes:
+
+                        line_id = str(route['line_id'])
+                        #add line_id como acrescimo no fim, pq senao a tag fica repetida
+                        d = {'line_id': line_id}
+                        d['option'+line_id] = route['option']
+
+                        if route['option'] == 1:
+                            d['eta_in_vehicle'+line_id] = route['eta']
+                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
+                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+
+                        if route['option'] == 2:
+                            #request_data.update({'line_id': route['line_id']})
+                            d['eta_in_vehicle'+line_id] = route['eta']
+                            d['num_stops_nearby_pick_up'+line_id] = len(route['stops_u'])
+                            d['stops_nearby_pick_up'+line_id] = route['stops_u']
+                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
+                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+
+                        if route['option'] == 3:
+                            #request_data.update({'line_id': route['line_id']})
+                            d['eta_in_vehicle'+line_id] = route['eta']
+                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
+                            d['num_stops_nearby_drop_off'+line_id] = len(route['stops_v'])
+                            d['stops_nearby_drop_off'+line_id] = route['stops_v']
+                            d['walking_time_from_drop_off'+line_id] =  route['walking_time_v']
+
+                        if route['option'] == 4:
+                            #request_data.update({'line_id': route['line_id']})
+                            d['eta_in_vehicle'+line_id] = route['eta']
+                            d['num_stops_nearby_pick_up'+line_id] = len(route['stops_u'])
+                            d['stops_nearby_pick_up'+line_id] = route['stops_u']
+                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
+                            d['num_stops_nearby_drop_off'+line_id] = len(route['stops_v'])
+                            d['stops_nearby_drop_off'+line_id] = route['stops_v']
+                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+                            
+                        request_data.update(d)
+
                     #increases the number of requests
                     param.num_requests += 1
                     print('#:', param.num_requests)

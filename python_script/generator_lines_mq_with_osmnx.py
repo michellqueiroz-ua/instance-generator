@@ -63,275 +63,6 @@ except:
 from passenger_requests import generate_requests
 from classes import *
 
-'''
-class VehicleFleet:
-
-    def __init__(self, num_vehicles, capacity_vehicles):
-
-        self.num_vehicles = num_vehicles
-        self.capacity_vehicles = capacity_vehicles
-
-class RequestDistribution:
-
-    def __init__(self, x, y, num_requests, pdf, num_origins, num_destinations, time_type, is_random_origin_zones, is_random_destination_zones, origin_zones=[], destination_zones=[]):
-        
-
-        self.pdf = pdf
-
-        if self.pdf == "normal":
-            self.mean = x
-            self.std = y
-
-        if self.pdf == "uniform":
-            self.min_time = x
-            self.max_time = y
-
-        if self.pdf == "poisson":
-            self.average_min = x
-        
-        self.num_requests = num_requests
-        
-        self.demand = []
-        
-        self.num_origins = num_origins
-        self.num_destinations = num_destinations
-        
-        #self.origin_zones = []
-        #self.destination_zones = []
-
-        self.time_type = time_type
-
-        self.is_random_origin_zones = is_random_origin_zones
-        self.is_random_destination_zones = is_random_destination_zones
-
-        self.origin_zones = origin_zones
-        self.destination_zones = destination_zones
-
-        print('origin_zones', origin_zones)
-        print('destination_zones', destination_zones)
-
-    def set_demand(self):
-
-        if self.pdf == "normal":
-            self.demand = np.random.normal(self.mean, self.std, self.num_requests)
-
-        if self.pdf == "uniform":
-            self.demand = np.random.uniform(self.min_time, self.max_time, self.num_requests)
-
-        if self.pdf == "poisson":
-            #for poisson distribution the number of requests is related to the size of the time window
-            self.demand = np.random.poisson(self.average_min, self.num_requests)
-
-    def randomly_set_origin_zones(self, num_zones):
-
-        self.origin_zones = []
-        #self.destination_zones = []
-
-        if self.num_origins != -1:
-            self.origin_zones = np.random.randint(0, num_zones, self.num_origins)
-
-        #if self.num_destinations != -1:
-        #    self.destination_zones = np.random.randint(0, num_zones, self.num_destinations)
-
-    def randomly_set_destination_zones(self, num_zones):
-
-        #self.origin_zones = []
-        self.destination_zones = []
-
-        #if self.num_origins != -1:
-        #    self.origin_zones = np.random.randint(0, num_zones, self.num_origins)
-
-        if self.num_destinations != -1:
-            self.destination_zones = np.random.randint(0, num_zones, self.num_destinations)
-            
-class Network:
-
-    def __init__(self, G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed):
-        
-        #network graphs
-        self.G_drive = G_drive
-        self.polygon_drive = polygon_drive
-        self.G_walk = G_walk
-        self.polygon_walk = polygon_walk
-        
-        #indicates which nodes in the network are specifically bus stops
-        self.bus_stops = bus_stops 
-        self.num_stations = len(bus_stops)
-       
-        self.zones = zones
-
-        self.walk_speed = walk_speed
-
-        self.shortest_path_drive = shortest_path_drive
-        self.shortest_path_walk = shortest_path_walk
-        
-        self.all_requests = {}
-        #self.dict_shortest_path_length_walk = {}
-        #if the distance or path are needed without speed information (which is the case for walking)
-        #dict_shortest_path_length_walk = dict(nx.all_pairs_dijkstra_path_length(self.G_walk, weight='length'))
-        #dict_shortest_path_walk = dict(nx.all_pairs_dijkstra_path(self.G_walk, weight='length'))
-        
-    
-    #def get_travel_mode_index(self, travel_mode_string):
-        
-    #    for i in range(len(self.travel_modes)):
-    #        if travel_mode_string == self.travel_modes[i].mean_transportation:
-    #            return int(i)
-    
-    def return_estimated_arrival_walk_osmnx(self, origin_node, destination_node):
-
-        #returns distance in meters from origin_node to destination_node
-        try:
-            #distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
-            destination_node = str(destination_node)
-            distance_walk = self.shortest_path_walk.loc[origin_node, destination_node]
-            #distance_walk = self.dict_shortest_path_length_walk[origin_node][destination_node]
-            #get the speed of the given travel mode
-            #i = self.get_travel_mode_index("walking")
-            #speed = self.travel_modes[i].speed
-            speed = self.walk_speed
-            #calculates the estimated travel time by walking
-            if math.isnan(distance_walk):
-                eta_walk = -1
-            else:  
-                eta_walk = int(math.ceil(distance_walk/speed))
-        except (nx.NetworkXNoPath, KeyError):
-            eta_walk = -1
-
-        return eta_walk
-
-    def return_estimated_arrival_bus_osmnx(self, stops_origin, stops_destination, hour):
-        max_eta_bus = -1
-        avg_eta_bus = -1
-        min_eta_bus = 1000000000
-
-        #hour = 0
-        for origin in stops_origin:
-            for destination in stops_destination:
-
-                #distance_bus = self.distance_matrix.loc[origin, destination]
-                #travel_time = self.travel_time_matrix.loc[(origin, destination,hour), 'travel_time']
-
-                #curr_weight = 'travel_time_' + str(hour)
-                
-                #origin_osmid = self.bus_stops.loc[origin, 'osmid_drive']
-                #destination_osmid = self.bus_stops.loc[destination, 'osmid_drive']
-                
-                #i = self.bus_stops.loc[origin, 'itid']
-                #j = self.bus_stops.loc[destination, 'itid']
-                
-                #travel_time = nx.dijkstra_path_length(self.G_drive, origin_osmid, destination_osmid, weight=curr_weight)
-                #travel_time = self.travel_time_matrix.loc[(i, j, hour), 'eta']
-                travel_time = self.travel_time_matrix.loc[(origin, destination), 'eta']
-                #print(travel_time2)
-                
-                eta_bus = travel_time
-                
-                #i = self.get_travel_mode_index("bus")
-                #speed = self.travel_modes[i].speed
-                #eta_bus = int(math.ceil(distance_bus/speed))
-                if not math.isnan(eta_bus):
-                    if eta_bus >= 0:
-                        if (eta_bus > max_eta_bus):
-                            max_eta_bus = eta_bus
-
-                        if (eta_bus < min_eta_bus):
-                            min_eta_bus = eta_bus
-
-        return max_eta_bus, min_eta_bus
-
-    def update_travel_time_matrix(self, travel_time_matrix):
-
-        self.travel_time_matrix = travel_time_matrix
-
-    def get_travel_time_matrix_osmnx(self, travel_mode_string, interval):
-        
-        travel_time = np.ndarray((len(self.bus_stops), len(self.bus_stops)), dtype=np.int64)
-        tuple_dtype = np.dtype([('r', np.int64), ('g', np.int64)])
-        #travel_time = np.ndarray((len(self.bus_stops), len(self.bus_stops)), dtype=tuple_dtype)
-        hour = 0
-        #loop for computing the travel time matrix
-        for index_o, origin_stop in self.bus_stops.iterrows():
-            for index_d, destination_stop in self.bus_stops.iterrows():
-                if travel_mode_string == "bus":
-                    #i = int(self.distance_matrix.loc[(index_o,index_d), 'origin_id'])
-                    #j = int(self.distance_matrix.loc[(index_o,index_d), 'destination_id'])
-                    #i = int(origin_stop['itid'])
-                    #j = int(destination_stop['itid'])
-                    
-                    #setting the speed value for the travel time matrix
-                    #itm = self.get_travel_mode_index("bus")
-                    #speed_bus = self.travel_modes[itm].speed
-                    #speed_bus = int(self.avg_curr_speed_matrix.loc[index_o, index_d])
-                    #if speed_bus <= 0:
-                    #    speed_bus = 30
-                    #speed_bus = speed_bus/3.6 #convert to m/s
-                    
-                    #getting the distance value
-                    #distance_bus = self.distance_matrix.loc[index_o, index_d]
-                    #travel_time = self.travel_time_matrix.loc[(origin, destination,hour), 'travel_time']
-                    #curr_weight = 'travel_time_' + str(hour)
-                    #origin = origin_stop['osmid_drive']
-                    #destination = destination_stop['osmid_drive']
-                    #od_travel_time = nx.dijkstra_path_length(self.G_drive, origin, destination, weight=curr_weight)
-                    od_travel_time = self.travel_time_matrix.loc[(index_o, index_d), 'eta']
-
-                    #calculating travel time and storing in travel_time matrix
-                    if not math.isnan(od_travel_time):
-                        if od_travel_time >= 0:
-                            #travel_time[i][j] = int(math.ceil(distance_bus/speed_bus))
-                            travel_time[i][j] = od_travel_time
-                            #travel_time[i][j] =  (distance_bus, speed_bus)
-                        else:
-                            travel_time[i][j] = -1
-                            #travel_time[i][j] = (-1, -1)
-
-        return travel_time
-
-
-    def get_random_coord(self, polygon):
-
-        minx, miny, maxx, maxy = polygon.bounds
-        
-        counter = 0
-        number = 1
-        while counter < number:
-            pnt = Point(np.random.uniform(minx, maxx), np.random.uniform(miny, maxy))
-            if polygon.contains(pnt):
-                return pnt
-
-        return (-1, -1)
-
-class Parameter:
-
-    def __init__(self, max_walking, min_early_departure, max_early_departure, request_demand, day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_file_base, num_of_cpu):
-        
-        self.num_requests = 0 
-        #maximum time walking for a passenger
-        self.max_walking = max_walking
-        self.min_early_departure = min_early_departure
-        self.max_early_departure = max_early_departure
-        self.request_demand = request_demand
-        self.num_replicates = num_replicates
-        self.bus_factor = bus_factor
-        self.save_dir = save_dir
-        self.output_file_base = output_file_base
-        self.day_of_the_week = day_of_the_week
-        self.get_fixed_lines = get_fixed_lines #bool
-        self.max_speed_factor = max_speed_factor
-        self.vehicle_speed_data = vehicle_speed_data
-        self.vehicle_speed = vehicle_speed
-        self.num_of_cpu = num_of_cpu
-       
-        #self.folder_path_deconet = None
-        
-    #def update_network(self, G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed):
-        #print('creating network')
-        #self.network = Network(G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed)
-        #self.network.add_graphs(G_drive, polygon_drive, G_walk, polygon_walk)
-        #self.network.add_bus_stops(bus_stop_nodes)
-        #self.network.add_distance_matrix(distance_matrix)
-'''
         
 class JsonConverter(object):
 
@@ -381,7 +112,7 @@ class JsonConverter(object):
                 for stop in request.get('stops_origin'):
                     file.write(str(stop) + '\t')
                 file.write('\n')
-                for walking_distance in request.get('stops_origin_walking_distance'):
+                for walking_distance in request.get('walking_time_origin_to_stops'):
                     file.write(str(walking_distance) + '\t')
 
                 file.write('\n')
@@ -391,7 +122,7 @@ class JsonConverter(object):
                 for stop in request.get('stops_destination'):
                     file.write(str(stop) + '\t')
                 file.write('\n')
-                for walking_distance in request.get('stops_destination_walking_distance'):
+                for walking_distance in request.get('walking_time_stops_to_destination'):
                     file.write(str(walking_distance) + '\t')
 
                 file.write('\n')
@@ -403,6 +134,39 @@ class JsonConverter(object):
                 # latest arrival time
                 file.write(str(request.get('arr_time')))
                 file.write('\n')
+
+                #writing the fixed lines
+                file.write(str(request.get('num_subway_routes')) + '\n')
+                for subway_line in request.get('subway_line_ids'):
+                    line_id = str(subway_line)
+                    option = request.get('option'+line_id)
+                    file.write(str(option) + '\n')
+                    file.write(str(request.get('eta_in_vehicle'+line_id)) + '\n')
+
+                    if option == 1:
+                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+
+                    if option == 2:
+                        file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
+                        file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
+                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+
+                    if option == 3:
+                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                        file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
+                        file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
+                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+
+                    if option == 4:
+                        file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
+                        file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
+                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                        file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
+                        file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
+                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+
 
     def convert_localsolver(self, output_file_name):
 
@@ -925,254 +689,6 @@ def cluster_travel_demand(param, network, num_points=20, request_density_treshol
 
     travel_time_matrix_new_stops = get_travel_time_matrix_osmnx_csv(param, new_stops, network.shortest_path_drive, network.shortest_path_walk, filename='.travel.time.new.stops.csv')
 ###start stop locations
-
-'''
-def generate_requests(param, network, replicate):
-
-    output_file_json = os.path.join(param.save_dir_json, param.output_file_base + '_' + str(replicate) + '.json')
-    instance_data = {}  
-
-    print("Now generating " + " request_data")
-    lines = []
-    all_requests = {} 
-    h = 0
-    param.num_requests = 0
-
-    #for each PDF
-    for r in range(len(param.request_demand)):
-        
-        #fig, ax = ox.plot_graph(network.G_walk, show=False, close=False)
-
-        #randomly generates the earliest departure times or latest arrival times
-        param.request_demand[r].set_demand()
-
-        #randomly generates the zones 
-        
-        #num_zones = len(network.zones)
-        #print('tam zones', num_zones)
-        
-        if param.request_demand[r].is_random_origin_zones:
-            param.request_demand[r].randomly_set_origin_zones(len(network.zones))
-
-        if param.request_demand[r].is_random_destination_zones:
-            param.request_demand[r].randomly_set_destination_zones(len(network.zones))     
-
-        num_requests = param.request_demand[r].num_requests
-        print(num_requests)
-
-        for i in range(num_requests):
-            
-            dep_time = None 
-            arr_time = None
-
-            if param.request_demand[r].time_type == "EDT":
-                dep_time = param.request_demand[r].demand[i]
-                dep_time = int(dep_time)
-
-                if (dep_time >= 0) and (dep_time >= param.min_early_departure) and (dep_time <= param.max_early_departure):
-                    nok = True
-                else:
-                    nok = False
-            else:
-                if param.request_demand[r].time_type == "LAT":
-                    arr_time = param.request_demand[r].demand[i]
-                    arr_time = int(arr_time)
-
-                    if (arr_time >= 0) and (arr_time >= param.min_early_departure) and (arr_time <= param.max_early_departure):
-                        nok = True
-                    else:
-                        nok = False
-
-            request_data = {}  #holds information about this request
-
-            #randomly choosing coordinates and repeated for a passenger until he can go to at least 1 stop (for both origin and destination)
-            
-            num_attempts = 0 #limit the number of attempts to generate a request and avoid infinite loop
-            while nok:
-                num_attempts += 1
-                nok = False
-                
-                route_length_drive = -1
-                origin_point = []
-                destination_point = []
-                unfeasible_request = True
-                
-                while unfeasible_request:
-
-                    #generate coordinates for origin and destination
-                    if param.request_demand[r].num_origins == -1:
-                        origin_point = network.get_random_coord(network.polygon_walk)
-                        #ax.scatter(origin_point.x, origin_point.y, c='red')
-                        origin_point = (origin_point.y, origin_point.x)
-    
-                    else:
-                        random_zone = np.random.uniform(0, param.request_demand[r].num_origins, 1)
-                        random_zone = int(random_zone)
-                        #print('index origin: ', param.request_demand[r].origin_zones[random_zone])
-                        random_zone_id = int(param.request_demand[r].origin_zones[random_zone])
-                        polygon_zone = network.zones.loc[random_zone_id]['polygon']
-                        #print(random_zone)
-                        
-                        origin_point = network.get_random_coord(polygon_zone)
-                        #ax.scatter(origin_point.x, origin_point.y, c='red')
-                        #print(origin_point.y, origin_point.x)
-                        origin_point = (origin_point.y, origin_point.x)
-
-                    if param.request_demand[r].num_destinations == -1:
-                        
-                        destination_point = network.get_random_coord(network.polygon_walk)
-                        #ax.scatter(destination_point.x, destination_point.y, c='green')
-                        destination_point = (destination_point.y, destination_point.x)
-
-                    else:
-                        random_zone = np.random.uniform(0, param.request_demand[r].num_destinations, 1)
-                        random_zone = int(random_zone)
-                        #print('index dest: ', param.request_demand[r].destination_zones[random_zone])
-                        random_zone_id = int(param.request_demand[r].destination_zones[random_zone])
-                        polygon_zone = network.zones.loc[random_zone_id]['polygon']
-                        #print(random_zone)
-                        destination_point = network.get_random_coord(polygon_zone)
-                        #ax.scatter(destination_point.x, destination_point.y, c='green')
-
-                        destination_point = (destination_point.y, destination_point.x)
-
-                    #print('chegou aq')
-                    origin_node_walk = ox.get_nearest_node(network.G_walk, origin_point)
-                    destination_node_walk = ox.get_nearest_node(network.G_walk, destination_point)
-                    time_walking = network.return_estimated_arrival_walk_osmnx(origin_node_walk, destination_node_walk)
-
-                    #print(time_walking)
-                    if time_walking > param.max_walking:
-                        unfeasible_request = False
-                    
-                stops_origin = []
-                stops_destination = []
-
-                #for distance matrix c++. regular indexing (0, 1, 2...)
-                stops_origin_id = []
-                stops_destination_id = []
-
-                stops_origin_walking_distance = []
-                stops_destination_walking_distance = []
-
-                if time_walking > param.max_walking: #if distance between origin and destination is too small the person just walks
-                    #add the request
-                    #calculates the stations which are close enough to the origin and destination of the request
-                    for index, stop_node in network.bus_stops.iterrows():
-
-                        osmid_possible_stop = int(stop_node['osmid_walk'])
-
-                        eta_walk_origin = network.return_estimated_arrival_walk_osmnx(origin_node_walk, osmid_possible_stop)
-                        if eta_walk_origin >= 0 and eta_walk_origin <= param.max_walking:
-                            stops_origin.append(index)
-                            #stops_origin_id.append(int(stop_node['itid']))
-                            stops_origin_id.append(index)
-                            stops_origin_walking_distance.append(eta_walk_origin)
-
-                        eta_walk_destination = network.return_estimated_arrival_walk_osmnx(destination_node_walk, osmid_possible_stop)        
-                        if eta_walk_destination >= 0 and eta_walk_destination <= param.max_walking:
-                            stops_destination.append(index)
-                            #stops_destination_id.append(int(stop_node['itid']))
-                            stops_destination_id.append(index)
-                            stops_destination_walking_distance.append(eta_walk_destination)
-
-                #print('aqui')
-                #print(time_walking)
-                # Check whether each passenger can walk to stops (origin + destination)
-                if len(stops_origin) > 0 and len(stops_destination) > 0:
-                    if not (set(stops_origin) & set(stops_destination)):
-                        #time window for the arrival time
-                        
-                        if arr_time is None:
-                            hour = int(math.floor(dep_time/(60*60)))
-                            hour = 0
-
-                            #print('dep time min, dep time hour: ', dep_time, hour)
-                            max_eta_bus, min_eta_bus = network.return_estimated_arrival_bus_osmnx(stops_origin, stops_destination, hour)
-                            if min_eta_bus >= 0:
-                                arr_time = (dep_time) + (param.bus_factor * max_eta_bus) + (param.max_walking * 2)
-                            else:
-                                unfeasible_request = True
-                        else:
-
-                            if dep_time is None:
-                                hour = int(arr_time/(60*60)) - 1
-                                hour = 0
-                                
-                                #print('dep time min, dep time hour: ', dep_time, hour)
-                                max_eta_bus, min_eta_bus = network.return_estimated_arrival_bus_osmnx(stops_origin, stops_destination, hour)
-                                if min_eta_bus >= 0:
-                                    dep_time = (arr_time) - (param.bus_factor * max_eta_bus) - (param.max_walking * 2)
-                                else:
-                                    unfeasible_request = True
-
-                    else:
-                        unfeasible_request = True
-                else:
-                    unfeasible_request = True
-
-                if  not unfeasible_request:   
-                    #prints in the json file if the request is 'viable'
-                    
-                    request_data.update({'originx': origin_point[1]})
-                    request_data.update({'originy': origin_point[0]})
-
-                    request_data.update({'destinationx': destination_point[1]})
-                    request_data.update({'destinationy': destination_point[0]})
-
-                    
-                    #used for testing
-                    #if param.num_requests == 23:
-                    #    origin_node = network.distance_matrix.loc[(stops_origin[0],stops_destination[0]), 'origin_osmid_drive']
-                    #    destination_node = network.distance_matrix.loc[(stops_origin[0],stops_destination[0]), 'destination_osmid_drive']
-                    #    route = nx.shortest_path(network.G_drive, origin_node, destination_node, weight='length')
-                    #    fig, ax = ox.plot_graph_route(network.G_drive, route, origin_point=origin_point, destination_point=destination_point)
-                    
-
-                    #maybe add osmid also
-                    request_data.update({'num_stops_origin': len(stops_origin_id)})
-                    request_data.update({'stops_origin': stops_origin_id})
-                    request_data.update({'stops_origin_walking_distance': stops_origin_walking_distance})
-
-                    request_data.update({'num_stops_destination': len(stops_destination_id)})
-                    request_data.update({'stops_destination': stops_destination_id})
-                    request_data.update({'stops_destination_walking_distance': stops_destination_walking_distance})
-
-                    #departure time
-                    request_data.update({'dep_time': int(dep_time)})
-                    #arrival time
-                    request_data.update({'arr_time': int(arr_time)})
-
-                    # add request_data to instance_data container
-                    all_requests.update({param.num_requests: request_data})
-                    
-                    #increases the number of requests
-                    param.num_requests += 1
-                    print('#:', param.num_requests)
-
-                else:
-                    nok = True
-                    if num_attempts > 20:
-                        nok = False
-        
-        #plt.show()
-        #plt.savefig('images/foo.png')
-        #plt.close(fig) 
-
-    network.all_requests = all_requests
-
-    #travel_time_json = network.get_travel_time_matrix_osmnx("bus", 0)
-    #travel_time_json = travel_time_json.tolist()
-    travel_time_json = []
-    instance_data.update({'requests': all_requests})
-    #instance_data.update({'requests': all_requests,
-    #                      'num_stations': network.num_stations,
-    #                      'distance_matrix': travel_time_json})
-
-    with open(output_file_json, 'w') as file:
-        json.dump(instance_data, file, indent=4)
-        file.close()
-'''
 
 def plot_pt_fixed_lines(param, G, pt_fixed_lines):
     
@@ -3184,6 +2700,8 @@ if __name__ == '__main__':
 
     network_class_file = None
 
+    average_waiting_time = 120
+
     num_of_cpu = cpu_count()
 
     #INSTANCE PARAMETER INPUT INFORMATION
@@ -3524,7 +3042,8 @@ if __name__ == '__main__':
 
         #creating object that has the instance input information
         param = Parameter(max_walking, min_early_departure, max_early_departure, [], day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_file_base, num_of_cpu)
-        
+        param.average_waiting_time = average_waiting_time
+
         param.save_dir_json = os.path.join(param.save_dir, 'json_format')
         if not os.path.isdir(param.save_dir_json):
             os.mkdir(param.save_dir_json)
@@ -3555,6 +3074,8 @@ if __name__ == '__main__':
         caching.clear_cache()
 
     if is_request_generation:
+
+
         
         save_dir = os.getcwd()+'/'+output_file_base
         print(save_dir)
