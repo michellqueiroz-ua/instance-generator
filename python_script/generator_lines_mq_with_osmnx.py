@@ -1175,7 +1175,6 @@ def get_distance_matrix_csv(param, G_walk, G_drive, bus_stops):
     shortest_path_drive = pd.DataFrame()
     shortest_path_walk = pd.DataFrame()
 
-    '''
     if os.path.isfile(path_dist_csv_file_walk):
         print('is file dist walk')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
@@ -1243,11 +1242,7 @@ def get_distance_matrix_csv(param, G_walk, G_drive, bus_stops):
         del shortest_path_length_walk
         del results
         gc.collect()
-        '''
-
-
-
-
+        
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
