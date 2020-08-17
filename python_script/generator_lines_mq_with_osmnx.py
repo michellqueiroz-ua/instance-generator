@@ -1139,6 +1139,7 @@ def get_zones_csv(param, G_walk, G_drive, polygon):
 
     return zones
 
+@ray.remote
 def shortest_path_nx(G, u, v):
 
     try:
@@ -1157,7 +1158,7 @@ def shortest_path_nx_ss(G, u):
 def chunker(seq, size):
     return (seq[pos:pos + size] for pos in range(0, len(seq), size))
 
-def get_distance_matrix_csv(param, G_walk, G_drive):
+def get_distance_matrix_csv(param, G_walk, G_drive, bus_stops):
     shortest_path_walk = []
     shortest_path_drive = []
     
@@ -1171,66 +1172,96 @@ def get_distance_matrix_csv(param, G_walk, G_drive):
     path_dist_csv_file_walk = os.path.join(save_dir_csv, param.output_file_base+'.dist.walk.csv')
     path_dist_csv_file_drive = os.path.join(save_dir_csv, param.output_file_base+'.dist.drive.csv')
     
+    shortest_path_drive = pd.DataFrame()
+    shortest_path_walk = pd.DataFrame()
+
     '''
     if os.path.isfile(path_dist_csv_file_walk):
         print('is file dist walk')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
     else:
-        print('calculating all shortest paths walk network')
+
+        bus_stops_ids = bus_stops['osmid_walk'].tolist()
+
+        print('calculating distance matrix walk network')
         count_divisions = 0
 
-        shortest_path_walk = pd.DataFrame()
         list_nodes = list(G_walk.nodes)
         G_walk_id = ray.put(G_walk)
 
-        for group_nodes in chunker(list_nodes, param.num_of_cpu*4):
-
+        for u in bus_stops_ids:
             shortest_path_length_walk = []
-            results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u) for u in group_nodes])
+            results = ray.get([shortest_path_nx.remote(G_walk_id, u, v) for v in list_nodes])
 
-            #fazer aqui o mesmo que la em baixo com o travel time?
-            j=0
-            for u in group_nodes:
-                d = {}
-                d['osmid_origin'] = u
-                for v in G_walk.nodes():
-                    #v = str(v)
-                    dist_uv = -1
-                    try:
-                        dist_uv = int(results[j][v])
-                    except KeyError:
-                        pass
-                    if dist_uv != -1:
-                        sv = str(v)
-                        d[sv] = dist_uv
-                shortest_path_length_walk.append(d)
+        print(results)
 
-                j+=1
+        j=0
+        for u in bus_stops_ids:
+            d = {}
+            d['osmid_origin'] = u
+            for v in list_nodes:
+                #dist_uv = -1
+                #try:
+                dist_uv = int(results[j])
+                #except KeyError:
+                #    pass
+                if dist_uv != -1:
+                    sv = str(v)
+                    dist[sv] = dist_uv
+            shortest_path_length_walk.append(d)
+            j+=1
 
-            shortest_path_walk = shortest_path_walk.append(shortest_path_length_walk, ignore_index=True)
-            del shortest_path_length_walk
-            del results
-            gc.collect()
+        shortest_path_walk = shortest_path_walk.append(shortest_path_length_walk, ignore_index=True)
+        del shortest_path_length_walk
+        del results
+        gc.collect()
 
-        
-        shortest_path_walk.to_csv(path_dist_csv_file_walk)
-        shortest_path_walk.set_index(['osmid_origin'], inplace=True)
-    '''
+        for u in list_nodes:
+            shortest_path_length_walk = []
+            results = ray.get([shortest_path_nx.remote(G_walk_id, u, v) for v in bus_stops_ids])
+
+        #print(results)
+
+        j=0
+        for u in list_nodes:
+            d = {}
+            d['osmid_origin'] = u
+            for v in bus_stops_ids:
+                #dist_uv = -1
+                #try:
+                dist_uv = int(results[j])
+                #except KeyError:
+                #    pass
+                if dist_uv != -1:
+                    sv = str(v)
+                    dist[sv] = dist_uv
+            shortest_path_length_walk.append(d)
+            j+=1
+
+        shortest_path_walk = shortest_path_walk.append(shortest_path_length_walk, ignore_index=True)
+        del shortest_path_length_walk
+        del results
+        gc.collect()
+        '''
+
+
+
+
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
         shortest_path_drive = pd.read_csv(path_dist_csv_file_drive)
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
     else:
-        print('calculating all shortest paths drive network')
+
+        print('calculating shortest paths drive network')
 
         
         list_nodes = list(G_drive.nodes)
         G_drive_id = ray.put(G_drive)
         start = time.process_time()
 
-        #NOT dividing nodes in chunks
         shortest_path_length_drive = []
         results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u) for u in list_nodes])
 
@@ -1258,11 +1289,41 @@ def get_distance_matrix_csv(param, G_walk, G_drive):
         del results
         gc.collect()
 
-       
         shortest_path_drive.to_csv(path_dist_csv_file_drive)
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
 
     return shortest_path_walk, shortest_path_drive
+
+def filter_bus_stops(param, bus_stops, shortest_path_drive):
+
+    save_dir_csv = os.path.join(param.save_dir, 'csv')
+    path_bus_stops = os.path.join(save_dir_csv, param.output_file_base+'.stops.csv')
+    print('number of bus stops before cleaning: ', len(bus_stops))
+
+    useless_bus_stop = True
+    while useless_bus_stop:
+        useless_bus_stop = False
+        for index1, stop1 in bus_stops.iterrows():
+            unreachable_nodes = 0
+            for index2, stop2 in bus_stops.iterrows():
+                try:
+                    osmid_origin_stop = stop1['osmid_drive']
+                    osmid_destination_stop = stop2['osmid_drive']
+                    sosmid_destination_stop = str(osmid_destination_stop)
+                    if str(shortest_path_drive.loc[osmid_origin_stop, sosmid_destination_stop]) != 'nan':
+                        path_length = int(shortest_path_drive.loc[osmid_origin_stop, sosmid_destination_stop])
+                    else:
+                        unreachable_nodes = unreachable_nodes + 1
+                except KeyError:
+                    unreachable_nodes = unreachable_nodes + 1
+                
+            if unreachable_nodes == len(bus_stops) - 1:
+                bus_stops = bus_stops.drop(index1)
+                useless_bus_stop = True
+            
+    print('number of bus stops after removal: ', len(bus_stops))
+
+    bus_stops.to_csv(path_bus_stops)
 
 @ray.remote
 def get_bus_stop(G_walk, G_drive, index, poi):
@@ -1287,7 +1348,7 @@ def get_bus_stop(G_walk, G_drive, index, poi):
 
         return d
 
-def get_bus_stops_matrix_csv(param, G_walk, shortest_path_walk, G_drive, shortest_path_drive, polygon_drive):
+def get_bus_stops_matrix_csv(param, G_walk, G_drive, polygon_drive):
 
     ray.shutdown()
     ray.init(num_cpus=param.num_of_cpu)
@@ -1346,8 +1407,6 @@ def get_bus_stops_matrix_csv(param, G_walk, shortest_path_walk, G_drive, shortes
         bus_stops.set_index(['stop_id'], inplace=True)
         #print("total time", time.process_time() - start)
 
-        print('number of bus stops before cleaning: ', len(bus_stops))
-
         drop_index_list = []
         for index1, stop1 in bus_stops.iterrows():
             if index1 not in drop_index_list:
@@ -1358,32 +1417,7 @@ def get_bus_stops_matrix_csv(param, G_walk, shortest_path_walk, G_drive, shortes
                                 drop_index_list.append(index2)
 
         for index_to_drop in drop_index_list:
-            bus_stops = bus_stops.drop(index_to_drop)   
-        
-        useless_bus_stop = True
-        while useless_bus_stop:
-            useless_bus_stop = False
-            for index1, stop1 in bus_stops.iterrows():
-                unreachable_nodes = 0
-                for index2, stop2 in bus_stops.iterrows():
-                    try:
-                        osmid_origin_stop = stop1['osmid_drive']
-                        osmid_destination_stop = stop2['osmid_drive']
-                        sosmid_destination_stop = str(osmid_destination_stop)
-                        if str(shortest_path_drive.loc[osmid_origin_stop, sosmid_destination_stop]) != 'nan':
-                            path_length = int(shortest_path_drive.loc[osmid_origin_stop, sosmid_destination_stop])
-                        else:
-                            unreachable_nodes = unreachable_nodes + 1
-                    except KeyError:
-                        unreachable_nodes = unreachable_nodes + 1
-                    
-                if unreachable_nodes == len(bus_stops) - 1:
-                    bus_stops = bus_stops.drop(index1)
-                    useless_bus_stop = True
-                
-        print('number of bus stops after removal: ', len(bus_stops))
-
-        bus_stops.to_csv(path_bus_stops)
+            bus_stops = bus_stops.drop(index_to_drop)
 
     return bus_stops
 
@@ -2548,8 +2582,6 @@ def create_network(place_name, walk_speed, param):
     print('num walk nodes', len(G_walk.nodes()))
     print('num drive nodes', len(G_drive.nodes()))
     
-    shortest_path_walk, shortest_path_drive = get_distance_matrix_csv(param, G_walk, G_drive)
-    
     if param.vehicle_speed_data != "max" and param.vehicle_speed_data != "set":
         avg_uber_speed_data, speed_mean_overall = get_uber_speed_data_mean(G_drive, param.vehicle_speed_data, param.day_of_the_week)
         avg_uber_speed_data = pd.DataFrame(avg_uber_speed_data)
@@ -2557,9 +2589,13 @@ def create_network(place_name, walk_speed, param):
         print('speed mean overall', speed_mean_overall)
         #get_uber_speed_data_prediction(G_drive, speed_data)
     
-    print('Now genarating bus_stop_data')
-    bus_stops = get_bus_stops_matrix_csv(param, G_walk, shortest_path_walk, G_drive, shortest_path_drive, polygon_drive)
+    print('Now retrieving bus stops')
+    bus_stops = get_bus_stops_matrix_csv(param, G_walk, G_drive, polygon_drive)
     
+    shortest_path_walk, shortest_path_drive = get_distance_matrix_csv(param, G_walk, G_drive, bus_stops)
+
+    filter_bus_stops(param, bus_stops, shortest_path_drive)
+
     print('Trying to get zones')
     zones = get_zones_csv(param, G_walk, G_drive, polygon_drive)
     #create graph to plot zones here           

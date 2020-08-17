@@ -97,9 +97,11 @@ class Network:
         #indicates which nodes in the network are specifically bus stops
         self.bus_stops = bus_stops 
         self.num_stations = len(bus_stops)
+
+        #used in request generation to avoid using iterrows
         self.bus_stops_ids = []
-        for index, stop_node in network.bus_stops.iterrows():
-            bus_stops_ids.append(index)
+        for index, stop_node in self.bus_stops.iterrows():
+            self.bus_stops_ids.append(index)
        
         self.zones = zones
 
@@ -113,6 +115,24 @@ class Network:
     def get_eta_walk(self, origin_node, destination_node):
 
         #returns estimated time walking in seconds from origin_node to destination_node
+
+        try:
+            destination_node = str(destination_node)
+            distance_walk = self.shortest_path_walk.loc[origin_node, destination_node]
+        except KeyError:
+            try:
+                distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
+            except nx.NetworkXNoPath:
+                distance_walk = np.nan
+
+        speed = self.walk_speed
+        if math.isnan(distance_walk):
+            eta_walk = -1
+        else:
+            eta_walk = int(math.ceil(distance_walk/speed))
+
+
+        ''' 
         try:
             distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
             #destination_node = str(destination_node)
@@ -129,6 +149,7 @@ class Network:
                 eta_walk = int(math.ceil(distance_walk/speed))
         except (nx.NetworkXNoPath, KeyError):
             eta_walk = -1
+        '''
 
         return eta_walk
 
