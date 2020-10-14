@@ -15,7 +15,6 @@ class RequestDistribution:
 
     def __init__(self, x, y, num_requests, pdf, num_origins, num_destinations, time_type, is_random_origin_zones, is_random_destination_zones, origin_zones=[], destination_zones=[]):
         
-
         self.pdf = pdf
 
         if self.pdf == "normal":
@@ -114,16 +113,16 @@ class Network:
 
     def get_eta_walk(self, origin_node, destination_node):
 
-        #returns estimated time walking in seconds from origin_node to destination_node
+        #try:
+        #    sdestination_node = str(destination_node)
+        #    distance_walk = self.shortest_path_walk.loc[origin_node, sdestination_node]
+        #except KeyError:
 
+        #returns estimated time walking in seconds from origin_node to destination_node
         try:
-            destination_node = str(destination_node)
-            distance_walk = self.shortest_path_walk.loc[origin_node, destination_node]
-        except KeyError:
-            try:
-                distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
-            except nx.NetworkXNoPath:
-                distance_walk = np.nan
+            distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
+        except nx.NetworkXNoPath:
+            distance_walk = np.nan
 
         speed = self.walk_speed
         if math.isnan(distance_walk):

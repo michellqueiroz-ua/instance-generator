@@ -44,7 +44,6 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
     #fl_stations_drive = []
 
     #check maybe KAPPA station here before this next loop
-
     for lid in network.subway_lines:
         #u,v are part of the subset of stations
         d = {
@@ -62,7 +61,7 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
         for u in network.nodes_covered_fixed_lines:
             for v in network.nodes_covered_fixed_lines:
 
-                if u != v :
+                if u != v:
                 
                     try:
 
@@ -74,12 +73,10 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
                         u_walk = int(network.deconet_network_nodes.loc[int(u), 'osmid_walk'])
                         v_walk = int(network.deconet_network_nodes.loc[int(v), 'osmid_walk'])
                         
-                        #distance from origin to node u and  #distance from v to destination
+                        #distance from origin to node u and #distance from v to destination
                         dist_ou_drive = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
                         dist_vd_drive = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
-
-                        #dist_ou_walk = network.shortest_path_walk.loc[origin_node_walk, str(u_walk)]
-                        #dist_vd_walk = network.shortest_path_walk.loc[v_walk, str(destination_node_walk)]
+                        
                         dist_ou_walk = network.get_eta_walk(origin_node_walk, u_walk)
                         dist_vd_walk = network.get_eta_walk(v_walk, destination_node_walk)
 
@@ -91,7 +88,6 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
                         if not math.isnan(dist_ou_walk):
                             eta_ou_walk = int(math.ceil(dist_ou_walk/network.walk_speed))
 
-                       
                         if not math.isnan(dist_vd_drive):
                             
                             #check if (u,v) gets the passenger closer to the destination
@@ -126,7 +122,7 @@ def get_subway_routes(param, network, origin_node_walk, destination_node_walk, o
                                 
 
                             else:
-                                #otherwise, check if distance from origin to station is smaller than before
+                                #otherwise, check if distance from origin point to station is smaller than before
                                 if not math.isnan(dist_ou_drive):
                                     if (dist_vd_drive == d['dist_vd_drive']) and (dist_ou_drive < d['dist_ou_drive']):
 
@@ -451,7 +447,8 @@ def get_request(param, network, r, i):
     
     return request_data
 
-def generate_requests(param, network, replicate):
+#it does not seem to be working properly
+def generate_requests_parallel(param, network, replicate):
 
     ray.shutdown()
     ray.init(num_cpus=param.num_of_cpu)
@@ -513,8 +510,8 @@ def generate_requests(param, network, replicate):
     with open(output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
         file.close()
-    
-def generate_requests_old(param, network, replicate):
+
+def generate_requests(param, network, replicate):
 
     output_file_json = os.path.join(param.save_dir_json, param.output_file_base + '_' + str(replicate) + '.json')
     instance_data = {}  
@@ -587,7 +584,7 @@ def generate_requests_old(param, network, replicate):
                 #def generate_feasible_request
                 while unfeasible_request:
 
-                    #generate coordinates for origin and destination
+                    #generate coordinates for origin
                     if param.request_demand[r].num_origins == -1:
                         origin_point = network.get_random_coord(network.polygon_walk)
                         #ax.scatter(origin_point.x, origin_point.y, c='red')
@@ -606,6 +603,7 @@ def generate_requests_old(param, network, replicate):
                         #print(origin_point.y, origin_point.x)
                         origin_point = (origin_point.y, origin_point.x)
 
+                    #generate coordinates for destination
                     if param.request_demand[r].num_destinations == -1:
                         
                         destination_point = network.get_random_coord(network.polygon_walk)
