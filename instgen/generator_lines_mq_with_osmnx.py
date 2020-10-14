@@ -65,229 +65,7 @@ from passenger_requests import generate_requests
 
 from stops_locations import *
 
-        
-class JsonConverter(object):
-
-    def __init__(self, file_name):
-
-        with open(file_name, 'r') as file:
-            self.json_data = json.load(file)
-            file.close()
-
-    def convert_normal(self, output_file_name):
-
-        with open(output_file_name, 'w') as file:
-
-            # first line: number of stations
-            #file.write(str(self.json_data.get('num_stations')))
-            #file.write('\n')
-
-            # second line - nr station: distance matrix
-            #dist_matrix = self.json_data.get('distance_matrix')
-            #for row in dist_matrix:
-            #    for distance in row:
-            #        file.write(str(distance))
-            #        file.write('\t')
-            #    file.write('\n')
-
-            #number of stations
-            file.write(str(len(network.bus_stops_ids)))
-            file.write('\n')
-            
-            #id for each station
-            for stop1 in network.bus_stops_ids:
-                file.write(str(stop1))
-                file.write('\n')
-
-            #distance matrix
-            for stop1 in network.bus_stops_ids:
-                for stop2 in network.bus_stops_ids:
-                    file.write(str(stop1))
-                    file.write('\t')
-                    file.write(str(stop2))
-                    file.write('\t')
-                    try:
-                        
-                        osmid_stop1 = network.bus_stops.loc[stop1, 'osmid_drive']
-                        osmid_stop2 = network.bus_stops.loc[stop2, 'osmid_drive']
-                        dists1s2 = network.shortest_path_drive.loc[osmid_stop1, str(osmid_stop2)]
-                        
-                        #it is not possible to reach the node
-                        if math.isnan(dists1s2):
-                            dists1s2 = -1
-                            file.write(str(dists1s2))
-                        else:
-                            file.write(str(dists1s2))
-
-                    except KeyError:
-                        dists1s2 = -1
-                        file.write(str(dists1s2))
-                    file.write('\n')
-
-            #request information
-            requests = self.json_data.get('requests')
-            num_requests = len(requests)
-
-            #first line: number of requests
-            file.write(str(num_requests))
-            file.write('\n')
-
-            #foreach request
-            for request in requests.values():
-
-                # origin coordinates
-                file.write(str(request.get('originx')) + '\t' + str(request.get('originy')))
-                file.write('\n')
-
-                # destination coordinates
-                file.write(str(request.get('destinationx')) + '\t' + str(request.get('destinationy')))
-                file.write('\n')
-
-                # num stops origin + stops origin
-                file.write(str(request.get('num_stops_origin')) + '\n')
-                for stop in request.get('stops_origin'):
-                    file.write(str(stop) + '\t')
-                file.write('\n')
-                for walking_distance in request.get('walking_time_origin_to_stops'):
-                    file.write(str(walking_distance) + '\t')
-
-                file.write('\n')
-
-                # num stops destination + stops destination
-                file.write(str(request.get('num_stops_destination')) + '\n')
-                for stop in request.get('stops_destination'):
-                    file.write(str(stop) + '\t')
-                file.write('\n')
-                for walking_distance in request.get('walking_time_stops_to_destination'):
-                    file.write(str(walking_distance) + '\t')
-
-                file.write('\n')
-
-                # earliest departure time
-                file.write(str(request.get('dep_time')))
-                file.write('\n')
-
-                # latest arrival time
-                file.write(str(request.get('arr_time')))
-                file.write('\n')
-
-                #writing the fixed lines
-                file.write(str(request.get('num_subway_routes')) + '\n')
-                for subway_line in request.get('subway_line_ids'):
-                    line_id = str(subway_line)
-                    option = request.get('option'+line_id)
-                    
-                    file.write(str(line_id) + '\n')
-                    file.write(str(option) + '\n')
-                    file.write(str(request.get('eta_in_vehicle'+line_id)) + '\n')
-
-                    if option == 1:
-                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
-
-                    if option == 2:
-                        file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
-
-                    if option == 3:
-                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
-                        file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
-
-                    if option == 4:
-                        file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
-                        file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
-
-
-    def convert_localsolver(self, output_file_name):
-
-        with open(output_file_name, 'w') as file:
-
-            # first line: number of stations
-            file.write(str(self.json_data.get('num_stations')))
-            file.write('\n')
-
-            # second line - nr station: distance matrix
-            #dist_matrix = self.json_data.get('distance_matrix')
-            #for row in dist_matrix:
-            #    for distance in row:
-            #        file.write(str(distance))
-            #        file.write('\t')
-            #    file.write('\n')
-
-            # start of request information
-            requests = self.json_data.get('requests')
-            num_requests = len(requests)
-
-            # first line: number of requests
-            file.write(str(num_requests))
-            file.write('\n')
-
-            # request information
-            requests = self.json_data.get('requests')
-            num_requests = len(requests)
-
-            # line format: (index nb_stops stops demand=1 ear_dep_time lat_arr_time serve_time pick_ind deliv_ind)
-            # first line: 0    0   0   0   1000    0   0   0
-            # file.write('0\t0\t0\t0\t1000\t0\t0\t0')
-
-            # foreach request - request split in pickup and delivery_pair
-            index = 1
-            for request in requests.values():
-
-                index_pickup = index
-                index_delivery = index_pickup + 1
-
-                nb_stops_pickup = request.get('num_stops_origin')
-                stops_pickup = request.get('stops_origin')
-
-                nb_stops_delivery = request.get('num_stops_destination')
-                stops_delivery = request.get('stops_destination')
-
-                demand = 1
-                serv_time = 0
-                dep_time = request.get('dep_time')
-                arr_time = request.get('arr_time')
-
-                file.write('\n')
-
-                # write pickup
-                file.write(str(index_pickup) + '\t')
-                file.write(str(nb_stops_pickup) + '\t')
-                for stop in stops_pickup:
-                    file.write(str(stop) + '\t')
-                file.write(str(demand) + '\t')
-                file.write(str(dep_time) + '\t')
-                file.write(str(arr_time) + '\t')
-                file.write(str(serv_time) + '\t')
-                file.write('0' + '\t')  # pickup index always = 0 for pickups
-                file.write(str(index_delivery) + '\t')
-
-                file.write('\n')
-
-                # write delivery
-                demand = -1
-                file.write(str(index_delivery) + '\t')
-                file.write(str(nb_stops_delivery) + '\t')
-                for stop in stops_delivery:
-                    file.write(str(stop) + '\t')
-                file.write(str(demand) + '\t')
-                file.write(str(dep_time) + '\t')
-                file.write(str(arr_time) + '\t')
-                file.write(str(serv_time) + '\t')
-                file.write(str(index_pickup) + '\t')
-                file.write('0' + '\t')  # delivery index always 0 for deliveries
-
-                index += 2
-
-
+from output_files import JsonConverter
 
 def plot_pt_fixed_lines(param, G, pt_fixed_lines):
     
@@ -582,9 +360,10 @@ def get_fixed_lines_deconet(param, network, folder_path):
                     route_id = int(rtuple[0]) #id
                     occur = int(rtuple[1]) #number of occurences
                     
+                    #creates a graph for the given line/route
                     if route_id not in dict_subway_lines:
                         dict_subway_lines[route_id] = {}
-                        dict_subway_lines[route_id]['route_graph'] = nx.DiGraph() #creates a graph for the given line/route
+                        dict_subway_lines[route_id]['route_graph'] = nx.DiGraph() 
 
                     if int(row['from_stop_I']) not in dict_subway_lines[route_id]['route_graph'].nodes():
                         dict_subway_lines[route_id]['route_graph'].add_node(row['from_stop_I'])
@@ -600,7 +379,6 @@ def get_fixed_lines_deconet(param, network, folder_path):
 
                     dict_subway_lines[route_id]['route_graph'].add_edge(row['from_stop_I'], row['to_stop_I'], duration_avg=float(row['duration_avg']))
 
-            
             #shortest_path_subway = get_all_shortest_paths_fix_lines(param, dict_subway_lines, deconet_network_nodes)
 
             #path_csv_file_subway_lines = os.path.join(save_dir_csv, param.output_file_base+'.subway.lines.csv')
@@ -746,6 +524,7 @@ def shortest_path_nx(G, u, v):
     except nx.NetworkXNoPath:
         return -1
 
+#ss -> single source to all nodes
 @ray.remote
 def shortest_path_nx_ss(G, u):
 
@@ -773,28 +552,30 @@ def get_distance_matrix_csv(param, G_walk, G_drive, bus_stops):
     shortest_path_drive = pd.DataFrame()
     shortest_path_walk = pd.DataFrame()
 
-    #calculates the shortest paths between all nodes walk (takes too long - that is why is commented)
-
-    '''
+    #calculates the shortest paths between all nodes walk (takes long time)
     if os.path.isfile(path_dist_csv_file_walk):
         print('is file dist walk')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
     else:
 
-        bus_stops_ids = bus_stops['osmid_walk'].tolist()
+        
 
         print('calculating distance matrix walk network')
         count_divisions = 0
 
         list_nodes = list(G_walk.nodes)
+        bus_stops_ids = bus_stops['osmid_walk'].tolist()
+
+        
         G_walk_id = ray.put(G_walk)
 
+        '''
         for u in bus_stops_ids:
             shortest_path_length_walk = []
             results = ray.get([shortest_path_nx.remote(G_walk_id, u, v) for v in list_nodes])
 
-        print(results)
+        #print(results)
 
         j=0
         for u in bus_stops_ids:
@@ -816,7 +597,9 @@ def get_distance_matrix_csv(param, G_walk, G_drive, bus_stops):
         del shortest_path_length_walk
         del results
         gc.collect()
+        '''
 
+        #calculate shortest path between nodes in the walking network to the bus stops
         for u in list_nodes:
             shortest_path_length_walk = []
             results = ray.get([shortest_path_nx.remote(G_walk_id, u, v) for v in bus_stops_ids])
@@ -843,7 +626,7 @@ def get_distance_matrix_csv(param, G_walk, G_drive, bus_stops):
         del shortest_path_length_walk
         del results
         gc.collect()
-    '''  
+      
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
@@ -1290,840 +1073,6 @@ def calc_mean_max_speed(dict_edge, max_speed_mean_overall, counter_max_speeds):
     return max_speed_mean_overall, counter_max_speeds
     #return np.nan
 
-#function for returning the neural network model
-def create_nn_model(init_mode='normal', activation='relu', dropout_rate=0.0, weight_constraint=0):
-
-    nn_model = Sequential()
-    nn_model.add(Dense(64, input_dim=10, kernel_initializer=init_mode, activation=activation, kernel_constraint=maxnorm(weight_constraint)))
-    nn_model.add(Dropout(dropout_rate))
-    nn_model.add(Dense(1, kernel_initializer=init_mode))
-    #nn_model.add(Dense(1, activation="linear")) #regressor neuron?
-    nn_model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae', 'mse'])
-    
-    return nn_model
-
-def get_num_lanes(dict_edge):
-
-    num_lanes = np.nan
-    try:
-
-        if type(dict_edge['lanes']) is not list:
-            num_lanes = dict_edge['lanes']
-            if num_lanes.isdigit():
-                num_lanes = int(num_lanes)
-                return num_lanes
-        else:
-            avg_num_lanes = 0
-            for lanes in dict_edge['lanes']:
-                if lanes.isdigit():
-                    avg_num_lanes = avg_num_lanes + int(lanes)
-            avg_num_lanes = int(avg_num_lanes/len(dict_edge['lanes']))
-            if avg_num_lanes > 0:
-                num_lanes = avg_num_lanes
-                return num_lanes
-
-    except KeyError:
-        pass
-
-    return num_lanes
-
-def get_highway_info(dict_edge):
-
-    try:
-
-        if type(dict_edge['highway']) is not list:
-            if dict_edge['highway'] == 'motorway' or dict_edge['highway'] == 'motorway_link':
-                return 1
-            if dict_edge['highway'] == 'trunk' or dict_edge['highway'] == 'trunk_link':
-                return 2
-            if dict_edge['highway'] == 'primary' or dict_edge['highway'] == 'primary_link':
-                return 3
-            if dict_edge['highway'] == 'secondary' or dict_edge['highway'] == 'secondary_link': 
-                return 4
-            if dict_edge['highway'] == 'tertiary' or dict_edge['highway'] == 'tertiary_link':
-                return 5
-            if dict_edge['highway'] == 'unclassified':
-                return 6
-            if dict_edge['highway'] == 'residential':
-                return 7
-            if dict_edge['highway'] == 'living_street':
-                return 8
-            if dict_edge['highway'] == 'service':
-                return 9
-            if dict_edge['highway'] == 'pedestrian':
-                return 10
-            if dict_edge['highway'] == 'track':
-                return 11
-            if dict_edge['highway'] == 'road':
-                return 12
-
-        else:
-            #print(dict_edge['highway'])
-            pass
-
-    except KeyError:
-        pass
-
-    return np.nan
-
-def get_uber_speed_data_prediction_groupby(G_drive, speed_data):
-
-    api = osm.OsmApi()
-    #load speed data from csv files
-    path = speed_data
-    all_files = glob.glob(os.path.join(path, "*.csv"))
-    df_from_each_file = (pd.read_csv(f) for f in all_files)
-    uber_data = pd.concat(df_from_each_file, ignore_index=True)
-
-    #uber_data = pd.read_csv("../uber_movement/movement-speeds-hourly-cincinnati-2019-10.csv")
-    unique_nodes = pd.unique(uber_data[['osm_start_node_id', 'osm_end_node_id']].values.ravel('K'))
-    
-    #print(concatenated_df.head())
-    #print(uber_data.head())
-    
-    print("start number of rows", len(uber_data))
-
-    nodes_in_graph = [] #nodes that are mapped by the uber movement speed database
-    for node in unique_nodes:
-        if node in G_drive.nodes():
-            if node not in nodes_in_graph:
-                nodes_in_graph.append(node)
-
-    uber_data = uber_data[uber_data['osm_start_node_id'].isin(nodes_in_graph) & uber_data['osm_end_node_id'].isin(nodes_in_graph)]
-    
-    print("mid number of rows", len(uber_data))
-
-    #talvez pegar o dia e fazer aqui seg, terça etc e dar groupby com isso tb?
-    
-    #add day of the week (monday, tuesday, wednesday, thursday, friday, saturday, sunday etc) info
-    #add new column? job day? weekend? holiday?
-    #these columns are created based on info that might help, such as peak hours etc
-    unique_days = pd.unique(uber_data[['day']].values.ravel('K'))
-    unique_months = pd.unique(uber_data[['month']].values.ravel('K'))
-    unique_years = pd.unique(uber_data[['year']].values.ravel('K'))
-
-    #add day info
-    uber_data["week_day"] = np.nan
-    for year in unique_years:
-        for month in unique_months:
-            for day in unique_days:
-                try:
-                    ans = datetime.date(year, month, day).weekday()
-                    uber_data.loc[(uber_data['day'] == day) & (uber_data['month'] == month) & (uber_data['year'] == year), 'week_day'] = ans
-                except ValueError:
-                    pass
-    
-
-    uber_data = uber_data.groupby(['osm_start_node_id','osm_end_node_id', 'hour', 'week_day'], as_index=False)['speed_mph_mean'].mean()
-    uber_data = pd.DataFrame(uber_data)
-    
-    print("mid number of rows (after grouby)", len(uber_data))
-
-    print(uber_data.head())
-    print(list(uber_data.columns))
-
-    #add lat/lon info and max speed
-    #in this part info from openstreetmaps is added
-    uber_data["start_node_y"] = np.nan
-    uber_data["start_node_x"] = np.nan
-    uber_data["end_node_y"] = np.nan
-    uber_data["end_node_x"] = np.nan
-    uber_data["max_speed_mph"] = np.nan
-    uber_data["num_lanes"] = np.nan
-    uber_data["highway"] = np.nan
-
-    #unique_highway_str = pd.unique(uber_data[['highway']].values.ravel('K'))
-    #print(unique_highway_str)
-
-    for (u,v,k) in G_drive.edges(data=True):
-        try:
-            uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_y'] = G_drive.nodes[u]['y']
-            uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_x'] = G_drive.nodes[u]['x']
-
-            uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_y'] = G_drive.nodes[v]['y']
-            uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_x'] = G_drive.nodes[v]['x']
-
-            if (uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_y'] == 0.0).all():
-                nodeu = api.NodeGet(u)
-                uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_y'] = nodeu['lat']
-                uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_x'] = nodeu['lon']
-
-            if (uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_y'] == 0.0).all():
-                nodev = api.NodeGet(v)
-                uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_y'] = nodev['lat']
-                uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_x'] = nodev['lon']
-
-        except KeyError:
-            pass
-
-        #add atribute max speed 
-        dict_edge = {}
-        dict_edge = G_drive.get_edge_data(u, v)
-        dict_edge = dict_edge[0]
-        
-        max_speed = get_max_speed_road(dict_edge)
-        num_lanes = get_num_lanes(dict_edge)
-        #highway
-        highway_type = get_highway_info(dict_edge)
-        uber_data.loc[(uber_data['osm_start_node_id'] == u) & (uber_data['osm_end_node_id'] == v), 'max_speed_mph'] = max_speed
-
-        uber_data.loc[(uber_data['osm_start_node_id'] == u) & (uber_data['osm_end_node_id'] == v), 'num_lanes'] = num_lanes
-
-        uber_data.loc[(uber_data['osm_start_node_id'] == u) & (uber_data['osm_end_node_id'] == v), 'highway'] = highway_type
-
-    #print("min hour", uber_data["hour"].min())
-    #print("max hour", uber_data["hour"].max())
-    
-    uber_data["period_day"] = np.nan
-    uber_data.loc[(uber_data['hour'] >= 0) & (uber_data['hour'] <= 6), 'period_day'] = 1 #before peak hours - morning
-    uber_data.loc[(uber_data['hour'] >= 7) & (uber_data['hour'] <= 9), 'period_day'] = 2 #peak hours - morning
-    uber_data.loc[(uber_data['hour'] >= 10) & (uber_data['hour'] <= 16), 'period_day'] = 3 #before peak hours - afternoon
-    uber_data.loc[(uber_data['hour'] >= 17) & (uber_data['hour'] <= 20), 'period_day'] = 4 #peak hours - afternoon 
-    uber_data.loc[(uber_data['hour'] >= 21) & (uber_data['hour'] <= 23), 'period_day'] = 5 # night period
-    
-    #upstream and downstream roads??
-    #uber_data["adjacent_roads_speed"] = np.nan
-
-    print(uber_data.isna().sum())
-    #clean NA values
-    print("clean NA values")
-    uber_data = uber_data.dropna()
-
-    uber_data["num_lanes"] = pd.to_numeric(uber_data["num_lanes"])
-
-    #print("min lanes", uber_data["num_lanes"].min())
-    #print("max lanes", uber_data["num_lanes"].max())
-
-    #print("min highway", uber_data["highway"].min())
-    #print("max highway", uber_data["highway"].max())
-
-    print("end number of rows", len(uber_data))
-
-    print(list(uber_data.columns))
-    #sns.pairplot(uber_data[["max_speed_mph", "num_lanes", "highway"]], diag_kind="kde")
-    
-    #print(uber_data.head())
-    print(uber_data.dtypes)        
-    
-    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=0)
-
-    #scaler = MinMaxScaler(feature_range=(0, 1))
-
-    #columns with groupby
-    #0 ID
-    #1 ID
-    #2 'hour'
-    #3 day of the week (monday...)
-    #4 'speed' (TARGET)
-    #5,6,7,8 lat/lon of nodes representing the road
-    #9 - max_speed_mph
-    #10 - number of lanes
-    #11 - highway
-    #12 -  period of the day
-    
-    #divide in attributes and labels
-    X = uber_data.iloc[:, [2,3,5,6,7,8,9,10,11,12]].values
-    y = uber_data.iloc[:, 4].values 
-    scaler = StandardScaler()
-
-    #columns without groupby
-    #0 - year
-    #1 - month
-    #2 - day
-    #3 - hour
-    #4 - utc_timestamp
-    #5,6,7,8,9,10 - IDs
-    #11 - speed (TARGET)
-    #12 - speed std deviation
-    #13, 14, 15, 16 - lat/lon of nodes representing the road
-    #17 - max_speed_mph
-    #18 - number of lanes
-    #19 - highway
-    #20 - day of the week (monday...)
-    #21 - period of the day
-    
-    #divide in attributes and labels
-    #X = uber_data.iloc[:, [3,13,14,15,16,17,18,19,20,21]].values
-    #y = uber_data.iloc[:, 11].values 
-    #scaler = StandardScaler()
-    
-    '''
-    #knn kfold
-    print("knn start")
-    k_scores = []
-    best_score = 999999
-    best_k = -1
-    for k in range(40):
-        k = k+1
-        knn_reg = KNeighborsRegressor(n_neighbors=k)
-        regressor = make_pipeline(scaler, knn_reg)
-        scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-        k_scores.append(scores_mean)
-        if scores_mean < best_score:
-            best_k = k
-            best_score = scores_mean
-    print(k_scores)
-    print("best k, best msqerror:", best_k, best_score)
-    ''' 
-
-    '''
-    X = uber_data.iloc[:, [3,13,14,15,16,17,18,19,20,21]].values
-    y = uber_data.iloc[:, 11].values 
-    scaler = StandardScaler()
-    #linear regression
-    lin_reg = LinearRegression()
-    regressor = make_pipeline(scaler, lin_reg)
-    scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-    print('linear regression msqerror:', scores_mean)
-    '''
-
-    '''   
-    #SVR
-    #gamma - scale/auto/0.1
-    print('SVR start')
-    #srv_rbf = SVR(kernel='rbf', gamma='scale', C=1.57, epsilon=0.03)
-    srv_rbf = SVR(kernel='rbf', gamma='auto')
-    #srv_linear = SVR(kernel='linear')
-    regressor = make_pipeline(scaler, srv_rbf)
-    scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-    print('SVR msqerror:', scores_mean)
-    
-
-    
-    X = uber_data.iloc[:, [3,13,14,15,16,17,18,19,20,21]].values
-    y = uber_data.iloc[:, 11].values 
-    scaler = StandardScaler()
-    '''
-
-    #neural network
-    print('nn start')
-    estimators = []
-    estimators.append(('standardize', scaler))
-    #validation_split=0.2 -> testar com validation split?
-    early_stop = EarlyStopping(monitor='val_loss', patience=10)
-    #estimators.append(('mlp', KerasRegressor(build_fn=create_nn_model, epochs=100, batch_size=5, verbose=0, callbacks=[early_stop, tfdocs.modeling.EpochDots()])))
-    estimators.append(('mlp', KerasRegressor(build_fn=create_nn_model, epochs=100, batch_size=5, verbose=0)))
-    regressor = Pipeline(estimators)
-    scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-    print('neural network msqerror:', scores_mean)
-    
-
-    '''
-    model = create_nn_model()
-    print(model.summary())
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=0)
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-    #model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=5, epochs=100)
-    #validation_split=0.2
-    history = model.fit(X_train, y_train, validation_split=0.2, batch_size=5, epochs=100)
-    y_pred = model.predict(X_test)
-    #rmserror = sqrt(mean_squared_error(y_test,y_pred)) #calculate rmse
-    msqerror = mean_squared_error(y_test,y_pred) #calculate msqerror
-    print('neural network msqerror:', msqerror)
-    '''
-
-    '''
-    #hyperparameter optimization technique usind Grid Search
-    #The best_score_ member provides access to the best score observed during the optimization procedure 
-    #the best_params_ describes the combination of parameters that achieved the best results
-    print('grid search SVM')
-    svmr = SVR()
-    pipe = Pipeline([('scale', scaler),('svm', svmr)])
-    #define the grid search parameters
-    param_grid = [{'svm__kernel': ['rbf', 'poly', 'sigmoid'],'svm__C': [0.1, 1, 10, 100],'svm__gamma': [1,0.1,0.01,0.001],},]
-    #param_grid = {'C': [0.1,1, 10, 100], 'gamma': [1,0.1,0.01,0.001],'kernel': ['rbf', 'poly', 'sigmoid']}
-    #param_grid = {'C': [1], 'gamma': [0.1],'kernel': ['rbf']}
-    gd_svr = GridSearchCV(estimator=pipe,param_grid=param_grid,scoring="neg_mean_squared_error",cv=10,n_jobs=-1,return_train_score=False,refit=True)
-    #pipe_svm = make_pipeline(scaler, gd_sr)
-    grid_svr_result = gd_svr.fit(X,y)
-    print(grid_svr_result.cv_results_)
-    print(grid_svr_result.best_estimator_)
-    '''
-
-    '''
-    #define the grid search parameters
-    #Tune Batch Size and Number of Epochs
-    batch_size = [5, 10, 20, 40]
-    epochs = [10, 50, 100, 200, 400]
-    #Tune the Training Optimization Algorithm => optimization algorithm used to train the network, each with default parameters.
-    #often you will choose one approach a priori and instead focus on tuning its parameters on your problem
-    #optimizer = ['SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
-    #Tune Learning Rate and Momentum <- relacionado ao algoritmo selecionado anteriormente
-    #Tune Network Weight Initialization
-    init_mode = ['uniform', 'lecun_uniform', 'normal', 'zero', 'glorot_normal', 'glorot_uniform', 'he_normal', 'he_uniform']
-    #Tune the Neuron Activation Function
-    activation = ['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
-    #Tune Dropout Regularization
-    weight_constraint = [1, 2, 3, 4, 5]
-    dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    #Tune the Number of Neurons in the Hidden Layer
-    neurons = [1, 5, 10, 15, 20, 25, 30]
-    param_grid = dict(batch_size=batch_size, epochs=epochs)
-    grid_nn = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1, cv=10)
-    grid_nn_result = grid_nn.fit(X, Y)
-    print(grid_svr_result.cv_results_)
-    print(grid_svr_result.best_estimator_)
-    '''
-    
-
-    '''
-    plt.plot(y_test, color = 'red', label = 'Real data')
-    plt.plot(y_pred, color = 'blue', label = 'Predicted data')
-    plt.title('Prediction')
-    plt.legend()
-    plt.show()
-    '''
-
-    '''
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'validation'], loc='upper left')
-    plt.show()
-    ''' 
-
-    '''
-    plt.scatter(y_test, y_pred)
-
-    plt.xlabel('True Values')
-
-    plt.ylabel('Predictions')
-    '''
-
-    '''
-    #logistic regression
-    log_reg = LogisticRegression()
-    regressor = make_pipeline(scaler, log_reg)
-    scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-    print('logistic regression msqerror:', scores_mean)
-    '''
-
-    #other error calculating. but i think those are not good for knn
-    #print(np.mean(y_pred != y_test))
-    #print(confusion_matrix(y_test, y_pred))
-    #print(classification_report(y_test, y_pred))
-    
-    #add new columns ->doutros atributos da aresta q tenha do osmnx => for this we need to deal with some roads that don't have the info on max speed, etc
-    #do the prediction on the missing roads
-
-def get_uber_speed_data_prediction(G_drive, speed_data):
-
-    api = osm.OsmApi()
-    #load speed data from csv files
-    path = speed_data
-    all_files = glob.glob(os.path.join(path, "*.csv"))
-    df_from_each_file = (pd.read_csv(f) for f in all_files)
-    uber_data = pd.concat(df_from_each_file, ignore_index=True)
-
-
-    #uber_data = pd.read_csv("../uber_movement/movement-speeds-hourly-cincinnati-2019-10.csv")
-    unique_nodes = pd.unique(uber_data[['osm_start_node_id', 'osm_end_node_id']].values.ravel('K'))
-    
-    #print(concatenated_df.head())
-    #print(uber_data.head())
-    
-    print("start number of rows", len(uber_data))
-
-    nodes_in_graph = [] #nodes that are mapped by the uber movement speed database
-    for node in unique_nodes:
-        if node in G_drive.nodes():
-            if node not in nodes_in_graph:
-                nodes_in_graph.append(node)
-
-    uber_data = uber_data[uber_data['osm_start_node_id'].isin(nodes_in_graph) & uber_data['osm_end_node_id'].isin(nodes_in_graph)]
-    
-    print("mid number of rows", len(uber_data))
-
-    #add lat/lon info and max speed
-    #in this part info from openstreetmaps is added
-    uber_data["start_node_y"] = np.nan
-    uber_data["start_node_x"] = np.nan
-    uber_data["end_node_y"] = np.nan
-    uber_data["end_node_x"] = np.nan
-    uber_data["max_speed_mph"] = np.nan
-    uber_data["num_lanes"] = np.nan
-    uber_data["highway"] = np.nan
-
-    #unique_highway_str = pd.unique(uber_data[['highway']].values.ravel('K'))
-    #print(unique_highway_str)
-
-    for (u,v,k) in G_drive.edges(data=True):
-        try:
-            uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_y'] = G_drive.nodes[u]['y']
-            uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_x'] = G_drive.nodes[u]['x']
-
-            uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_y'] = G_drive.nodes[v]['y']
-            uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_x'] = G_drive.nodes[v]['x']
-
-            if (uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_y'] == 0.0).all():
-                nodeu = api.NodeGet(u)
-                uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_y'] = nodeu['lat']
-                uber_data.loc[uber_data['osm_start_node_id'] == u, 'start_node_x'] = nodeu['lon']
-
-            if (uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_y'] == 0.0).all():
-                nodev = api.NodeGet(v)
-                uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_y'] = nodev['lat']
-                uber_data.loc[uber_data['osm_end_node_id'] == v, 'end_node_x'] = nodev['lon']
-
-        except KeyError:
-            pass
-
-        #add atribute max speed 
-        dict_edge = {}
-        dict_edge = G_drive.get_edge_data(u, v)
-        dict_edge = dict_edge[0]
-        
-        max_speed = get_max_speed_road(dict_edge)
-        num_lanes = get_num_lanes(dict_edge)
-        #highway
-        highway_type = get_highway_info(dict_edge)
-        uber_data.loc[(uber_data['osm_start_node_id'] == u) & (uber_data['osm_end_node_id'] == v), 'max_speed_mph'] = max_speed
-
-        uber_data.loc[(uber_data['osm_start_node_id'] == u) & (uber_data['osm_end_node_id'] == v), 'num_lanes'] = num_lanes
-
-        uber_data.loc[(uber_data['osm_start_node_id'] == u) & (uber_data['osm_end_node_id'] == v), 'highway'] = highway_type
-
-    
-    
-    #add day of the week (monday, tuesday, wednesday, thursday, friday, saturday, sunday etc) info
-    #add new column? job day? weekend? holiday?
-    #these columns are created based on info that might help, such as peak hours etc
-    unique_days = pd.unique(uber_data[['day']].values.ravel('K'))
-    unique_months = pd.unique(uber_data[['month']].values.ravel('K'))
-    unique_years = pd.unique(uber_data[['year']].values.ravel('K'))
-
-    #add day info
-    uber_data["week_day"] = np.nan
-    for year in unique_years:
-        for month in unique_months:
-            for day in unique_days:
-                try:
-                    ans = datetime.date(year, month, day).weekday()
-                    uber_data.loc[(uber_data['day'] == day) & (uber_data['month'] == month) & (uber_data['year'] == year), 'week_day'] = ans
-                except ValueError:
-                    pass
-
-    #print("min hour", uber_data["hour"].min())
-    #print("max hour", uber_data["hour"].max())
-    
-    uber_data["period_day"] = np.nan
-    uber_data.loc[(uber_data['hour'] >= 0) & (uber_data['hour'] <= 6), 'period_day'] = 1 #before peak hours - morning
-    uber_data.loc[(uber_data['hour'] >= 7) & (uber_data['hour'] <= 9), 'period_day'] = 2 #peak hours - morning
-    uber_data.loc[(uber_data['hour'] >= 10) & (uber_data['hour'] <= 16), 'period_day'] = 3 #before peak hours - afternoon
-    uber_data.loc[(uber_data['hour'] >= 17) & (uber_data['hour'] <= 20), 'period_day'] = 4 #peak hours - afternoon 
-    uber_data.loc[(uber_data['hour'] >= 21) & (uber_data['hour'] <= 23), 'period_day'] = 5 # night period
-    
-    #upstream and downstream roads??
-    #uber_data["adjacent_roads_speed"] = np.nan
-
-
-    print(uber_data.isna().sum())
-    #clean NA values
-    print("clean NA values")
-    uber_data = uber_data.dropna()
-
-    uber_data["num_lanes"] = pd.to_numeric(uber_data["num_lanes"])
-
-    #print("min lanes", uber_data["num_lanes"].min())
-    #print("max lanes", uber_data["num_lanes"].max())
-
-    #print("min highway", uber_data["highway"].min())
-    #print("max highway", uber_data["highway"].max())
-
-    print("end number of rows", len(uber_data))
-
-    
-
-    print(list(uber_data.columns))
-    #sns.pairplot(uber_data[["max_speed_mph", "num_lanes", "highway"]], diag_kind="kde")
-    
-    print(uber_data.head())
-    print(uber_data.dtypes)        
-    
-    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=0)
-
-    #scaler = MinMaxScaler(feature_range=(0, 1))
-
-    #columns without groupby
-    #0 - year
-    #1 - month
-    #2 - day
-    #3 - hour
-    #4 - utc_timestamp
-    #5,6,7,8,9,10 - IDs
-    #11 - speed (TARGET)
-    #12 - speed std deviation
-    #13, 14, 15, 16 - lat/lon of nodes representing the road
-    #17 - max_speed_mph
-    #18 - number of lanes
-    #19 - highway
-    #20 - day of the week (monday...)
-    #21 - period of the day
-    
-    #divide in attributes and labels
-    X = uber_data.iloc[:, [3,13,14,15,16,17,18,19,20,21]].values
-    y = uber_data.iloc[:, 11].values 
-    scaler = StandardScaler()
-    
-    '''
-    #knn kfold
-    k_scores = []
-    best_score = 999999
-    best_k = -1
-    for k in range(40):
-        k = k+1
-        knn_reg = KNeighborsRegressor(n_neighbors=k)
-        regressor = make_pipeline(scaler, knn_reg)
-        scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-        k_scores.append(scores_mean)
-        if scores_mean < best_score:
-            best_k = k
-            best_score = scores_mean
-    print(k_scores)
-    print("best k, best msqerror:", best_k, best_score)
-    '''
-
-    '''
-    X = uber_data.iloc[:, [3,13,14,15,16,17,18,19,20,21]].values
-    y = uber_data.iloc[:, 11].values 
-    scaler = StandardScaler()
-    #linear regression
-    lin_reg = LinearRegression()
-    regressor = make_pipeline(scaler, lin_reg)
-    scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-    print('linear regression msqerror:', scores_mean)
-    '''
-
-    '''
-    X = uber_data.iloc[:, [3,13,14,15,16,17,18,19,20,21]].values
-    y = uber_data.iloc[:, 11].values 
-    scaler = StandardScaler()
-    #SVR
-    #gamma - scale/auto/0.1
-    #srv_rbf = SVR(kernel='rbf', gamma='scale', C=1.57, epsilon=0.03)
-    srv_rbf = SVR(kernel='rbf', gamma='auto')
-    #srv_linear = SVR(kernel='linear')
-    regressor = make_pipeline(scaler, srv_rbf)
-    scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-    print('SVR msqerror:', scores_mean)
-    '''
-    
-    '''
-    #X = uber_data.iloc[:, [3,13,14,15,16,17,18,19,20,21]].values
-    #y = uber_data.iloc[:, 11].values 
-    #scaler = StandardScaler()
-    #neural network
-    estimators = []
-    estimators.append(('standardize', scaler))
-    #validation_split=0.2 -> testar com validation split?
-    early_stop = EarlyStopping(monitor='val_loss', patience=10)
-    #estimators.append(('mlp', KerasRegressor(build_fn=create_nn_model, epochs=100, batch_size=5, verbose=0, callbacks=[early_stop, tfdocs.modeling.EpochDots()])))
-    estimators.append(('mlp', KerasRegressor(build_fn=create_nn_model, epochs=100, batch_size=10, verbose=0)))
-    regressor = Pipeline(estimators)
-    scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-    print('neural network msqerror:', scores_mean)
-    '''
-
-    '''
-    model = create_nn_model()
-    print(model.summary())
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=0)
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-    #model.fit(X_train, y_train, validation_data=(X_test, y_test), batch_size=5, epochs=100)
-    #validation_split=0.2
-    history = model.fit(X_train, y_train, validation_split=0.2, batch_size=5, epochs=100)
-    y_pred = model.predict(X_test)
-    #rmserror = sqrt(mean_squared_error(y_test,y_pred)) #calculate rmse
-    msqerror = mean_squared_error(y_test,y_pred) #calculate msqerror
-    print('neural network msqerror:', msqerror)
-    '''
-
-    '''
-    #hyperparameter optimization technique usind Grid Search
-    #The best_score_ member provides access to the best score observed during the optimization procedure 
-    #the best_params_ describes the combination of parameters that achieved the best results
-    print('grid search SVM')
-    svmr = SVR()
-    pipe = Pipeline([('scale', scaler),('svm', svmr)])
-    #define the grid search parameters
-    param_grid = [{'svm__kernel': ['rbf', 'poly', 'sigmoid'],'svm__C': [0.1, 1, 10, 100],'svm__gamma': [1,0.1,0.01,0.001],},]
-    #param_grid = {'C': [0.1,1, 10, 100], 'gamma': [1,0.1,0.01,0.001],'kernel': ['rbf', 'poly', 'sigmoid']}
-    #param_grid = {'C': [1], 'gamma': [0.1],'kernel': ['rbf']}
-    gd_svr = GridSearchCV(estimator=pipe,param_grid=param_grid,scoring="neg_mean_squared_error",cv=3,n_jobs=-1,return_train_score=False,refit=True)
-    #pipe_svm = make_pipeline(scaler, gd_sr)
-    grid_svr_result = gd_svr.fit(X,y)
-    print(grid_svr_result.cv_results_)
-    print(grid_svr_result.best_estimator_)
-    '''
-
-    
-    print('NEURAL NETWORK GRID SEARCH - BATCH SIZE AND EPOCHS')
-    #define the grid search parameters
-    #Tune Batch Size and Number of Epochs
-    
-    #batch_size = [5, 8, 10, 16, 20]
-    #epochs = [100, 200, 400, 800, 1600]
-    batch_size = [16]
-    epochs = [800]
-
-    #Tune the Training Optimization Algorithm => optimization algorithm used to train the network, each with default parameters.
-    #often you will choose one approach a priori and instead focus on tuning its parameters on your problem
-    #optimizer = ['SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
-    #Tune Learning Rate and Momentum <- relacionado ao algoritmo selecionado anteriormente
-    #Tune Network Weight Initialization
-    
-    #init_mode = ['uniform', 'lecun_uniform', 'normal', 'zero', 'glorot_normal', 'glorot_uniform', 'he_normal', 'he_uniform']
-    init_mode = ['he_uniform']
-
-    #Tune the Neuron Activation Function
-    activation = ['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
-    #Tune Dropout Regularization
-    weight_constraint = [1, 2, 3, 4, 5]
-    dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    #Tune the Number of Neurons in the Hidden Layer
-    neurons = [1, 5, 10, 15, 20, 25, 30]
-    
-    param_grid = dict(batch_size=batch_size, epochs=epochs, init_mode=init_mode, activation=activation, weight_constraint=weight_constraint, dropout_rate=dropout_rate)
-    nn_model = KerasRegressor(build_fn=create_nn_model, verbose=0)
-    grid_nn = GridSearchCV(estimator=nn_model, param_grid=param_grid, n_jobs=-1, cv=3)
-    X = scaler.fit_transform(X)
-    grid_nn_result = grid_nn.fit(X, y)
-    print(grid_nn_result.cv_results_)
-    #print(grid_nn_result.best_estimator_)
-    print("Best: %f using %s" % (grid_nn_result.best_score_, grid_nn_result.best_params_))
-    
-    '''
-    plt.plot(y_test, color = 'red', label = 'Real data')
-    plt.plot(y_pred, color = 'blue', label = 'Predicted data')
-    plt.title('Prediction')
-    plt.legend()
-    plt.show()
-    '''
-
-    '''
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'validation'], loc='upper left')
-    plt.show()
-    ''' 
-
-    '''
-    plt.scatter(y_test, y_pred)
-
-    plt.xlabel('True Values')
-
-    plt.ylabel('Predictions')
-    '''
-
-    '''
-    #logistic regression
-    log_reg = LogisticRegression()
-    regressor = make_pipeline(scaler, log_reg)
-    scores_mean = -1*cross_val_score(regressor, X, y, cv=10, scoring="neg_mean_squared_error").mean()
-    print('logistic regression msqerror:', scores_mean)
-    '''
-
-    #other error calculating. but i think those are not good for knn
-    #print(np.mean(y_pred != y_test))
-    #print(confusion_matrix(y_test, y_pred))
-    #print(classification_report(y_test, y_pred))
-    
-    #add new columns ->doutros atributos da aresta q tenha do osmnx => for this we need to deal with some roads that don't have the info on max speed, etc
-    #do the prediction on the missing roads
-
-def get_uber_speed_data_mean(G_drive, speed_data, day_of_the_week):
-    
-    #function returns the avg speed for each road
-
-    #load speed data from csv files
-    path = speed_data
-    all_files = glob.glob(os.path.join(path, "*.csv"))
-    df_from_each_file = (pd.read_csv(f) for f in all_files)
-    uber_data = pd.concat(df_from_each_file, ignore_index=True)
-    
-    count_nodes = 0
-    unique_nodes = pd.unique(uber_data[['osm_start_node_id', 'osm_end_node_id']].values.ravel('K'))
-    
-    nodes_in_graph = []
-    for node in unique_nodes:
-        if node in G_drive.nodes():
-            if node not in nodes_in_graph:
-                nodes_in_graph.append(node)
-
-    uber_data = uber_data[uber_data['osm_start_node_id'].isin(nodes_in_graph) & uber_data['osm_end_node_id'].isin(nodes_in_graph)]
-    unique_nodes = pd.unique(uber_data[['osm_start_node_id', 'osm_end_node_id']].values.ravel('K'))
-    
-    #uber_data_nd = uber_data[['osm_start_node_id','osm_end_node_id']].drop_duplicates()
-    #unique_nodes_nd = pd.unique(uber_data_nd[['osm_start_node_id', 'osm_end_node_id']].values.ravel('K'))
-
-    unique_days = pd.unique(uber_data[['day']].values.ravel('K'))
-    unique_months = pd.unique(uber_data[['month']].values.ravel('K'))
-    unique_years = pd.unique(uber_data[['year']].values.ravel('K'))
-
-    #add day info
-    uber_data["week_day"] = np.nan
-    for year in unique_years:
-        for month in unique_months:
-            for day in unique_days:
-                try:
-                    ans = datetime.date(year, month, day).weekday()
-                    uber_data.loc[(uber_data['day'] == day) & (uber_data['month'] == month) & (uber_data['year'] == year), 'week_day'] = ans
-                except ValueError:
-                    pass
-
-    uber_data = uber_data.loc[uber_data["week_day"] == day_of_the_week]
-    #this value is used to add to roads in which speed information is unkown
-    speed_mean_overall = uber_data['speed_mph_mean'].mean()
-
-    speed_avg_data = uber_data.groupby(['osm_start_node_id','osm_end_node_id', 'hour'], as_index=False)['speed_mph_mean'].mean()
-
-    
-
-    #speed_mean_overall = speed_avg_data['speed_mph_mean'].mean()
-
-    return speed_avg_data, speed_mean_overall
-
-    
-    #speed_avg_data.columns = ['osm_start_node_id','osm_end_node_id', 'hour', 'avg_speed']
-    #print(speed_avg_data.head())
-
-    #plot network to show nodes that are in the uber speed data
-    #nc = ['r' if (node in unique_nodes) else '#336699' for node in G_drive.nodes()]
-    #ns = [12 if (node in unique_nodes) else 6 for node in G_drive.nodes()]
-    #fig, ax = ox.plot_graph(G_drive, node_size=ns, node_color=nc, node_zorder=2, save=True, filename='cincinnati_with_nodes_speed')
-    
-    '''
-    for (u,v,k) in G_drive.edges(data=True):
-        #print (u,v,k)
-        try:
-            G_drive[u][v][0]['uberspeed'] = 0
-            G_drive[u][v][0]['num_occur'] = 0
-        except KeyError:
-            pass
-
-    
-    for index, row in uber_data.iterrows():
-        try:
-            u = row['osm_start_node_id']
-            v = row['osm_end_node_id']
-            G_drive[u][v][0]['uberspeed'] = G_drive[u][v][0]['uberspeed'] + row['speed_mph_mean']
-            G_drive[u][v][0]['num_occur'] = G_drive[u][v][0]['num_occur'] + 1
-        except KeyError:
-            pass
-    
-    for (u,v,k) in G_drive.edges(data=True):
-        if G_drive[u][v][0]['num_occur'] > 0:
-            G_drive[u][v][0]['uberspeed'] = (G_drive[u][v][0]['uberspeed']/G_drive[u][v][0]['num_occur'])
-            #G_drive[u][v][0]['num_occur'] = 0
-    '''
-
 def plot_bus_stops(param, network):
 
     stops_folder = os.path.join(param.save_dir_images, 'bus_stops')
@@ -2155,7 +1104,47 @@ def network_stats(param, network):
     print("average dist 2 stops (driving network):", network.travel_time_matrix["dist"].mean())
     print("average travel time between 2 stops:", network.travel_time_matrix["eta"].mean())
 
-def create_network(place_name, walk_speed, param):
+def create_network(
+    place_name, 
+    walk_speed, 
+    max_walking,
+    min_early_departure,
+    max_early_departure,
+    day_of_the_week,
+    num_replicates,
+    bus_factor,
+    get_fixed_lines, 
+    vehicle_speed_data, 
+    vehicle_speed, 
+    max_speed_factor, 
+    save_dir, 
+    output_file_base, 
+    num_of_cpu
+):
+
+    #directory of instance's saved information
+    save_dir = os.getcwd()+'/'+output_file_base
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+
+    #create network
+    print(place_name)
+
+    #creating object that has the instance input information
+    param = Parameter(max_walking, min_early_departure, max_early_departure, [], day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_file_base, num_of_cpu)
+    param.average_waiting_time = average_waiting_time
+
+    param.save_dir_json = os.path.join(param.save_dir, 'json_format')
+    if not os.path.isdir(param.save_dir_json):
+        os.mkdir(param.save_dir_json)
+
+    param.save_dir_images = os.path.join(param.save_dir, 'images')
+    if not os.path.isdir(param.save_dir_images):
+        os.mkdir(param.save_dir_images)
+
+    pickle_dir = os.path.join(param.save_dir, 'pickle')
+    if not os.path.isdir(pickle_dir):
+        os.mkdir(pickle_dir)
 
     '''
     ‘drive’ – get drivable public streets (but not service roads)
@@ -2282,7 +1271,7 @@ def create_network(place_name, walk_speed, param):
             #this could be changed for a server or something else
             folder_path_deconet = param.output_file_base+'/'+'deconet'
             if not os.path.isdir(folder_path_deconet):
-                print('ERROR: deconet files do not exist')
+                print('ERROR: deconet data files do not exist')
             else:
                 get_fixed_lines_deconet(param, network, folder_path_deconet)
 
@@ -2292,8 +1281,81 @@ def create_network(place_name, walk_speed, param):
 
     network.list_bus_stops = list_bus_stops
 
-    return network
+    print('over network')
+    print("total time", time.process_time() - start)
+
+    network_class_file = pickle_dir+'/'+param.output_file_base+'.network.class.pkl'
+    parameter_class_file = pickle_dir+'/'+param.output_file_base+'.parameter.class.pkl'
     
+    output_network_class = open(network_class_file, 'wb')
+    output_parameter_class = open(parameter_class_file, 'wb')
+    pickle.dump(network, output_network_class, pickle.HIGHEST_PROTOCOL)
+    pickle.dump(param, output_parameter_class, pickle.HIGHEST_PROTOCOL)
+    
+    output_network_class.close()
+    output_parameter_class.close()
+    caching.clear_cache()
+
+    return network
+
+def instance_requests(
+    output_file_base,
+    request_demand,
+    num_replicates,
+    min_early_departure,
+    max_early_departure
+):
+    start = time.process_time()
+    save_dir = os.getcwd()+'/'+output_file_base
+    pickle_dir = os.path.join(save_dir, 'pickle')
+    
+    param_class_file = pickle_dir+'/'+output_file_base+'.parameter.class.pkl'
+    network_class_file = pickle_dir+'/'+output_file_base+'.network.class.pkl'
+    
+    #generate the instance's requests
+    with open(param_class_file, 'rb') as input_inst_class:
+        
+        #load class from binary file
+        param = pickle.load(input_inst_class)
+        
+        param.request_demand = request_demand
+        param.num_replicates = num_replicates
+        param.min_early_departure = min_early_departure
+        param.max_early_departure = max_early_departure
+
+    with open(network_class_file, 'rb') as network_class_file:
+
+        network = pickle.load(network_class_file)
+
+    for replicate in range(param.num_replicates):
+        generate_requests(param, network, replicate)
+
+    del param
+    print("total time", time.process_time() - start)
+    caching.clear_cache()
+        
+
+    #generate instances in json output folder
+    #generate_instances_json(param)
+
+    # convert instances from json to normal and localsolver format
+    save_dir_cpp = os.path.join(save_dir, 'cpp_format')
+    if not os.path.isdir(save_dir_cpp):
+        os.mkdir(save_dir_cpp)
+
+    save_dir_localsolver = os.path.join(save_dir, 'localsolver_format')
+    if not os.path.isdir(save_dir_localsolver):
+        os.mkdir(save_dir_localsolver)
+
+    for instance in os.listdir(os.path.join(save_dir, 'json_format')):
+        input_name = os.path.join(save_dir, 'json_format', instance)
+        output_name_cpp = instance.split('.')[0] + '_cpp.pass'
+        output_name_ls = instance.split('.')[0] + '_ls.pass'
+
+        converter = JsonConverter(file_name=input_name)
+        converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp))
+        converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
+
 if __name__ == '__main__':
 
     caching.clear_cache()
@@ -2313,7 +1375,8 @@ if __name__ == '__main__':
     vehicle_speed_data = "max"
     vehicle_speed = -1
     
-    walk_speed = 5/3.6 #m/s
+    min_walk_speed = 4/3.6 #m/s
+    max_walk_speed = 5/3.6 #m/s
 
     max_walking = 10*30 #seconds
 
@@ -2332,6 +1395,8 @@ if __name__ == '__main__':
     average_waiting_time = 120
 
     num_of_cpu = cpu_count()
+
+
 
     #INSTANCE PARAMETER INPUT INFORMATION
     for i in range(len(sys.argv)):
@@ -2649,111 +1714,16 @@ if __name__ == '__main__':
     seed(set_seed)
     np.random.seed(set_seed)
             
-    #print(stats['circuity_avg'])
-
-    #files are saved on the current directory
-    #save_dir = os.getcwd()
-    #print(save_dir)
-
-    start = time.process_time()
+    
     if is_network_generation:
 
-        
-        save_dir = os.getcwd()+'/'+output_file_base
-        print(save_dir)
-        if not os.path.isdir(save_dir):
-            os.mkdir(save_dir)
-
-        #input_dir = os.getcwd()+'/'+output_file_base
-
-        #create network
-        print(place_name)
-
-        #creating object that has the instance input information
-        param = Parameter(max_walking, min_early_departure, max_early_departure, [], day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_file_base, num_of_cpu)
-        param.average_waiting_time = average_waiting_time
-
-        param.save_dir_json = os.path.join(param.save_dir, 'json_format')
-        if not os.path.isdir(param.save_dir_json):
-            os.mkdir(param.save_dir_json)
-
-        param.save_dir_images = os.path.join(param.save_dir, 'images')
-        if not os.path.isdir(param.save_dir_images):
-            os.mkdir(param.save_dir_images)
-
-        pickle_dir = os.path.join(param.save_dir, 'pickle')
-        if not os.path.isdir(pickle_dir):
-            os.mkdir(pickle_dir)
-
         #create the instance's network
-        network = create_network(place_name, walk_speed, param)
-        print('over network')
-        print("total time", time.process_time() - start)
-
-        network_class_file = pickle_dir+'/'+param.output_file_base+'.network.class.pkl'
-        parameter_class_file = pickle_dir+'/'+param.output_file_base+'.parameter.class.pkl'
-        output_network_class = open(network_class_file, 'wb')
-        output_parameter_class = open(parameter_class_file, 'wb')
-        pickle.dump(network, output_network_class, pickle.HIGHEST_PROTOCOL)
-        pickle.dump(param, output_parameter_class, pickle.HIGHEST_PROTOCOL)
-        del param
-        del network
-        output_network_class.close()
-        output_parameter_class.close()
-        caching.clear_cache()
-
+        network = create_network(save_dir, place_name, walk_speed, max_walking, min_early_departure, max_early_departure, day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_file_base, num_of_cpu)
+        
     if is_request_generation:
 
-        save_dir = os.getcwd()+'/'+output_file_base
-        print(save_dir)
+        instance_requests(output_file_base, request_demand, num_replicates, min_early_departure, max_early_departure)
         
-        pickle_dir = os.path.join(save_dir, 'pickle')
-        
-        param_class_file = pickle_dir+'/'+output_file_base+'.parameter.class.pkl'
-        network_class_file = pickle_dir+'/'+output_file_base+'.network.class.pkl'
-        
-        #generate the instance's requests
-        with open(param_class_file, 'rb') as input_inst_class:
-            #load class from binary file
-            param = pickle.load(input_inst_class)
-            
-            param.request_demand = request_demand
-            param.num_replicates = num_replicates
-            param.min_early_departure = min_early_departure
-            param.max_early_departure = max_early_departure
-
-        with open(network_class_file, 'rb') as network_class_file:
-
-            network = pickle.load(network_class_file)
-
-        for replicate in range(param.num_replicates):
-            generate_requests(param, network, replicate)
-
         #print('placement of stops - testing')
         #cluster_travel_demand(param, network)
 
-        del param
-        print("total time", time.process_time() - start)
-        caching.clear_cache()
-            
-    
-        #generate instances in json output folder
-        #generate_instances_json(param)
-
-        # convert instances from json to normal and localsolver format
-        save_dir_cpp = os.path.join(save_dir, 'cpp_format')
-        if not os.path.isdir(save_dir_cpp):
-            os.mkdir(save_dir_cpp)
-
-        save_dir_localsolver = os.path.join(save_dir, 'localsolver_format')
-        if not os.path.isdir(save_dir_localsolver):
-            os.mkdir(save_dir_localsolver)
-
-        for instance in os.listdir(os.path.join(save_dir, 'json_format')):
-            input_name = os.path.join(save_dir, 'json_format', instance)
-            output_name_cpp = instance.split('.')[0] + '_cpp.pass'
-            output_name_ls = instance.split('.')[0] + '_ls.pass'
-
-            converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp))
-            converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))

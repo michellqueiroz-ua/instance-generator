@@ -1,4 +1,6 @@
 import math
+import osmapi as osm
+import osmnx as ox
 import networkx as nx
 import numpy as np
 from shapely.geometry import Point
@@ -112,24 +114,24 @@ class Network:
         self.all_requests = {}
 
     def get_eta_walk(self, origin_node, destination_node):
-
-        #try:
-        #    sdestination_node = str(destination_node)
-        #    distance_walk = self.shortest_path_walk.loc[origin_node, sdestination_node]
-        #except KeyError:
-
+        
+        
         #returns estimated time walking in seconds from origin_node to destination_node
         try:
-            distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
-        except nx.NetworkXNoPath:
-            distance_walk = np.nan
+            sdestination_node = str(destination_node)
+            distance_walk = self.shortest_path_walk.loc[origin_node, sdestination_node]
+        except KeyError:
 
+            try:
+                distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
+            except nx.NetworkXNoPath:
+                distance_walk = np.nan
+ 
         speed = self.walk_speed
         if math.isnan(distance_walk):
             eta_walk = -1
         else:
             eta_walk = int(math.ceil(distance_walk/speed))
-
 
         ''' 
         try:
@@ -149,7 +151,6 @@ class Network:
         except (nx.NetworkXNoPath, KeyError):
             eta_walk = -1
         '''
-
         return eta_walk
 
     def return_estimated_arrival_bus_osmnx(self, stops_origin, stops_destination, hour):
