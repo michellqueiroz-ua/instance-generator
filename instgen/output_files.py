@@ -1,4 +1,5 @@
 import json
+import math
 
 class JsonConverter(object):
 
@@ -8,7 +9,7 @@ class JsonConverter(object):
             self.json_data = json.load(file)
             file.close()
 
-    def convert_normal(self, output_file_name):
+    def convert_normal(self, output_file_name, network):
 
         with open(output_file_name, 'w') as file:
 
@@ -106,38 +107,39 @@ class JsonConverter(object):
                 file.write('\n')
 
                 #writing the fixed lines
-                file.write(str(request.get('num_subway_routes')) + '\n')
-                for subway_line in request.get('subway_line_ids'):
-                    line_id = str(subway_line)
-                    option = request.get('option'+line_id)
-                    
-                    file.write(str(line_id) + '\n')
-                    file.write(str(option) + '\n')
-                    file.write(str(request.get('eta_in_vehicle'+line_id)) + '\n')
+                if request.get('subway_line_ids') is not None:
+                    file.write(str(request.get('num_subway_routes')) + '\n')
+                    for subway_line in request.get('subway_line_ids'):
+                        line_id = str(subway_line)
+                        option = request.get('option'+line_id)
+                        
+                        file.write(str(line_id) + '\n')
+                        file.write(str(option) + '\n')
+                        file.write(str(request.get('eta_in_vehicle'+line_id)) + '\n')
 
-                    if option == 1:
-                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+                        if option == 1:
+                            file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                            file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
 
-                    if option == 2:
-                        file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+                        if option == 2:
+                            file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
+                            file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
+                            file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                            file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
 
-                    if option == 3:
-                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
-                        file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+                        if option == 3:
+                            file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                            file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
+                            file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
+                            file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
 
-                    if option == 4:
-                        file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
-                        file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
-                        file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
-                        file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+                        if option == 4:
+                            file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
+                            file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
+                            file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                            file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
+                            file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
+                            file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
 
 
     def convert_localsolver(self, output_file_name):

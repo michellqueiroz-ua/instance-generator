@@ -1,3 +1,25 @@
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVR
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import Pipeline
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import Dropout
+from keras.constraints import maxnorm
+from keras.callbacks import EarlyStopping
+from keras.wrappers.scikit_learn import KerasRegressor
+import seaborn as sns
+import tensorflow_docs as tfdocs
+
 #this file has the functions of when I was working with the uber movement dataset
 
 #function for returning the neural network model

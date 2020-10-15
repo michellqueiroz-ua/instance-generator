@@ -1,57 +1,40 @@
-import sys
-import os
+import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import codecs, json
+import math
+import gc
+import geopandas as gpd
+import glob
+from math import sqrt
+from multiprocessing import Pool
+from multiprocessing import cpu_count
+import networkx as nx
+import os
+import osmapi as osm
+import osmnx as ox
+import pandas as pd
+import pickle
 from random import randint
 from random import seed
 from random import choices
-import math
-from scipy.stats import norm
-import osmnx as ox
-import networkx as nx
-import geopandas as gpd
-import pandas as pd
-#import modin.pandas as pd
-#import scipy.stats
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.linear_model import LinearRegression
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVR
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import GridSearchCV
-import osmapi as osm
-from math import sqrt
-import datetime
-from sklearn.model_selection import cross_val_score
-from sklearn.pipeline import make_pipeline
-from sklearn.pipeline import Pipeline
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Dropout
-from keras.constraints import maxnorm
-from keras.callbacks import EarlyStopping
-from keras.wrappers.scikit_learn import KerasRegressor
-import seaborn as sns
-import tensorflow_docs as tfdocs
-import glob
+import ray
 from shapely.geometry import Point
 from shapely.geometry import MultiPoint
 from shapely.geometry import LineString
 from shapely.geometry import MultiLineString
 from shapely.geometry import MultiPolygon
 from shapely.geometry import Polygon
-import pickle
-from multiprocessing import Pool
-from multiprocessing import cpu_count
-import time
-import gc
-import ray
 from streamlit import caching
+import sys
+import time
+
+
+
+
+#import modin.pandas as pd
+#import scipy.stats
+#from scipy.stats import norm
 
 try:
     import tkinter as tk
@@ -109,7 +92,7 @@ def get_fixed_lines_csv(param, G_walk, G_drive, polygon):
             'route':'tram',
         }
         
-        routes = ox.pois_from_polygon(polygon, tags=tags)
+        routes = ox.geometries_from_polygon(polygon, tags=tags)
 
         #print('number of routes', len(routes))
 
@@ -450,7 +433,7 @@ def get_zones_csv(param, G_walk, G_drive, polygon):
             'place':'neighbourhood',
         }
         
-        poi_zones = ox.pois_from_polygon(polygon, tags=tags)
+        poi_zones = ox.geometries_from_polygon(polygon, tags=tags)
         print('poi zones len', len(poi_zones))
 
         if len(poi_zones) > 0:
@@ -553,80 +536,57 @@ def get_distance_matrix_csv(param, G_walk, G_drive, bus_stops):
     shortest_path_walk = pd.DataFrame()
 
     #calculates the shortest paths between all nodes walk (takes long time)
+
     if os.path.isfile(path_dist_csv_file_walk):
         print('is file dist walk')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
     else:
 
-        
-
         print('calculating distance matrix walk network')
         count_divisions = 0
 
         list_nodes = list(G_walk.nodes)
-        bus_stops_ids = bus_stops['osmid_walk'].tolist()
+        test_bus_stops_ids = bus_stops['osmid_walk'].tolist()
+
+        #remove duplicates from list
+        bus_stops_ids = [] 
+        [bus_stops_ids.append(x) for x in test_bus_stops_ids if x not in bus_stops_ids] 
 
         
         G_walk_id = ray.put(G_walk)
 
-        '''
-        for u in bus_stops_ids:
-            shortest_path_length_walk = []
-            results = ray.get([shortest_path_nx.remote(G_walk_id, u, v) for v in list_nodes])
-
-        #print(results)
-
-        j=0
-        for u in bus_stops_ids:
-            d = {}
-            d['osmid_origin'] = u
-            for v in list_nodes:
-                #dist_uv = -1
-                #try:
-                dist_uv = int(results[j])
-                #except KeyError:
-                #    pass
-                if dist_uv != -1:
-                    sv = str(v)
-                    dist[sv] = dist_uv
-            shortest_path_length_walk.append(d)
-            j+=1
-
-        shortest_path_walk = shortest_path_walk.append(shortest_path_length_walk, ignore_index=True)
-        del shortest_path_length_walk
-        del results
-        gc.collect()
-        '''
-
         #calculate shortest path between nodes in the walking network to the bus stops
-        for u in list_nodes:
-            shortest_path_length_walk = []
-            results = ray.get([shortest_path_nx.remote(G_walk_id, u, v) for v in bus_stops_ids])
-
-        #print(results)
+        shortest_path_length_walk = []
+        results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u) for u in bus_stops_ids])
 
         j=0
-        for u in list_nodes:
+        for u in bus_stops_ids:
             d = {}
             d['osmid_origin'] = u
-            for v in bus_stops_ids:
-                #dist_uv = -1
-                #try:
-                dist_uv = int(results[j])
-                #except KeyError:
-                #    pass
+            for v in G_walk.nodes():
+                
+                dist_uv = -1
+                try:
+                    dist_uv = int(results[j][v])
+                except KeyError:
+                    pass
                 if dist_uv != -1:
                     sv = str(v)
-                    dist[sv] = dist_uv
+                    d[sv] = dist_uv
             shortest_path_length_walk.append(d)
-            j+=1
 
-        shortest_path_walk = shortest_path_walk.append(shortest_path_length_walk, ignore_index=True)
+            j+=1
+            del d
+
+        shortest_path_walk = pd.DataFrame(shortest_path_length_walk)
         del shortest_path_length_walk
         del results
         gc.collect()
-      
+
+        shortest_path_walk.to_csv(path_dist_csv_file_walk)
+        shortest_path_walk.set_index(['osmid_origin'], inplace=True)
+    
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
@@ -745,47 +705,23 @@ def get_bus_stops_matrix_csv(param, G_walk, G_drive, polygon_drive):
         bus_stops.set_index(['stop_id'], inplace=True)
 
     else:
-        start = time.process_time()
+        #start = time.process_time()
         print('creating file bus stops')
 
         #retrieve bus stops
         tags = {
             'highway':'bus_stop',
         }
-        poi_bus_stops = ox.pois_from_polygon(polygon_drive, tags=tags)
+        poi_bus_stops = ox.geometries_from_polygon(polygon_drive, tags=tags)
 
         G_walk_id = ray.put(G_walk)
         G_drive_id = ray.put(G_drive)
         bus_stops = ray.get([get_bus_stop.remote(G_walk_id, G_drive_id, index, poi) for index, poi in poi_bus_stops.iterrows()]) 
          
-        '''
-        bus_stops = []
-        for index, poi in poi_bus_stops.iterrows():
-            if poi['highway'] == 'bus_stop':
-                bus_stop_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
-                
-                u, v, key = ox.get_nearest_edge(G_walk, bus_stop_point)
-                bus_stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
-                
-                u, v, key = ox.get_nearest_edge(G_drive, bus_stop_point)
-                bus_stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
-                
-                d = {
-                    'stop_id': index,
-                    'osmid_walk': bus_stop_node_walk,
-                    'osmid_drive': bus_stop_node_drive,
-                    'lat': poi.geometry.centroid.y,
-                    'lon': poi.geometry.centroid.x,
-                    #'itid': -1
-                }
-            
-                bus_stops.append(d)
-        '''
-
         bus_stops = pd.DataFrame(bus_stops)
         bus_stops.set_index(['stop_id'], inplace=True)
-        #print("total time", time.process_time() - start)
-
+        
+        #drop repeated occurences of bus stops
         drop_index_list = []
         for index1, stop1 in bus_stops.iterrows():
             if index1 not in drop_index_list:
@@ -1116,11 +1052,14 @@ def create_network(
     get_fixed_lines, 
     vehicle_speed_data, 
     vehicle_speed, 
-    max_speed_factor, 
-    save_dir, 
-    output_file_base, 
+    max_speed_factor,  
+    output_file_base,
+    set_seed, 
     num_of_cpu
 ):
+
+    seed(set_seed)
+    np.random.seed(set_seed)
 
     #directory of instance's saved information
     save_dir = os.getcwd()+'/'+output_file_base
@@ -1282,7 +1221,7 @@ def create_network(
     network.list_bus_stops = list_bus_stops
 
     print('over network')
-    print("total time", time.process_time() - start)
+    #print("total time", time.process_time() - start)
 
     network_class_file = pickle_dir+'/'+param.output_file_base+'.network.class.pkl'
     parameter_class_file = pickle_dir+'/'+param.output_file_base+'.parameter.class.pkl'
@@ -1334,7 +1273,6 @@ def instance_requests(
     print("total time", time.process_time() - start)
     caching.clear_cache()
         
-
     #generate instances in json output folder
     #generate_instances_json(param)
 
@@ -1353,19 +1291,16 @@ def instance_requests(
         output_name_ls = instance.split('.')[0] + '_ls.pass'
 
         converter = JsonConverter(file_name=input_name)
-        converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp))
+        converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=network)
         converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
 
 if __name__ == '__main__':
 
     caching.clear_cache()
-
     request_demand = []
-    
     vehicle_fleet = []
-    
-    #default for some parameters
 
+    #default for some parameters
     get_fixed_lines = None
     
     num_replicates = 1
@@ -1395,7 +1330,6 @@ if __name__ == '__main__':
     average_waiting_time = 120
 
     num_of_cpu = cpu_count()
-
 
 
     #INSTANCE PARAMETER INPUT INFORMATION
@@ -1704,21 +1638,16 @@ if __name__ == '__main__':
                             time_type = sys.argv[i]
 
                 dnd = RequestDistribution(min_time, max_time, num_req, pdf, num_origins, num_destinations, time_type, is_random_origin_zones, is_random_destination_zones, origin_zones, destination_zones)
-                request_demand.append(dnd)
-           
+                request_demand.append(dnd)   
         #if sys.argv[i] == "--max_speed_factor":
         #    max_speed_factor = float(sys.argv[i+1])
 
     bus_factor = 2
-
-    seed(set_seed)
-    np.random.seed(set_seed)
-            
-    
+     
     if is_network_generation:
 
         #create the instance's network
-        network = create_network(save_dir, place_name, walk_speed, max_walking, min_early_departure, max_early_departure, day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_file_base, num_of_cpu)
+        network = create_network(place_name, max_walk_speed, max_walking, min_early_departure, max_early_departure, day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, output_file_base, set_seed, num_of_cpu)
         
     if is_request_generation:
 

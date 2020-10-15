@@ -48,8 +48,6 @@ class RequestDistribution:
         self.origin_zones = origin_zones
         self.destination_zones = destination_zones
 
-        print('origin_zones', origin_zones)
-        print('destination_zones', destination_zones)
 
     def set_demand(self):
 
@@ -113,21 +111,29 @@ class Network:
         
         self.all_requests = {}
 
-    def get_eta_walk(self, origin_node, destination_node):
+    def get_eta_walk(self, u, v):
         
         
         #returns estimated time walking in seconds from origin_node to destination_node
+        #in the case of walking, there is no difference between origin/destination
         try:
-            sdestination_node = str(destination_node)
-            distance_walk = self.shortest_path_walk.loc[origin_node, sdestination_node]
+            sv = str(v)
+            distance_walk = self.shortest_path_walk.loc[u, sv]
         except KeyError:
 
             try:
-                distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
-            except nx.NetworkXNoPath:
-                distance_walk = np.nan
+                su = str(u)
+                distance_walk = self.shortest_path_walk.loc[v, su]
+            except KeyError:
+                try:
+
+                    distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
+                except nx.NetworkXNoPath:
+                    distance_walk = np.nan
  
         speed = self.walk_speed
+        #print(u, v)
+        #print(distance_walk)
         if math.isnan(distance_walk):
             eta_walk = -1
         else:
