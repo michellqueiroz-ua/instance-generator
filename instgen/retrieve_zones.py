@@ -1,6 +1,9 @@
+import matplotlib.pyplot as plt
 import os
 import osmnx as ox
 import pandas as pd
+from shapely.geometry import Polygon
+
 
 def get_zones_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
 
@@ -18,7 +21,7 @@ def get_zones_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
     if not os.path.isdir(zones_folder):
         os.mkdir(zones_folder)
 
-    path_zones_csv_file = os.path.join(save_dir_csv, output_file_base+'.zones.csv')
+    path_zones_csv_file = os.path.join(save_dir_csv, output_folder_base+'.zones.csv')
 
     if os.path.isfile(path_zones_csv_file):
         

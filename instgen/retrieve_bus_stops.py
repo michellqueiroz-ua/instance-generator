@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
 import os
 import osmnx as ox
@@ -52,7 +53,7 @@ def get_bus_stop(G_walk, G_drive, index, poi):
         bus_stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
         
         d = {
-            'stop_id': index,
+            'station_id': index,
             'osmid_walk': bus_stop_node_walk,
             'osmid_drive': bus_stop_node_drive,
             'lat': poi.geometry.centroid.y,
@@ -80,7 +81,7 @@ def get_bus_stops_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folde
     if os.path.isfile(path_bus_stops):
         print('is file bus stops')
         bus_stops = pd.read_csv(path_bus_stops)
-        bus_stops.set_index(['stop_id'], inplace=True)
+        bus_stops.set_index(['station_id'], inplace=True)
 
     else:
         print('creating file bus stops')
@@ -97,7 +98,7 @@ def get_bus_stops_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folde
         bus_stops = ray.get([get_bus_stop.remote(G_walk_id, G_drive_id, index, poi) for index, poi in poi_bus_stops.iterrows()]) 
          
         bus_stops = pd.DataFrame(bus_stops)
-        bus_stops.set_index(['stop_id'], inplace=True)
+        bus_stops.set_index(['station_id'], inplace=True)
         
         #drop repeated occurences of bus stops
         drop_index_list = []

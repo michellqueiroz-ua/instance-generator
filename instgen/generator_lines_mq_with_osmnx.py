@@ -46,6 +46,8 @@ from retrieve_zones import get_zones_csv
 from compute_distance_matrix import get_distance_matrix_csv
 from speed_info import calc_mean_max_speed
 from compute_travel_time import get_travel_time_matrix_osmnx_csv
+
+from gui_network import gui_network
        
 def network_stats(network):
 
@@ -54,12 +56,12 @@ def network_stats(network):
     print("average travel time between 2 stops:", network.travel_time_matrix["eta"].mean())
 
 def retrieve_network(
-    place_name, 
-    output_folder_base,
+    place_name,
     vehicle_speed_data="max", 
     vehicle_speed=None, 
     max_speed_factor=0.5,  
 ):
+    output_folder_base = place_name
     #directory of instance's saved information
     save_dir = os.getcwd()+'/'+output_folder_base
     if not os.path.isdir(save_dir):
@@ -190,7 +192,7 @@ def retrieve_network(
     #    bus_stops.loc[index, 'itid'] = int(itid)
     #    itid = itid + 1
 
-    travel_time_matrix = get_travel_time_matrix_osmnx_csv(bus_stops, shortest_path_drive, shortest_path_walk, save_dir, output_file_base)
+    travel_time_matrix = get_travel_time_matrix_osmnx_csv(vehicle_speed, bus_stops, shortest_path_drive, shortest_path_walk, save_dir, output_folder_base)
 
     #param.update_network(G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed)
     network = Network(G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed, vehicle_speed)
@@ -660,7 +662,8 @@ if __name__ == '__main__':
     if is_network_generation:
 
         #retrieve the instance's network
-        network = retrieve_network(place_name, output_folder_base)
+        gui_network()
+        network = retrieve_network(place_name)
         
     problem_type = "ODBRP"
     #problem_type = "DARP"

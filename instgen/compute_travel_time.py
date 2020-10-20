@@ -1,8 +1,11 @@
+from multiprocessing import cpu_count
 import ray
+import os
 import pandas as pd
+import time
 
 @ray.remote
-def calc_travel_time_od(param, origin, destination, shortest_path_drive, bus_stops):
+def calc_travel_time_od(origin, destination, vehicle_speed, shortest_path_drive, bus_stops):
 
     #curr_weight = 'travel_time_' + str(hour)
     #curr_weight = 'travel_time' 
@@ -20,7 +23,7 @@ def calc_travel_time_od(param, origin, destination, shortest_path_drive, bus_sto
         
         if str(distance) != 'nan':
             distance = int(distance)
-            eta = int(math.ceil(distance/param.vehicle_speed))
+            eta = int(math.ceil(distance/vehicle_speed))
 
     except KeyError:
         pass
@@ -36,7 +39,7 @@ def calc_travel_time_od(param, origin, destination, shortest_path_drive, bus_sto
     return row
 
 #not time dependent. for a time dependent create other function later
-def get_travel_time_matrix_osmnx_csv(bus_stops, shortest_path_drive, shortest_path_walk, save_dir, output_file_base, filename=None): 
+def get_travel_time_matrix_osmnx_csv(vehicle_speed, bus_stops, shortest_path_drive, shortest_path_walk, save_dir, output_folder_base, filename=None): 
     
     travel_time_matrix = []
     counter = 0
@@ -46,15 +49,15 @@ def get_travel_time_matrix_osmnx_csv(bus_stops, shortest_path_drive, shortest_pa
     #ray.init(num_cpus=num_of_cpu)
     
     ray.shutdown()
-    ray.init(num_cpus=param.num_of_cpu)
+    ray.init(num_cpus=cpu_count())
 
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
 
     if filename is None:
-        path_csv_file = os.path.join(save_dir_csv, output_file_base+'.travel.time.csv')
+        path_csv_file = os.path.join(save_dir_csv, output_folder_base+'.travel.time.csv')
     else:
-        path_csv_file = os.path.join(save_dir_csv, output_file_base+filename)
+        path_csv_file = os.path.join(save_dir_csv, output_folder_base+filename)
 
 
     if os.path.isfile(path_csv_file):
@@ -73,7 +76,7 @@ def get_travel_time_matrix_osmnx_csv(bus_stops, shortest_path_drive, shortest_pa
         #shortest_path_drive2 = pd2.DataFrame(shortest_path_drive)
         shortest_path_drive_id = ray.put(shortest_path_drive)
 
-        param_id = ray.put(param)
+        #param_id = ray.put(param)
 
         #bus_stop2 = pd2.DataFrame(bus_stops)
         bus_stops_id = ray.put(bus_stops)
@@ -117,7 +120,7 @@ def get_travel_time_matrix_osmnx_csv(bus_stops, shortest_path_drive, shortest_pa
 
             #with ray
             #print("here")
-            results = ray.get([calc_travel_time_od.remote(param_id, origin, destination, shortest_path_drive_id, bus_stops_id) for destination in list_nodes])
+            results = ray.get([calc_travel_time_od.remote(origin, destination, vehicle_speed, shortest_path_drive_id, bus_stops_id) for destination in list_nodes])
             for row in results:
                 #travel_time_matrix = travel_time_matrix.append(row, ignore_index=True)
                 travel_time_matrix.append(row)
