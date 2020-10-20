@@ -85,7 +85,7 @@ class RequestDistribution:
             
 class Network:
 
-    def __init__(self, G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed):
+    def __init__(self, G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed, vehicle_speed):
         
         #network graphs
         self.G_drive = G_drive
@@ -110,6 +110,8 @@ class Network:
         self.shortest_path_walk = shortest_path_walk
         
         self.all_requests = {}
+
+        self.vehicle_speed = vehicle_speed
 
     def get_eta_walk(self, u, v):
         
@@ -263,7 +265,7 @@ class Network:
 
 class Parameter:
 
-    def __init__(self, max_walking, min_early_departure, max_early_departure, request_demand, day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_file_base, num_of_cpu):
+    def __init__(self, max_walking, min_early_departure, max_early_departure, request_demand, day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_folder_base, num_of_cpu):
         
         self.num_requests = 0 
         #maximum time walking for a passenger
@@ -274,7 +276,7 @@ class Parameter:
         self.num_replicates = num_replicates
         self.bus_factor = bus_factor
         self.save_dir = save_dir
-        self.output_file_base = output_file_base
+        self.output_folder_base = output_folder_base
         self.day_of_the_week = day_of_the_week
         self.get_fixed_lines = get_fixed_lines #bool
         self.max_speed_factor = max_speed_factor

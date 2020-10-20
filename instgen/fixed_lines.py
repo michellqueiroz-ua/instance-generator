@@ -2,6 +2,7 @@ import os
 import networkx as nx
 import ray
 
+
 @ray.remote
 def find_shortest_path_fl(u, v, fixed_lines):
     #u = int(nodeu['stop_I'])
@@ -187,3 +188,159 @@ def get_fixed_lines_deconet(param, network, folder_path):
         bus_lines_filename = folder_path+'/network_bus.csv'
         if os.path.isfile(bus_lines_filename):
             bus_lines = pd.read_csv(bus_lines_filename, delimiter=";")
+
+def plot_pt_fixed_lines(param, G, pt_fixed_lines):
+    
+    pt_lines_folder = os.path.join(param.save_dir_images, 'pt_fixed_lines')
+
+    if not os.path.isdir(pt_lines_folder):
+        os.mkdir(pt_lines_folder)
+
+    for index, lines in pt_fixed_lines.iterrows():
+        #bus_stop_list_nodes.append(stop['osmid_walk'])
+
+        nc = ['r' if (str(node) in lines['osm_nodes']) else '#336699' for node in G.nodes()]
+        ns = [12 if (str(node) in lines['osm_nodes']) else 6 for node in G.nodes()]
+        fig, ax = ox.plot_graph(G, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=pt_lines_folder+'/'+str(index)+'_'+str(lines['name'])+'.pt_fixed_lines.png')
+        plt.close(fig)
+
+def get_fixed_lines_osm(param, G_walk, G_drive, polygon):
+
+    '''
+    get fixed lines from OpenStreetMaps
+    '''
+    api_osm = osm.OsmApi()
+    pt_fixed_lines = []
+
+    save_dir_csv = os.path.join(param.save_dir, 'csv')
+
+    if not os.path.isdir(save_dir_csv):
+        os.mkdir(save_dir_csv)
+
+    #pt = public transport
+    path_pt_lines_csv_file = os.path.join(save_dir_csv, param.output_file_base+'.pt.lines.csv')
+
+    if os.path.isfile(path_pt_lines_csv_file):
+        print('is file pt routes')
+        pt_fixed_lines = pd.read_csv(path_pt_lines_csv_file)
+
+    else:
+        index_line = 0
+        print('creating file pt routes')
+
+        tags = {
+            #'route_master':'bus',
+            'route':'subway',
+            'route':'tram',
+        }
+        
+        routes = ox.geometries_from_polygon(polygon, tags=tags)
+
+        #print('number of routes', len(routes))
+
+        for index, poi in routes.iterrows():
+            
+            try:
+
+                keys = poi.keys()
+                    
+                if str(poi['nodes']) != 'nan':
+                    
+                    name = "" 
+                    ref = []
+                    interval = ""
+                    duration = ""
+                    frequency = ""
+                    #distance
+                    #roundtrip
+                    #operator
+        
+                    for key in keys:
+                        #print(key)
+
+                        if key == "name":
+                            name = str(poi[key])
+
+                        if "ref" in key:
+                            stref = poi[key]
+                            ref.append(stref)
+
+                        if key == "interval":
+                            interval = poi[key]
+
+                        if key == "duration":
+                            duration = poi[key]
+
+                        if key == "frequency":
+                            frequency = poi[key]
+                            
+                    filtered_nodes_osm = []
+
+                    #fig, ax = ox.plot_graph(G_drive, show=False, close=False)
+
+                    for u in poi['nodes']:
+                        nodeu = api_osm.NodeGet(u)
+                        node_point = (nodeu['lat'], nodeu['lon'])
+                        
+                        #ax.scatter(nodeu['lon'], nodeu['lat'], c='blue')
+                        #print(node_point)
+                        
+                        nn = ox.get_nearest_node(G_drive, node_point)
+                        
+                        if nn not in filtered_nodes_osm:
+                            filtered_nodes_osm.append(nn)
+
+                    if len(filtered_nodes_osm) > 1:
+
+                        d = {
+                            'index_line': index_line,
+                            'name': name,
+                            'ref': ref,
+                            'osm_nodes': filtered_nodes_osm,
+                            'nodes': poi['nodes'],
+                            'interval': interval,
+                            'duration': duration,
+                            'frequency': frequency,
+                        }
+                        
+                        pt_fixed_lines.append(d)
+
+                        index_line += 1
+                        #plt.show()
+                        #break               
+            except KeyError:
+                pass
+
+        
+        pt_fixed_lines = pd.DataFrame(pt_fixed_lines)
+        pt_fixed_lines.to_csv(path_pt_lines_csv_file)
+
+        #plot_pt_fixed_lines(param, G_drive, pt_fixed_lines)
+    
+    return pt_fixed_lines
+
+def plot_fixed_lines(param, network):
+
+    #plot all nodes in the network that have a fixed line passing by
+    fl_stations_walk = [] 
+    fl_stations_drive = []
+
+    for node in network.nodes_covered_fixed_lines:
+
+        fl_station_walk = network.deconet_network_nodes.loc[int(node), 'osmid_walk']
+        fl_station_drive = network.deconet_network_nodes.loc[int(node), 'osmid_drive']
+        
+        fl_stations_walk.append(fl_station_walk)
+        fl_stations_drive.append(fl_station_drive)
+
+    stops_folder = os.path.join(param.save_dir_images, 'bus_stops')
+    nc = ['r' if (node in fl_stations_drive) else '#336699' for node in network.G_drive.nodes()]
+    ns = [12 if (node in fl_stations_drive) else 6 for node in network.G_drive.nodes()]
+    fig, ax = ox.plot_graph(network.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/fixed_lines_nodes_drive.png')
+    plt.close(fig)
+
+    nc = ['r' if (node in fl_stations_walk) else '#336699' for node in network.G_walk.nodes()]
+    ns = [12 if (node in fl_stations_walk) else 6 for node in network.G_walk.nodes()]
+    fig, ax = ox.plot_graph(network.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/fixed_lines_nodes_walk.png')
+    plt.close(fig)
+

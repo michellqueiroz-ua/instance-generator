@@ -1,0 +1,119 @@
+import os
+import osmnx as ox
+import pandas as pd
+
+def get_zones_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
+
+    zones = []
+    zone_id = 0
+
+    save_dir_csv = os.path.join(save_dir, 'csv')
+    if not os.path.isdir(save_dir_csv):
+        os.mkdir(save_dir_csv)
+
+    save_dir_images = os.path.join(save_dir, 'images')
+    zones_folder = os.path.join(save_dir_images, 'zones')
+    
+
+    if not os.path.isdir(zones_folder):
+        os.mkdir(zones_folder)
+
+    path_zones_csv_file = os.path.join(save_dir_csv, output_file_base+'.zones.csv')
+
+    if os.path.isfile(path_zones_csv_file):
+        
+        print('is file zones')
+        zones = pd.read_csv(path_zones_csv_file)
+
+        #updates the polygons
+        print('updating polygon')
+        for index, zone in zones.iterrows():
+
+            distance = zone['center_point_distance'] 
+            zone_center_point = (zone['center_point_y'], zone['center_point_x'])
+                        
+            north, south, east, west = ox.utils_geo.bbox_from_point(zone_center_point, distance)
+            polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+            
+            zones.loc[index, 'polygon'] = polygon
+        
+    else:
+
+        print('creating file zones')
+
+        tags = {
+            'place':'borough',
+            'place':'suburb',
+            'place':'quarter',
+            'place':'neighbourhood',
+        }
+        
+        poi_zones = ox.geometries_from_place(place_name, tags=tags)
+        print('poi zones len', len(poi_zones))
+
+        if len(poi_zones) > 0:
+
+            for index, poi in poi_zones.iterrows():
+                if str(poi['name']) != 'nan':
+                    zone_name = str(poi['name'])
+                    
+                    if not any((z.get('name', None) == zone_name) for z in zones):
+                       
+                        #future: see what to do with geometries that are not points
+                        if poi['geometry'].geom_type == 'Point':
+ 
+                            distance = 1000 
+                            zone_center_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
+                            
+                            #osmid nearest node walk
+                            osmid_walk = ox.get_nearest_node(G_walk, zone_center_point) 
+
+                            #osmid nearest node drive
+                            osmid_drive = ox.get_nearest_node(G_drive, zone_center_point)
+
+                            
+                            north, south, east, west = ox.utils_geo.bbox_from_point(zone_center_point, distance)
+                            polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+
+                            #plot here the center point zone in the walk network
+                            nc = ['r' if (node == osmid_walk) else '#336699' for node in G_walk.nodes()]
+                            ns = [16 if (node == osmid_walk) else 1 for node in G_walk.nodes()]
+                            zone_filename = str(zone_id)+'_'+zone_name+'_walk.png'
+                            fig, ax = ox.plot_graph(G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
+                            plt.close(fig)
+
+                            #plot here the center point zone in the drive network
+                            nc = ['r' if (node == osmid_drive) else '#336699' for node in G_drive.nodes()]
+                            ns = [16 if (node == osmid_drive) else 1 for node in G_drive.nodes()]
+                            zone_filename = str(zone_id)+'_'+zone_name+'_drive.png'
+                            fig, ax = ox.plot_graph(G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
+                            plt.close(fig)
+
+                            n = {
+                                'index': index,
+                                'id': zone_id,
+                                'name': zone_name,
+                                'polygon': polygon,
+                                'center_point_y': poi.geometry.centroid.y,
+                                'center_point_x': poi.geometry.centroid.x,
+                                'osmid_walk': osmid_walk,
+                                'osmid_drive': osmid_drive,
+                                'center_point_distance': distance,
+                            }
+
+                            zone_id += 1
+
+                            zones.append(n)
+                
+            zones = pd.DataFrame(zones)
+            zones.to_csv(path_zones_csv_file)
+    
+    if len(zones) > 0:
+        zones.set_index(['id'], inplace=True)
+
+    return zones
+
+
+
+
+
