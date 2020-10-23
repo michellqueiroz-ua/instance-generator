@@ -85,13 +85,11 @@ class RequestDistribution:
             
 class Network:
 
-    def __init__(self, G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed, vehicle_speed):
+    def __init__(self, G_drive, shortest_path_drive, G_walk, shortest_path_walk, bus_stops, zones, schools, vehicle_speed):
         
         #network graphs
         self.G_drive = G_drive
-        self.polygon_drive = polygon_drive
         self.G_walk = G_walk
-        self.polygon_walk = polygon_walk
         
         #indicates which nodes in the network are specifically bus stops
         self.bus_stops = bus_stops 
@@ -104,16 +102,14 @@ class Network:
        
         self.zones = zones
 
-        self.walk_speed = walk_speed
+        self.schools = schools
 
         self.shortest_path_drive = shortest_path_drive
         self.shortest_path_walk = shortest_path_walk
         
-        self.all_requests = {}
-
         self.vehicle_speed = vehicle_speed
 
-    def get_eta_walk(self, u, v):
+    def get_eta_walk(self, u, v, walk_speed):
         
         
         #returns estimated time walking in seconds from origin_node to destination_node
@@ -133,7 +129,7 @@ class Network:
                 except nx.NetworkXNoPath:
                     distance_walk = np.nan
  
-        speed = self.walk_speed
+        speed = walk_speed
         #print(u, v)
         #print(distance_walk)
         if math.isnan(distance_walk):
@@ -161,7 +157,7 @@ class Network:
         '''
         return eta_walk
 
-    def return_estimated_arrival_bus_osmnx(self, stops_origin, stops_destination, hour):
+    def return_estimated_travel_time_bus(self, stops_origin, stops_destination, hour):
         max_eta_bus = -1
         avg_eta_bus = -1
         min_eta_bus = 1000000000
@@ -200,6 +196,19 @@ class Network:
                             min_eta_bus = eta_bus
 
         return max_eta_bus, min_eta_bus
+
+    def return_estimated_travel_time_drive(self, origin_node, destination_node):
+
+        try:
+            distance = self.shortest_path_drive.loc[origin_node, str(destination_node)]
+            
+            if str(distance) != 'nan':
+                distance = int(distance)
+                eta = int(math.ceil(distance/self.vehicle_speed))
+
+            return eta
+        except KeyError:
+            return -1
 
     def update_travel_time_matrix(self, travel_time_matrix):
 
@@ -249,7 +258,6 @@ class Network:
 
         return travel_time
 
-
     def get_random_coord(self, polygon):
 
         minx, miny, maxx, maxy = polygon.bounds
@@ -262,33 +270,3 @@ class Network:
                 return pnt
 
         return (-1, -1)
-
-class Parameter:
-
-    def __init__(self, max_walking, min_early_departure, max_early_departure, request_demand, day_of_the_week, num_replicates, bus_factor, get_fixed_lines, vehicle_speed_data, vehicle_speed, max_speed_factor, save_dir, output_folder_base, num_of_cpu):
-        
-        self.num_requests = 0 
-        #maximum time walking for a passenger
-        self.max_walking = max_walking
-        self.min_early_departure = min_early_departure
-        self.max_early_departure = max_early_departure
-        self.request_demand = request_demand
-        self.num_replicates = num_replicates
-        self.bus_factor = bus_factor
-        self.save_dir = save_dir
-        self.output_folder_base = output_folder_base
-        self.day_of_the_week = day_of_the_week
-        self.get_fixed_lines = get_fixed_lines #bool
-        self.max_speed_factor = max_speed_factor
-        self.vehicle_speed_data = vehicle_speed_data
-        self.vehicle_speed = vehicle_speed
-        self.num_of_cpu = num_of_cpu
-       
-        #self.folder_path_deconet = None
-        
-    #def update_network(self, G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed):
-        #print('creating network')
-        #self.network = Network(G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed)
-        #self.network.add_graphs(G_drive, polygon_drive, G_walk, polygon_walk)
-        #self.network.add_bus_stops(bus_stop_nodes)
-        #self.network.add_distance_matrix(distance_matrix)

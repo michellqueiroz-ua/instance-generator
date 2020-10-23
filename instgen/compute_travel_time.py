@@ -1,7 +1,10 @@
+import gc
+import math
+import numpy as np
 from multiprocessing import cpu_count
-import ray
-import os
 import pandas as pd
+import os
+import ray
 import time
 
 @ray.remote
@@ -38,9 +41,14 @@ def calc_travel_time_od(origin, destination, vehicle_speed, shortest_path_drive,
 
     return row
 
-#not time dependent. for a time dependent create other function later
+
 def get_travel_time_matrix_osmnx_csv(vehicle_speed, bus_stops, shortest_path_drive, shortest_path_walk, save_dir, output_folder_base, filename=None): 
     
+    ''' 
+    compute a travel time matrix between bus stops
+    it is not time dependent
+    vehicle speed is determined beforehand.
+    '''
     travel_time_matrix = []
     counter = 0
     save_dir_csv = os.path.join(save_dir, 'csv')

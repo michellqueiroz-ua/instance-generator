@@ -5,7 +5,7 @@ import pandas as pd
 from shapely.geometry import Polygon
 
 
-def get_zones_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
+def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base):
 
     zones = []
     zone_id = 0
@@ -57,6 +57,7 @@ def get_zones_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
         if len(poi_zones) > 0:
 
             for index, poi in poi_zones.iterrows():
+                
                 if str(poi['name']) != 'nan':
                     zone_name = str(poi['name'])
                     
