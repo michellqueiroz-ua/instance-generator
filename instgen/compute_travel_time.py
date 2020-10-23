@@ -74,7 +74,7 @@ def get_travel_time_matrix_osmnx_csv(vehicle_speed, bus_stops, shortest_path_dri
         #print('rows travel time', len(travel_time_matrix))
     else:
         print('creating file estimated travel time')
-        start = time.process_time()
+        #start = time.process_time()
         #travel_time_matrix = pd.DataFrame()
         
         list_nodes = []

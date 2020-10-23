@@ -26,10 +26,12 @@ class JsonConverter(object):
             #    file.write('\n')
 
             #number of stations
+            '''
             file.write(str(len(network.bus_stops_ids)))
             file.write('\n')
             
             #id for each station
+            
             for stop1 in network.bus_stops_ids:
                 file.write(str(stop1))
                 file.write('\n')
@@ -58,6 +60,7 @@ class JsonConverter(object):
                         dists1s2 = -1
                         file.write(str(dists1s2))
                     file.write('\n')
+            '''
 
             #request information
             requests = self.json_data.get('requests')

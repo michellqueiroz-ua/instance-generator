@@ -3,94 +3,20 @@ import osmapi as osm
 import osmnx as ox
 import networkx as nx
 import numpy as np
+import random
 from shapely.geometry import Point
 
-
-class VehicleFleet:
-
-    def __init__(self, num_vehicles, capacity_vehicles):
-
-        self.num_vehicles = num_vehicles
-        self.capacity_vehicles = capacity_vehicles
-
-class RequestDistribution:
-
-    def __init__(self, x, y, num_requests, pdf, num_origins, num_destinations, time_type, is_random_origin_zones, is_random_destination_zones, origin_zones=[], destination_zones=[]):
-        
-        self.pdf = pdf
-
-        if self.pdf == "normal":
-            self.mean = x
-            self.std = y
-
-        if self.pdf == "uniform":
-            self.min_time = x
-            self.max_time = y
-
-        if self.pdf == "poisson":
-            self.average_min = x
-        
-        self.num_requests = num_requests
-        
-        self.demand = []
-        
-        self.num_origins = num_origins
-        self.num_destinations = num_destinations
-        
-        #self.origin_zones = []
-        #self.destination_zones = []
-
-        self.time_type = time_type
-
-        self.is_random_origin_zones = is_random_origin_zones
-        self.is_random_destination_zones = is_random_destination_zones
-
-        self.origin_zones = origin_zones
-        self.destination_zones = destination_zones
-
-
-    def set_demand(self):
-
-        if self.pdf == "normal":
-            self.demand = np.random.normal(self.mean, self.std, self.num_requests)
-
-        if self.pdf == "uniform":
-            self.demand = np.random.uniform(self.min_time, self.max_time, self.num_requests)
-
-        if self.pdf == "poisson":
-            #for poisson distribution the number of requests is related to the size of the time window
-            self.demand = np.random.poisson(self.average_min, self.num_requests)
-
-    def randomly_set_origin_zones(self, num_zones):
-
-        self.origin_zones = []
-        #self.destination_zones = []
-
-        if self.num_origins != -1:
-            self.origin_zones = np.random.randint(0, num_zones, self.num_origins)
-
-        #if self.num_destinations != -1:
-        #    self.destination_zones = np.random.randint(0, num_zones, self.num_destinations)
-
-    def randomly_set_destination_zones(self, num_zones):
-
-        #self.origin_zones = []
-        self.destination_zones = []
-
-        #if self.num_origins != -1:
-        #    self.origin_zones = np.random.randint(0, num_zones, self.num_origins)
-
-        if self.num_destinations != -1:
-            self.destination_zones = np.random.randint(0, num_zones, self.num_destinations)
             
 class Network:
 
-    def __init__(self, G_drive, shortest_path_drive, G_walk, shortest_path_walk, bus_stops, zones, schools, vehicle_speed):
+    def __init__(self, G_drive, shortest_path_drive, G_walk, shortest_path_walk, polygon, bus_stops, zones, schools, vehicle_speed):
         
         #network graphs
         self.G_drive = G_drive
         self.G_walk = G_walk
         
+        self.polygon = polygon
+
         #indicates which nodes in the network are specifically bus stops
         self.bus_stops = bus_stops 
         self.num_stations = len(bus_stops)
@@ -109,7 +35,7 @@ class Network:
         
         self.vehicle_speed = vehicle_speed
 
-    def get_eta_walk(self, u, v, walk_speed):
+    def get_eta_walk(self, u, v, min_walk_speed, max_walk_speed):
         
         
         #returns estimated time walking in seconds from origin_node to destination_node
@@ -129,6 +55,7 @@ class Network:
                 except nx.NetworkXNoPath:
                     distance_walk = np.nan
  
+        walk_speed = random.randint(int(min_walk_speed), int(max_walk_speed))
         speed = walk_speed
         #print(u, v)
         #print(distance_walk)
@@ -199,16 +126,18 @@ class Network:
 
     def return_estimated_travel_time_drive(self, origin_node, destination_node):
 
+        eta = -1
         try:
-            distance = self.shortest_path_drive.loc[origin_node, str(destination_node)]
+            distance = self.shortest_path_drive.loc[int(origin_node), str(destination_node)]
             
             if str(distance) != 'nan':
                 distance = int(distance)
                 eta = int(math.ceil(distance/self.vehicle_speed))
 
-            return eta
         except KeyError:
-            return -1
+            eta = -1
+
+        return eta
 
     def update_travel_time_matrix(self, travel_time_matrix):
 
@@ -260,6 +189,9 @@ class Network:
 
     def get_random_coord(self, polygon):
 
+        '''
+        returns random coordinate within the polygon bounds
+        '''
         minx, miny, maxx, maxy = polygon.bounds
         
         counter = 0

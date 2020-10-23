@@ -3,6 +3,188 @@ import networkx as nx
 import ray
 
 
+def retrieve_new_bus_stations(param, network, node_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk):
+
+    #return bus stops that within walking threshold from node_walk
+
+    #to_node_walk (true) => walking times are calculated to the node_walk to the stops
+    #to_node_walk (false) => walking times are calculated from the stops to the node_walk
+
+    stops = []
+    stops_walking_time = []
+
+    for index in network.list_bus_stops:
+
+        osmid_possible_stop = int(network.bus_stops.loc[index, 'osmid_walk'])
+        if to_node_walk:
+            eta_walk = network.get_eta_walk(osmid_possible_stop, node_walk, min_walk_speed, max_walk_speed)
+        else:
+            eta_walk = network.get_eta_walk(osmid_possible_stop, node_walk, min_walk_speed, max_walk_speed)
+
+        if eta_walk >= 0 and eta_walk <= max_walking:
+            stops.append(index)
+            stops_walking_time.append(eta_walk)
+
+    return stops, stops_walking_time
+
+def check_subway_routes_serve_passenger(network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking):
+    
+    '''
+    check which subway lines can serve the passenger request
+    '''
+    subway_routes = []
+
+    #distance between origin and destinations nodes
+    dist_od = network.shortest_path_drive.loc[origin_node_drive, str(destination_node_drive)]
+
+    #fl_stations_walk = [] 
+    #fl_stations_drive = []
+
+    #check maybe KAPPA station here before this next loop
+    for lid in network.subway_lines:
+        #u,v are part of the subset of stations
+        d = {
+            'u': np.nan,
+            'v': np.nan,
+            'line_id': lid,
+            'eta': math.inf,
+            'dist_ou_drive': math.inf,
+            'dist_vd_drive': math.inf,
+            'option': np.nan,
+        }
+
+        for u in network.nodes_covered_fixed_lines:
+            for v in network.nodes_covered_fixed_lines:
+
+                if u != v:
+                
+                    try:
+
+                        eta = nx.dijkstra_path_length(network.subway_lines[lid]['route_graph'], u, v, weight='duration_avg')
+
+                        u_drive = int(network.deconet_network_nodes.loc[int(u), 'osmid_drive'])
+                        v_drive = int(network.deconet_network_nodes.loc[int(v), 'osmid_drive'])
+
+                        u_walk = int(network.deconet_network_nodes.loc[int(u), 'osmid_walk'])
+                        v_walk = int(network.deconet_network_nodes.loc[int(v), 'osmid_walk'])
+                        
+                        #distance from origin to node u and 
+                        dist_ou_drive = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
+                        #distance from v to destination
+                        dist_vd_drive = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
+                        
+                        dist_ou_walk = network.get_eta_walk(origin_node_walk, u_walk, min_walk_speed, max_walk_speed)
+                        dist_vd_walk = network.get_eta_walk(v_walk, destination_node_walk, min_walk_speed, max_walk_speed)
+
+                        eta_vd_walk = math.inf
+                        eta_ou_walk = math.inf
+
+                        if not math.isnan(dist_vd_walk):
+                            eta_vd_walk = int(math.ceil(dist_vd_walk/network.walk_speed))
+                        if not math.isnan(dist_ou_walk):
+                            eta_ou_walk = int(math.ceil(dist_ou_walk/network.walk_speed))
+
+                        if not math.isnan(dist_vd_drive):
+                            
+                            #check if (u,v) gets the passenger closer to the destination
+                            if (dist_vd_drive >= 0) and (dist_vd_drive < d['dist_vd_drive']):
+
+                                d['u'] = u
+                                d['v'] = v
+                                d['eta'] = eta
+                                if not math.isnan(dist_ou_drive):
+                                    d['dist_ou_drive'] = dist_ou_drive
+                                d['dist_vd_drive'] = dist_vd_drive
+
+                                #FIXED LINE ONLY
+                                if (eta_ou_walk <= max_walking) and (eta_vd_walk <= max_walking):
+                                    d['option'] = 1
+                                    d['walking_time_u'] = eta_ou_walk
+                                    d['walking_time_v'] = eta_vd_walk
+
+                                # ON DEMAND + FIXED LINE
+                                if (eta_ou_walk > max_walking) and (eta_vd_walk <= max_walking):
+                                    d['option'] = 2
+                                    d['walking_time_v'] = eta_vd_walk
+
+                                # FIXED LINE + ON DEMAND
+                                if (eta_ou_walk <= max_walking) and (eta_vd_walk > max_walking):
+                                    d['option'] = 3
+                                    d['walking_time_u'] = eta_ou_walk
+                                   
+                                # ON DEMAND + FIXED LINE + ON DEMAND
+                                if (eta_ou_walk > max_walking) and (eta_vd_walk > max_walking):
+                                    d['option'] = 4
+                                
+
+                            else:
+                                #otherwise, check if distance from origin point to station is smaller than before
+                                if not math.isnan(dist_ou_drive):
+                                    if (dist_vd_drive == d['dist_vd_drive']) and (dist_ou_drive < d['dist_ou_drive']):
+
+                                        d['u'] = u
+                                        d['v'] = v
+                                        d['eta'] = eta    
+                                        d['dist_ou_drive'] = dist_ou_drive
+                                        d['dist_vd_drive'] = dist_vd_drive
+
+                                        #FIXED LINE ONLY
+                                        if (eta_ou_walk <= max_walking) and (eta_vd_walk <= max_walking):
+                                            d['option'] = 1
+                                            d['walking_time_u'] = eta_ou_walk
+                                            d['walking_time_v'] = eta_vd_walk
+
+                                        # ON DEMAND + FIXED LINE
+                                        if (eta_ou_walk > max_walking) and (eta_vd_walk <= max_walking):
+                                            d['option'] = 2
+                                            d['walking_time_v'] = eta_vd_walk
+
+                                        # FIXED LINE + ON DEMAND
+                                        if (eta_ou_walk <= max_walking) and (eta_vd_walk > max_walking):
+                                            d['option'] = 3
+                                            d['walking_time_u'] = eta_ou_walk
+                                            
+                                        # ON DEMAND + FIXED LINE + ON DEMAND
+                                        if (eta_ou_walk > max_walking) and (eta_vd_walk > max_walking):
+                                            d['option'] = 4
+                                            
+
+                    except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
+
+                        pass
+
+        if not math.isnan(d['u']):
+
+            u_walk = int(network.deconet_network_nodes.loc[int(d['u']), 'osmid_walk'])
+            v_walk = int(network.deconet_network_nodes.loc[int(d['v']), 'osmid_walk'])
+
+            if d['option'] == 2:
+                #get new drop off stops (around node u)
+                stops_u, walking_time_u = retrieve_new_bus_stations(param, network, u_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk=True)
+                d['stops_u'] = stops_u
+                d['walking_time_u'] = walking_time_u
+                
+            if d['option'] == 3:
+                #get new pick up stops (around node v)
+                stops_v, walking_time_v = retrieve_new_bus_stations(param, network, v_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk=False)
+                d['stops_v'] = stops_v
+                d['walking_time_v'] = walking_time_v
+
+            if d['option'] == 4:
+                #get new drop off stops (around node u)
+                stops_u, walking_time_u = retrieve_new_bus_stations(param, network, u_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk=True)
+                d['stops_u'] = stops_u
+                d['walking_time_u'] = walking_time_u
+
+                #get new pick up stations (around node v)
+                stops_v, walking_time_v = retrieve_new_bus_stations(param, network, v_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk=False)
+                d['stops_v'] = stops_v
+                d['walking_time_v'] = walking_time_v
+
+            subway_routes.append(d)
+    
+    return subway_routes
+
 @ray.remote
 def find_shortest_path_fl(u, v, fixed_lines):
     #u = int(nodeu['stop_I'])

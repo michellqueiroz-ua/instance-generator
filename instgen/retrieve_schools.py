@@ -10,7 +10,6 @@ def retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base):
     '''
     retrieve information of educational establishment tagged as school on OpenStreetMaps
     '''
-
     schools = []
     
     save_dir_csv = os.path.join(save_dir, 'csv')
