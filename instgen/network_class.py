@@ -84,7 +84,7 @@ class Network:
         '''
         return eta_walk
 
-    def return_estimated_travel_time_bus(self, stops_origin, stops_destination, hour):
+    def return_estimated_travel_time_bus(self, stops_origin, stops_destination):
         max_eta_bus = -1
         avg_eta_bus = -1
         min_eta_bus = 1000000000
@@ -124,7 +124,7 @@ class Network:
 
         return max_eta_bus, min_eta_bus
 
-    def return_estimated_travel_time_drive(self, origin_node, destination_node):
+    def _return_estimated_travel_time_drive(self, origin_node, destination_node):
 
         eta = -1
         try:
@@ -137,57 +137,99 @@ class Network:
         except KeyError:
             eta = -1
 
-        return eta
+        return int(eta)
 
     def update_travel_time_matrix(self, travel_time_matrix):
 
         self.travel_time_matrix = travel_time_matrix
 
-    def get_travel_time_matrix_osmnx(self, travel_mode_string, interval):
+    def _get_travel_time_matrix(self, nodes):
         
-        travel_time = np.ndarray((len(self.bus_stops), len(self.bus_stops)), dtype=np.int64)
-        tuple_dtype = np.dtype([('r', np.int64), ('g', np.int64)])
-        #travel_time = np.ndarray((len(self.bus_stops), len(self.bus_stops)), dtype=tuple_dtype)
-        hour = 0
-        #loop for computing the travel time matrix
-        for index_o, origin_stop in self.bus_stops.iterrows():
-            for index_d, destination_stop in self.bus_stops.iterrows():
-                if travel_mode_string == "bus":
-                    #i = int(self.distance_matrix.loc[(index_o,index_d), 'origin_id'])
-                    #j = int(self.distance_matrix.loc[(index_o,index_d), 'destination_id'])
-                    #i = int(origin_stop['itid'])
-                    #j = int(destination_stop['itid'])
-                    
-                    #setting the speed value for the travel time matrix
-                    #itm = self.get_travel_mode_index("bus")
-                    #speed_bus = self.travel_modes[itm].speed
-                    #speed_bus = int(self.avg_curr_speed_matrix.loc[index_o, index_d])
-                    #if speed_bus <= 0:
-                    #    speed_bus = 30
-                    #speed_bus = speed_bus/3.6 #convert to m/s
-                    
-                    #getting the distance value
-                    #distance_bus = self.distance_matrix.loc[index_o, index_d]
-                    #travel_time = self.travel_time_matrix.loc[(origin, destination,hour), 'travel_time']
-                    #curr_weight = 'travel_time_' + str(hour)
-                    #origin = origin_stop['osmid_drive']
-                    #destination = destination_stop['osmid_drive']
-                    #od_travel_time = nx.dijkstra_path_length(self.G_drive, origin, destination, weight=curr_weight)
+        
+        if nodes == "bus":
+            '''
+            return travel time matrix between all bus stations in the network
+            '''
+            #travel_time = np.ndarray((len(self.bus_stops), len(self.bus_stops)))
+            travel_time = []
+            
+            #loop for computing the travel time matrix
+            i = 0
+            for index_o, origin_stop in self.bus_stops.iterrows():
+                j=0
+                for index_d, destination_stop in self.bus_stops.iterrows():    
                     od_travel_time = self.travel_time_matrix.loc[(index_o, index_d), 'eta']
 
                     #calculating travel time and storing in travel_time matrix
                     if not math.isnan(od_travel_time):
                         if od_travel_time >= 0:
-                            #travel_time[i][j] = int(math.ceil(distance_bus/speed_bus))
-                            travel_time[i][j] = od_travel_time
-                            #travel_time[i][j] =  (distance_bus, speed_bus)
+                            element = (i, j, od_travel_time)
+                            travel_time.append(element)
                         else:
-                            travel_time[i][j] = -1
-                            #travel_time[i][j] = (-1, -1)
+                            od_travel_time = -1
+                            od_travel_time = int(od_travel_time)
+                            element = (i, j, -1)
+                            travel_time.append(element)
+                    j+=1
+                i+=1
+
+        if nodes == "all":
+            '''
+            return travel time matrix between all nodes in the network
+            '''
+            travel_time = []
+            #loop for computing the travel time matrix
+            i = 0
+            for u in self.G_drive.nodes:
+                j=0
+                for v in self.G_drive.nodes:
+                    od_travel_time = self._return_estimated_travel_time_drive(u, v)   
+                    
+                    #calculating travel time and storing in travel_time matrix
+                    if not math.isnan(od_travel_time):
+                        if od_travel_time >= 0:
+                            element = (i, j, od_travel_time)
+                            travel_time.append(element)
+                        else:
+                            od_travel_time = -1
+                            od_travel_time = int(od_travel_time)
+                            element = (i, j, od_travel_time)
+                            travel_time.append(element)
+                    j+=1
+                i+=1
 
         return travel_time
 
-    def get_random_coord(self, polygon):
+    def _get_travel_time_from_stops_to_school(self, school_id):
+
+        '''
+        computes and returns a list of travel time between all bus stations to school (destination)
+        '''
+        v = self.schools.loc[school_id, 'osmid_drive']
+        travel_time = []
+
+        i = 0
+        for index_o, origin_stop in self.bus_stops.iterrows():
+            
+            u = self.bus_stops.loc[index_o, 'osmid_drive']
+
+            od_travel_time = self._return_estimated_travel_time_drive(u, v)
+            
+            if not math.isnan(od_travel_time):
+                if od_travel_time >= 0:
+                    element = (i, od_travel_time)
+                    travel_time.append(element)
+                else:
+                    element = (i, -1)
+                    travel_time.append(element)
+
+            i += 1
+
+        return travel_time  
+
+
+
+    def _get_random_coord(self, polygon):
 
         '''
         returns random coordinate within the polygon bounds
@@ -202,3 +244,33 @@ class Network:
                 return pnt
 
         return (-1, -1)
+
+
+    def set_zone_bbox(self, zone_id, dist_lat, dist_lon):
+
+        '''
+        function to manually set the zone geometry
+        default when downloading network information is dist_lat=1km and dist_lon=1km
+        '''
+
+        self.zones.loc[zone_id, 'dist_lat'] = dist_lat
+        self.zones.loc[zone_id, 'dist_lon'] = dist_lon
+        earth_radius = 6371009  # meters
+        
+        lat = zone['center_point_y']
+        lng = zone['center_point_x']
+
+        delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
+        delta_lng = (dist_lon / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
+        
+        north = lat + delta_lat
+        south = lat - delta_lat
+        east = lng + delta_lng
+        west = lng - delta_lng
+        
+        polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+            
+        #updates the polygon. used to generate coordinates within the zone
+        self.zones.loc[index, 'polygon'] = polygon
+
+

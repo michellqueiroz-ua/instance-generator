@@ -11,26 +11,16 @@ import random
 import ray
 from shapely.geometry import Point
 
-def generate_requests_ODBRPFL( 
-    network, 
-    request_demand,
-    min_early_departure,
-    max_early_departure,
-    min_walk_speed,
-    max_walk_speed,
-    max_walking,
-    vehicle_factor,
-    inbound_outbound_factor,
-    replicate_num,
-    save_dir_json,
-    output_folder_base
+def _generate_requests_ODBRPFL( 
+    inst,
+    replicate_num
 ):
     
     '''
-    generate requests for the on demand bus routing problem
+    generate requests for the on demand bus routing problem with fixed lines
     '''
 
-    output_file_json = os.path.join(save_dir_json, output_folder_base + '_' + str(replicate_num) + '.json')
+    inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  
 
     print("Now generating " + " request_data")
@@ -38,46 +28,39 @@ def generate_requests_ODBRPFL(
     all_requests = {} 
     h = 0
     num_requests = 0
+    request_id = 0
 
     #for each PDF
-    for r in range(len(request_demand)):
+    for r in range(len(inst.request_demand)):
         
         #randomly generates the earliest departure times or latest arrival times
-        request_demand[r].set_demand()
+        inst.request_demand[r].sample_times()
 
         #randomly generates the zones 
-        if request_demand[r].is_random_origin_zones:
-            request_demand[r].randomly_set_origin_zones(len(network.zones))
+        if inst.is_random_origin_zones:
+            inst.randomly_sample_origin_zones(len(inst.network.zones))
 
-        if request_demand[r].is_random_destination_zones:
-            request_demand[r].randomly_set_destination_zones(len(network.zones))     
+        if inst.is_random_destination_zones:
+            inst.randomly_sample_destination_zones(len(inst.network.zones))     
 
-        num_requests = request_demand[r].num_requests
+        num_requests = inst.request_demand[r].num_requests
         print(num_requests)
 
         for i in range(num_requests):
             
-            dep_time = None 
-            arr_time = None
+            #timestamp -> time the request was received by the system
+            request_time_stamp = inst.request_demand[r].demand[i]
+            
+            request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
 
-            #gets the arrival and departure time
-            if request_demand[r].time_type == "EDT":
-                dep_time = request_demand[r].demand[i]
-                dep_time = int(dep_time)
+            dep_time = int(request_time_stamp + request_lead_time)
 
-                if (dep_time >= 0) and (dep_time >= min_early_departure) and (dep_time <= max_early_departure):
-                    nok = True
-                else:
-                    nok = False
+            if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
+                nok = True
             else:
-                if request_demand[r].time_type == "LAT":
-                    arr_time = request_demand[r].demand[i]
-                    arr_time = int(arr_time)
-
-                    if (arr_time >= 0) and (arr_time >= min_early_departure) and (arr_time <= max_early_departure):
-                        nok = True
-                    else:
-                        nok = False
+                nok = False
+            
+            arr_time = None
 
             request_data = {}  #holds information about this request
 
@@ -97,54 +80,57 @@ def generate_requests_ODBRPFL(
                 while unfeasible_request:
 
                     #generate coordinates for origin
-                    if request_demand[r].num_origins == -1:
+                    if inst.num_origins == -1:
 
-                        origin_point = network.get_random_coord(network.polygon)
+                        origin_point = inst.network._get_random_coord(inst.network.polygon)
                         origin_point = (origin_point.y, origin_point.x)
     
                     else:
 
-                        random_zone = np.random.uniform(0, request_demand[r].num_origins, 1)
+                        random_zone = np.random.uniform(0, inst.num_origins, 1)
                         random_zone = int(random_zone)
 
-                        random_zone_id = int(request_demand[r].origin_zones[random_zone])
-                        polygon_zone = network.zones.loc[random_zone_id]['polygon']
+                        random_zone_id = int(inst.request_demand[r].origin_zones[random_zone])
+                        polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
                         
                         #generate coordinates within the given zone
-                        origin_point = network.get_random_coord(polygon_zone)
+                        origin_point = inst.network._get_random_coord(polygon_zone)
                         #ax.scatter(origin_point.x, origin_point.y, c='red')
                         origin_point = (origin_point.y, origin_point.x)
 
                     #generate coordinates for destination
-                    if request_demand[r].num_destinations == -1:
+                    if inst.num_destinations == -1:
                         
-                        destination_point = network.get_random_coord(network.polygon)
+                        destination_point = inst.network._get_random_coord(inst.network.polygon)
                         #ax.scatter(destination_point.x, destination_point.y, c='green')
                         destination_point = (destination_point.y, destination_point.x)
 
                     else:
                         
-                        random_zone = np.random.uniform(0, request_demand[r].num_destinations, 1)
+                        random_zone = np.random.uniform(0, inst.num_destinations, 1)
                         random_zone = int(random_zone)
                         
-                        random_zone_id = int(request_demand[r].destination_zones[random_zone])
-                        polygon_zone = network.zones.loc[random_zone_id]['polygon']
+                        random_zone_id = int(inst.request_demand[r].destination_zones[random_zone])
+                        polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
             
                         #generate coordinates within the given zone
-                        destination_point = network.get_random_coord(polygon_zone)
+                        destination_point = inst.network._get_random_coord(polygon_zone)
                         #ax.scatter(destination_point.x, destination_point.y, c='green')
                         destination_point = (destination_point.y, destination_point.x)
 
-                    origin_node_walk = ox.get_nearest_node(network.G_walk, origin_point)
-                    destination_node_walk = ox.get_nearest_node(network.G_walk, destination_point)
-                    time_walking = network.get_eta_walk(origin_node_walk, destination_node_walk, min_walk_speed, max_walk_speed)
+                    origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
+                    destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
+                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)
 
-                    #time walking from origin to destination must be higher of max_walking by the user
-                    if time_walking > max_walking:
+                    
+                    max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
+                    
+                    #time walking from origin to destination must be higher of maximum walking by the user
+                    if time_walking > max_walking_user:
                         unfeasible_request = False
                 
-                origin_node_drive = ox.get_nearest_node(network.G_drive, origin_point)
-                destination_node_drive = ox.get_nearest_node(network.G_drive, destination_point)
+                origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
                 
                 stops_origin = []
                 stops_destination = []
@@ -152,53 +138,37 @@ def generate_requests_ODBRPFL(
                 stops_origin_walking_distance = []
                 stops_destination_walking_distance = []
 
-                if time_walking > max_walking: #if distance between origin and destination is too small the person just walks
+                if time_walking > max_walking_user: #if distance between origin and destination is too small the person just walks
                     #add the request
                     #calculates the stations which are close enough to the origin and destination of the request
-                    for index in network.bus_stops_ids:
-                    #for index, node in network.bus_stops.iterrows():
+                    for index in inst.network.bus_stops_ids:
+                    #for index, node in inst.network.bus_stops.iterrows():
 
                         #osmid_possible_stop = int(stop_node['osmid_walk'])
-                        osmid_possible_stop = int(network.bus_stops.loc[index, 'osmid_walk'])
+                        osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
 
-                        eta_walk_origin = network.get_eta_walk(origin_node_walk, osmid_possible_stop, min_walk_speed, max_walk_speed)
-                        if eta_walk_origin >= 0 and eta_walk_origin <= max_walking:
+                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, inst.min_walk_speed, inst.max_walk_speed)
+                        if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
                             stops_origin.append(index)
                             stops_origin_walking_distance.append(eta_walk_origin)
 
-                        #eta_walk_destination = network.get_eta_walk(destination_node_walk, osmid_possible_stop) 
-                        eta_walk_destination = network.get_eta_walk(osmid_possible_stop, destination_node_walk, min_walk_speed, max_walk_speed)       
-                        if eta_walk_destination >= 0 and eta_walk_destination <= max_walking:
+                        #eta_walk_destination = inst.network.get_eta_walk(destination_node_walk, osmid_possible_stop) 
+                        eta_walk_destination = inst.network.get_eta_walk(osmid_possible_stop, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)       
+                        if eta_walk_destination >= 0 and eta_walk_destination <= max_walking_user:
                             stops_destination.append(index)
                             stops_destination_walking_distance.append(eta_walk_destination)
 
                 # Check whether each passenger can walk to stops (origin + destination)
                 if len(stops_origin) > 0 and len(stops_destination) > 0:
                     if not (set(stops_origin) & set(stops_destination)):
-                        #time window for the arrival time
                         
-                        if arr_time is None:
-                            hour = int(math.floor(dep_time/(60*60)))
-                            hour = 0
-
-                            #print('dep time min, dep time hour: ', dep_time, hour)
-                            max_eta_bus, min_eta_bus = network.return_estimated_travel_time_bus(stops_origin, stops_destination, hour)
-                            if min_eta_bus >= 0:
-                                arr_time = (dep_time) + (vehicle_factor * max_eta_bus) + (max_walking * 2)
-                            else:
-                                unfeasible_request = True
+                        #compute arrival time
+                        max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
+                        if min_eta_bus >= 0:
+                            arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * 2)
                         else:
-
-                            if dep_time is None:
-                                hour = int(arr_time/(60*60)) - 1
-                                hour = 0
-                                
-                                #print('dep time min, dep time hour: ', dep_time, hour)
-                                max_eta_bus, min_eta_bus = network.return_estimated_travel_time_bus(stops_origin, stops_destination, hour)
-                                if min_eta_bus >= 0:
-                                    dep_time = (arr_time) - (vehicle_factor * max_eta_bus) - (max_walking * 2)
-                                else:
-                                    unfeasible_request = True
+                            unfeasible_request = True
+                        
 
                     else:
                         unfeasible_request = True
@@ -207,14 +177,6 @@ def generate_requests_ODBRPFL(
 
                 if  not unfeasible_request:   
                     #prints in the json file if the request is feasible
-
-                    #coordinate origin
-                    request_data.update({'originx': origin_point[1]})
-                    request_data.update({'originy': origin_point[0]})
-
-                    #coordinate destination
-                    request_data.update({'destinationx': destination_point[1]})
-                    request_data.update({'destinationy': destination_point[0]})
 
                     request_data.update({'num_stops_origin': len(stops_origin)})
                     request_data.update({'stops_origin': stops_origin})
@@ -225,7 +187,6 @@ def generate_requests_ODBRPFL(
                     request_data.update({'walking_time_stops_to_destination': stops_destination_walking_distance})
 
                     #timestamp -> time the request was made
-                    request_time_stamp = random.randint(0, dep_time)
                     request_data.update({'time_stamp': int(request_time_stamp)})
                     
                     #departure time
@@ -290,10 +251,8 @@ def generate_requests_ODBRPFL(
 
 
                     # add request_data to instance_data container
-                    all_requests.update({i: request_data})
-
-                    #increases the number of requests
-                    print('#:', i)
+                    all_requests.update({request_id: request_data})
+                    request_id+=1
 
                 else:
                     nok = True
@@ -304,37 +263,28 @@ def generate_requests_ODBRPFL(
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
 
-    #network.all_requests = all_requests
+    #inst.network.all_requests = all_requests
 
-    #travel_time_json = network.get_travel_time_matrix_osmnx("bus", 0)
-    #travel_time_json = travel_time_json.tolist()
-    travel_time_json = []
-    instance_data.update({'requests': all_requests})
-    #instance_data.update({'requests': all_requests,
-    #                      'num_stations': network.num_stations,
-    #                      'distance_matrix': travel_time_json})
+    travel_time_json = inst.network._get_travel_time_matrix("bus")
+    
+    instance_data.update({'requests': all_requests,
+                          'num_stations': inst.network.num_stations,
+                          'travel_time_matrix': travel_time_json})
 
-    with open(output_file_json, 'w') as file:
+    with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
         file.close()
 
-def generate_requests_DARP( 
-    network, 
-    request_demand,
-    min_early_departure,
-    max_early_departure,
-    vehicle_factor,
-    inbound_outbound_factor,
+def _generate_requests_DARP( 
+    inst,
     replicate_num,
-    save_dir_json,
-    output_folder_base
 ):
     
     '''
     generate requests for the dial-a-ride problem
     '''
 
-    output_file_json = os.path.join(save_dir_json, output_folder_base + '_' + str(replicate_num) + '.json')
+    inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  
 
     print("Now generating " + " request_data")
@@ -342,47 +292,41 @@ def generate_requests_DARP(
     all_requests = {} 
     h = 0
     num_requests = 0
+    request_id = 0
 
     #for each PDF
-    for r in range(len(request_demand)):
+    for r in range(len(inst.request_demand)):
         
-        #fig, ax = ox.plot_graph(network.G_walk, show=False, close=False)
+        #fig, ax = ox.plot_graph(inst.network.G_walk, show=False, close=False)
 
-        #randomly generates the earliest departure times or latest arrival times
-        request_demand[r].set_demand()
+        #randomly generates the time stamp of the requests
+        inst.request_demand[r].sample_times()
 
         #randomly generates the zones 
-        if request_demand[r].is_random_origin_zones:
-            request_demand[r].randomly_set_origin_zones(len(network.zones))
+        if inst.is_random_origin_zones:
+            inst.randomly_sample_origin_zones(len(inst.network.zones))
 
-        if request_demand[r].is_random_destination_zones:
-            request_demand[r].randomly_set_destination_zones(len(network.zones))     
+        if inst.is_random_destination_zones:
+            inst.randomly_sample_destination_zones(len(inst.network.zones))     
 
-        num_requests = request_demand[r].num_requests
+        num_requests = inst.request_demand[r].num_requests
         print(num_requests)
         i=0
         while i < num_requests:
 
-            dep_time = None 
-            arr_time = None
+            #timestamp -> time the request was received by the system
+            request_time_stamp = inst.request_demand[r].demand[i]
+            
+            request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
 
-            if request_demand[r].time_type == "EDT":
-                dep_time = request_demand[r].demand[i]
-                dep_time = int(dep_time)
+            dep_time = int(request_time_stamp + request_lead_time)
 
-                if (dep_time >= 0) and (dep_time >= min_early_departure) and (dep_time <= max_early_departure):
-                    nok = True
-                else:
-                    nok = False
+            if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
+                nok = True
             else:
-                if request_demand[r].time_type == "LAT":
-                    arr_time = request_demand[r].demand[i]
-                    arr_time = int(arr_time)
-
-                    if (arr_time >= 0) and (arr_time >= min_early_departure) and (arr_time <= max_early_departure):
-                        nok = True
-                    else:
-                        nok = False
+                nok = False
+            
+            arr_time = None
 
             request_data = {}  #holds information about this request
 
@@ -398,80 +342,58 @@ def generate_requests_DARP(
                 unfeasible_request = False
                 
                 #generate coordinates for origin
-                if request_demand[r].num_origins == -1:
+                if inst.num_origins == -1:
 
-                    origin_point = network.get_random_coord(network.polygon)
+                    origin_point = inst.network._get_random_coord(inst.network.polygon)
                     origin_point = (origin_point.y, origin_point.x)
 
                 else:
 
-                    random_zone = np.random.uniform(0, request_demand[r].num_origins, 1)
+                    random_zone = np.random.uniform(0, inst.num_origins, 1)
                     random_zone = int(random_zone)
-                    random_zone_id = int(request_demand[r].origin_zones[random_zone])
-                    polygon_zone = network.zones.loc[random_zone_id]['polygon']
+                    random_zone_id = int(inst.request_demand[r].origin_zones[random_zone])
+                    polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
         
-                    origin_point = network.get_random_coord(polygon_zone)
+                    origin_point = inst.network._get_random_coord(polygon_zone)
                     origin_point = (origin_point.y, origin_point.x)
 
                 #generate coordinates for destination
-                if request_demand[r].num_destinations == -1:
+                if inst.num_destinations == -1:
                     
-                    destination_point = network.get_random_coord(network.polygon)
+                    destination_point = inst.network._get_random_coord(inst.network.polygon)
                     destination_point = (destination_point.y, destination_point.x)
 
                 else:
 
-                    random_zone = np.random.uniform(0, request_demand[r].num_destinations, 1)
+                    random_zone = np.random.uniform(0, inst.num_destinations, 1)
                     random_zone = int(random_zone)
-                    random_zone_id = int(request_demand[r].destination_zones[random_zone])
-                    polygon_zone = network.zones.loc[random_zone_id]['polygon']
+                    random_zone_id = int(inst.request_demand[r].destination_zones[random_zone])
+                    polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
 
-                    destination_point = network.get_random_coord(polygon_zone)
+                    destination_point = inst.network._get_random_coord(polygon_zone)
                     destination_point = (destination_point.y, destination_point.x)
-
-                #origin_node_walk = ox.get_nearest_node(network.G_walk, origin_point)
-                #destination_node_walk = ox.get_nearest_node(network.G_walk, destination_point)
-                    
+    
+                origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
                 
-                origin_node_drive = ox.get_nearest_node(network.G_drive, origin_point)
-                destination_node_drive = ox.get_nearest_node(network.G_drive, destination_point)
-                
-                if arr_time is None:
-
-                    hour = int(math.floor(dep_time/(60*60)))
-                    hour = 0
-
-                    estimated_travel_time = network.return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
-                    if estimated_travel_time >= 0:
-                        arr_time = (dep_time) + (vehicle_factor * estimated_travel_time) 
-                    else:
-                        unfeasible_request = True
-
+                #compute estimated arrival time
+                estimated_travel_time = inst.network._return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
+                if estimated_travel_time >= 0:
+                    arr_time = (dep_time) + (inst.delay_vehicle_factor * estimated_travel_time) 
                 else:
-
-                    if dep_time is None:
-
-                        hour = int(arr_time/(60*60)) - 1
-                        hour = 0
-                        
-                        estimated_travel_time = network.return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
-                        if estimated_travel_time >= 0:
-                            dep_time = (arr_time) - (vehicle_factor * estimated_travel_time) 
-                        else:
-                            unfeasible_request = True
+                    unfeasible_request = True
 
                 if  not unfeasible_request:   
                     #prints in the json file if the request is 'viable'
                     
                     request_data.update({'originx': origin_point[1]})
                     request_data.update({'originy': origin_point[0]})
+                    request_data.update({'origin_node': int(origin_node_drive)})
 
                     request_data.update({'destinationx': destination_point[1]})
                     request_data.update({'destinationy': destination_point[0]})
+                    request_data.update({'destination_node': int(destination_node_drive)})
 
-                    
-                    #timestamp -> time the request was made
-                    request_time_stamp = random.randint(0, dep_time)
                     request_data.update({'time_stamp': int(request_time_stamp)})
                     
                     #departure time
@@ -481,42 +403,47 @@ def generate_requests_DARP(
                     request_data.update({'arr_time': int(arr_time)})
 
                     # add request_data to instance_data container
-                    all_requests.update({i: request_data})
+                    all_requests.update({request_id: request_data})
+                    request_id+=1
 
                     #increases the number of requests
                     i += 1
-                    print('#:', i)
 
                     
                     create_return_request = random.randint(0, 100)
 
-                    if create_return_request <= inbound_outbound_factor*100 and arr_time <= max_early_departure and i < num_requests:
+                    if create_return_request <= inst.inbound_outbound_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
 
                         request_data_return = {}
 
-                        request_data_return.update({'destinationx': origin_point[1]})
-                        request_data_return.update({'destinationy': origin_point[0]})
+                        #coordinate origin
+                        request_data_return.update({'originx': origin_point[1]})
+                        request_data_return.update({'originy': origin_point[0]})
+                        request_data_return.update({'origin_node': int(origin_node_drive)})
 
-                        request_data_return.update({'originx': destination_point[1]})
-                        request_data_return.update({'originy': destination_point[0]})
+                        #coordinate destination
+                        request_data_return.update({'destinationx': destination_point[1]})
+                        request_data_return.update({'destinationy': destination_point[0]})
+                        request_data_return.update({'destination_node': int(destination_node_drive)})
 
                         #timestamp -> time the request was made
-                        request_data.update({'time_stamp': int(request_time_stamp)})
+                        request_data_return.update({'time_stamp': int(request_time_stamp)})
                         
                         #departure time for the return
-                        dep_time_return = random.randint(arr_time, max_early_departure)
+                        dep_time_return = random.randint(arr_time, inst.max_early_departure)
                         request_data_return.update({'dep_time': int(dep_time_return)})
 
                         #arrival time
-                        estimated_travel_time = network.return_estimated_travel_time_drive(destination_node_drive, origin_node_drive)
-                        arr_time_return = (dep_time_return) + (vehicle_factor * estimated_travel_time)
+                        estimated_travel_time = inst.network._return_estimated_travel_time_drive(destination_node_drive, origin_node_drive)
+                        arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * estimated_travel_time)
                         request_data_return.update({'arr_time': int(arr_time_return)})
 
-                        all_requests.update({num_requests: request_data_return})
+                        all_requests.update({request_id: request_data_return})
+                        request_id+=1
 
                         #increases the number of requests
                         i += 1
-                        print('#r:', i)
+                        
                 else:
                     nok = True
                     if num_attempts > 20:
@@ -526,40 +453,25 @@ def generate_requests_DARP(
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
 
-    network.all_requests = all_requests
+    travel_time_json = inst.network._get_travel_time_matrix("all")
+    instance_data.update({'requests': all_requests,
+                          'num_stations': inst.network.num_stations,
+                          'travel_time_matrix': travel_time_json})
 
-    #travel_time_json = network.get_travel_time_matrix_osmnx("bus", 0)
-    #travel_time_json = travel_time_json.tolist()
-    travel_time_json = []
-    instance_data.update({'requests': all_requests})
-    #instance_data.update({'requests': all_requests,
-    #                      'num_stations': network.num_stations,
-    #                      'distance_matrix': travel_time_json})
-
-    with open(output_file_json, 'w') as file:
+    with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
         file.close()
 
-def generate_requests_ODBRP( 
-    network, 
-    request_demand,
-    min_early_departure,
-    max_early_departure,
-    min_walk_speed,
-    max_walk_speed,
-    max_walking,
-    vehicle_factor,
-    inbound_outbound_factor,
+def _generate_requests_ODBRP( 
+    inst,
     replicate_num,
-    save_dir_json,
-    output_folder_base
 ):
     
     '''
     generate requests for the on demand bus routing problem
     '''
 
-    output_file_json = os.path.join(save_dir_json, output_folder_base + '_' + str(replicate_num) + '.json')
+    inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  
 
     print("Now generating " + " request_data")
@@ -567,46 +479,39 @@ def generate_requests_ODBRP(
     all_requests = {} 
     h = 0
     num_requests = 0
+    request_id = 0
 
     #for each PDF
-    for r in range(len(request_demand)):
+    for r in range(len(inst.request_demand)):
         
-        #randomly generates the earliest departure times or latest arrival times
-        request_demand[r].set_demand()
+        #randomly samples the earliest departure times or latest arrival times
+        inst.request_demand[r].sample_times()
 
         #randomly generates the zones 
-        if request_demand[r].is_random_origin_zones:
-            request_demand[r].randomly_set_origin_zones(len(network.zones))
+        if inst.is_random_origin_zones:
+            inst.randomly_sample_origin_zones(len(inst.network.zones))
 
-        if request_demand[r].is_random_destination_zones:
-            request_demand[r].randomly_set_destination_zones(len(network.zones))     
+        if inst.is_random_destination_zones:
+            inst.randomly_sample_destination_zones(len(inst.network.zones))     
 
-        num_requests = request_demand[r].num_requests
+        num_requests = inst.request_demand[r].num_requests
         print(num_requests)
         i = 0
         while i < num_requests:
             
-            dep_time = None 
-            arr_time = None
+            #timestamp -> time the request was received by the system
+            request_time_stamp = int(inst.request_demand[r].demand[i])
+            
+            request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
+            
+            dep_time = int(request_time_stamp + request_lead_time)
 
-            #gets the arrival and departure time
-            if request_demand[r].time_type == "EDT":
-                dep_time = request_demand[r].demand[i]
-                dep_time = int(dep_time)
-
-                if (dep_time >= 0) and (dep_time >= min_early_departure) and (dep_time <= max_early_departure):
-                    nok = True
-                else:
-                    nok = False
+            if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
+                nok = True
             else:
-                if request_demand[r].time_type == "LAT":
-                    arr_time = request_demand[r].demand[i]
-                    arr_time = int(arr_time)
-
-                    if (arr_time >= 0) and (arr_time >= min_early_departure) and (arr_time <= max_early_departure):
-                        nok = True
-                    else:
-                        nok = False
+                nok = False
+            
+            arr_time = None
 
             #holds information about this request
             request_data = {}  
@@ -627,54 +532,56 @@ def generate_requests_ODBRP(
                 while unfeasible_request:
 
                     #generate coordinates for origin
-                    if request_demand[r].num_origins == -1:
+                    if inst.num_origins == -1:
 
-                        origin_point = network.get_random_coord(network.polygon)
+                        origin_point = inst.network._get_random_coord(inst.network.polygon)
                         origin_point = (origin_point.y, origin_point.x)
     
                     else:
 
-                        random_zone = np.random.uniform(0, request_demand[r].num_origins, 1)
+                        random_zone = np.random.uniform(0, inst.num_origins, 1)
                         random_zone = int(random_zone)
 
-                        random_zone_id = int(request_demand[r].origin_zones[random_zone])
-                        polygon_zone = network.zones.loc[random_zone_id]['polygon']
+                        random_zone_id = int(inst.request_demand[r].origin_zones[random_zone])
+                        polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
                         
                         #generate coordinates within the given zone
-                        origin_point = network.get_random_coord(polygon_zone)
+                        origin_point = inst.network._get_random_coord(polygon_zone)
                         #ax.scatter(origin_point.x, origin_point.y, c='red')
                         origin_point = (origin_point.y, origin_point.x)
 
                     #generate coordinates for destination
-                    if request_demand[r].num_destinations == -1:
+                    if inst.num_destinations == -1:
                         
-                        destination_point = network.get_random_coord(network.polygon)
+                        destination_point = inst.network._get_random_coord(inst.network.polygon)
                         #ax.scatter(destination_point.x, destination_point.y, c='green')
                         destination_point = (destination_point.y, destination_point.x)
 
                     else:
                         
-                        random_zone = np.random.uniform(0, request_demand[r].num_destinations, 1)
+                        random_zone = np.random.uniform(0, inst.num_destinations, 1)
                         random_zone = int(random_zone)
                         
-                        random_zone_id = int(request_demand[r].destination_zones[random_zone])
-                        polygon_zone = network.zones.loc[random_zone_id]['polygon']
+                        random_zone_id = int(inst.request_demand[r].destination_zones[random_zone])
+                        polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
             
                         #generate coordinates within the given zone
-                        destination_point = network.get_random_coord(polygon_zone)
+                        destination_point = inst.network._get_random_coord(polygon_zone)
                         #ax.scatter(destination_point.x, destination_point.y, c='green')
                         destination_point = (destination_point.y, destination_point.x)
 
-                    origin_node_walk = ox.get_nearest_node(network.G_walk, origin_point)
-                    destination_node_walk = ox.get_nearest_node(network.G_walk, destination_point)
-                    time_walking = network.get_eta_walk(origin_node_walk, destination_node_walk, min_walk_speed, max_walk_speed)
+                    origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
+                    destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
+                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)
+
+                    max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
 
                     #time walking from origin to destination must be higher of max_walking by the user
-                    if time_walking > max_walking:
+                    if time_walking > max_walking_user:
                         unfeasible_request = False
                 
-                origin_node_drive = ox.get_nearest_node(network.G_drive, origin_point)
-                destination_node_drive = ox.get_nearest_node(network.G_drive, destination_point)
+                origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
                 
                 stops_origin = []
                 stops_destination = []
@@ -682,51 +589,35 @@ def generate_requests_ODBRP(
                 stops_origin_walking_distance = []
                 stops_destination_walking_distance = []
 
-                if time_walking > max_walking: #if distance between origin and destination is too small the person just walks
+                if time_walking > max_walking_user: #if distance between origin and destination is too small the person just walks
                     
                     #calculates the stations which are close enough to the origin and destination of the request
-                    for index in network.bus_stops_ids:
+                    for index in inst.network.bus_stops_ids:
                     
-                        osmid_possible_stop = int(network.bus_stops.loc[index, 'osmid_walk'])
+                        osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
 
-                        eta_walk_origin = network.get_eta_walk(origin_node_walk, osmid_possible_stop, min_walk_speed, max_walk_speed)
-                        if eta_walk_origin >= 0 and eta_walk_origin <= max_walking:
+                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, inst.min_walk_speed, inst.max_walk_speed)
+                        if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
                             stops_origin.append(index)
                             stops_origin_walking_distance.append(eta_walk_origin)
 
-                        #eta_walk_destination = network.get_eta_walk(destination_node_walk, osmid_possible_stop) 
-                        eta_walk_destination = network.get_eta_walk(osmid_possible_stop, destination_node_walk, min_walk_speed, max_walk_speed)       
-                        if eta_walk_destination >= 0 and eta_walk_destination <= max_walking:
+                        #eta_walk_destination = inst.network.get_eta_walk(destination_node_walk, osmid_possible_stop) 
+                        eta_walk_destination = inst.network.get_eta_walk(osmid_possible_stop, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)       
+                        if eta_walk_destination >= 0 and eta_walk_destination <= max_walking_user:
                             stops_destination.append(index)
                             stops_destination_walking_distance.append(eta_walk_destination)
 
                 # Check whether each passenger can walk to stops (origin + destination)
                 if len(stops_origin) > 0 and len(stops_destination) > 0:
+                    #check if stops_origin and stops_destination dont have the same bus station
                     if not (set(stops_origin) & set(stops_destination)):
-                        #time window for the arrival time
                         
-                        if arr_time is None:
-                            hour = int(math.floor(dep_time/(60*60)))
-                            hour = 0
-
-                            #print('dep time min, dep time hour: ', dep_time, hour)
-                            max_eta_bus, min_eta_bus = network.return_estimated_travel_time_bus(stops_origin, stops_destination, hour)
-                            if min_eta_bus >= 0:
-                                arr_time = (dep_time) + (vehicle_factor * max_eta_bus) + (max_walking * 2)
-                            else:
-                                unfeasible_request = True
+                        #compute arrival time
+                        max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
+                        if min_eta_bus >= 0:
+                            arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * 2)
                         else:
-
-                            if dep_time is None:
-                                hour = int(arr_time/(60*60)) - 1
-                                hour = 0
-                                
-                                #print('dep time min, dep time hour: ', dep_time, hour)
-                                max_eta_bus, min_eta_bus = network.return_estimated_travel_time_bus(stops_origin, stops_destination, hour)
-                                if min_eta_bus >= 0:
-                                    dep_time = (arr_time) - (vehicle_factor * max_eta_bus) - (max_walking * 2)
-                                else:
-                                    unfeasible_request = True
+                            unfeasible_request = True
 
                     else:
                         unfeasible_request = True
@@ -736,13 +627,6 @@ def generate_requests_ODBRP(
                 if  not unfeasible_request:   
                     #prints in the json file if the request is feasible
 
-                    #coordinate origin
-                    request_data.update({'originx': origin_point[1]})
-                    request_data.update({'originy': origin_point[0]})
-
-                    #coordinate destination
-                    request_data.update({'destinationx': destination_point[1]})
-                    request_data.update({'destinationy': destination_point[0]})
 
                     request_data.update({'num_stops_origin': len(stops_origin)})
                     request_data.update({'stops_origin': stops_origin})
@@ -753,7 +637,6 @@ def generate_requests_ODBRP(
                     request_data.update({'walking_time_stops_to_destination': stops_destination_walking_distance})
 
                     #timestamp -> time the request was made
-                    request_time_stamp = random.randint(0, dep_time)
                     request_data.update({'time_stamp': int(request_time_stamp)})
                     
                     #departure time
@@ -764,25 +647,17 @@ def generate_requests_ODBRP(
 
                     #increases the number of requests\
 
-                    print('#:', i)
-
                     # add request_data to instance_data container
-                    all_requests.update({i: request_data})
+                    all_requests.update({request_id: request_data})
+                    request_id+=1
 
                     create_return_request = random.randint(0, 100)
 
-                    if create_return_request <= inbound_outbound_factor*100 and arr_time <= max_early_departure and i < num_requests:
+                    if create_return_request <= inst.inbound_outbound_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
                         #create "copy of the request as a return"
                         request_data_return = {}
 
-                        #coordinate origin
-                        request_data_return.update({'originx': destination_point[1]})
-                        request_data_return.update({'originy': destination_point[0]})
-
-                        #coordinate destination
-                        request_data_return.update({'destinationx': origin_point[1]})
-                        request_data_return.update({'destinationy': origin_point[0]})
-
+                        
                         request_data_return.update({'num_stops_origin': len(stops_destination)})
                         request_data_return.update({'stops_origin': stops_destination})
                         request_data_return.update({'walking_time_origin_to_stops': stops_destination_walking_distance})
@@ -794,22 +669,20 @@ def generate_requests_ODBRP(
                         request_data_return.update({'time_stamp': int(request_time_stamp)})
                     
                         #departure time for the return
-                        dep_time_return = random.randint(int(arr_time), int(max_early_departure))
+                        dep_time_return = random.randint(int(arr_time), int(inst.max_early_departure))
                         request_data_return.update({'dep_time': int(dep_time_return)})
 
-                        #arrival time
-                        max_eta_bus, min_eta_bus = network.return_estimated_travel_time_bus(stops_origin, stops_destination, hour)
-                        arr_time_return = (dep_time_return) + (vehicle_factor * max_eta_bus) + (max_walking * 2) 
+                        #arrival time for the return
+                        max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
+                        arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * 2) 
                         request_data_return.update({'arr_time': int(arr_time_return)})
 
                         i += 1
-                        print('#r:', i)
-                        all_requests.update({i: request_data_return})
+                        
+                        all_requests.update({request_id: request_data_return})
+                        request_id+=1
 
                         #increases the number of requests
-                        
-                    
-                        
                 else:
                     nok = True
                     if num_attempts > 20:
@@ -819,36 +692,23 @@ def generate_requests_ODBRP(
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
 
-    network.all_requests = all_requests
+    inst.network.all_requests = all_requests
 
-    #travel_time_json = network.get_travel_time_matrix_osmnx("bus", 0)
-    #travel_time_json = travel_time_json.tolist()
-    travel_time_json = []
-    instance_data.update({'requests': all_requests})
-    #instance_data.update({'requests': all_requests,
-    #                      'num_stations': network.num_stations,
-    #                      'distance_matrix': travel_time_json})
+    travel_time_json = inst.network._get_travel_time_matrix("bus")
+    instance_data.update({'requests': all_requests,
+                          'num_stations': inst.network.num_stations,
+                          'travel_time_matrix': travel_time_json})
 
-    with open(output_file_json, 'w') as file:
+    with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
         file.close()
 
-def generate_requests_SBRP( 
-    network, 
-    school_id,
-    request_demand,
-    min_early_departure,
-    max_early_departure,
-    min_walk_speed,
-    max_walk_speed,
-    max_walking,
-    vehicle_factor,
+def _generate_requests_SBRP( 
+    inst,
     replicate_num,
-    save_dir_json,
-    output_folder_base
 ):
-    
-    output_file_json = os.path.join(save_dir_json, output_folder_base + '_' + str(replicate_num) + '.json')
+    #file that will store the information of this instance in json format
+    inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  
 
     print("Now generating " + " request_data")
@@ -856,16 +716,17 @@ def generate_requests_SBRP(
     all_requests = {} 
     h = 0
     num_requests = 0
+    request_id = 0
 
     #for each PDF
-    for r in range(len(request_demand)):
+    for r in range(len(inst.request_demand)):
          
-        if request_demand[r].is_random_origin_zones:
-            request_demand[r].randomly_set_origin_zones(len(network.zones))
+        if inst.is_random_origin_zones:
+            inst.randomly_sample_origin_zones(len(inst.network.zones))
 
         #destination is the school
           
-        num_requests = request_demand[r].num_requests
+        num_requests = inst.request_demand[r].num_requests
         print(num_requests)
         i=0
         while i < num_requests:
@@ -887,32 +748,31 @@ def generate_requests_SBRP(
                 #generate coordinates for origin
                 while unfeasible_request:
                     
-                    if request_demand[r].num_origins == -1:
-                        origin_point = network.get_random_coord(network.polygon)
+                    if inst.num_origins == -1:
+                        origin_point = inst.network._get_random_coord(inst.network.polygon)
                         origin_point = (origin_point.y, origin_point.x)
 
                     else:
-                        random_zone = np.random.uniform(0, request_demand[r].num_origins, 1)
+                        random_zone = np.random.uniform(0, inst.num_origins, 1)
                         random_zone = int(random_zone)
-                        random_zone_id = int(request_demand[r].origin_zones[random_zone])
-                        polygon_zone = network.zones.loc[random_zone_id]['polygon']
+                        random_zone_id = int(inst.origin_zones[random_zone])
+                        polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
                         
-                        origin_point = network.get_random_coord(polygon_zone)
+                        origin_point = inst.network._get_random_coord(polygon_zone)
                         origin_point = (origin_point.y, origin_point.x)
 
                     #destination is the school
-                    destination_point = (network.schools.loc[school_id, 'lat'], network.schools.loc[school_id, 'lon'])
+                    destination_point = (inst.network.schools.loc[inst.school_id, 'lat'], inst.network.schools.loc[inst.school_id, 'lon'])
 
-                    origin_node_walk = ox.get_nearest_node(network.G_walk, origin_point)
-                    destination_node_walk = ox.get_nearest_node(network.G_walk, destination_point)
-                    time_walking = network.get_eta_walk(origin_node_walk, destination_node_walk, min_walk_speed, max_walk_speed)
+                    origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
+                    destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
+                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)
 
-                    
                     #if time_walking > max_walking:
                     #    unfeasible_request = False
                     
-                    origin_node_drive = ox.get_nearest_node(network.G_drive, origin_point)
-                    destination_node_drive = ox.get_nearest_node(network.G_drive, destination_point)
+                    origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
                     
                     stops_origin = []
                     stops_origin_walking_distance = []
@@ -921,40 +781,37 @@ def generate_requests_SBRP(
                     #add the request
                         
                     #calculates the stations which are close enough to the origin and destination of the request
-                    for index in network.bus_stops_ids:
+                    for index in inst.network.bus_stops_ids:
                     
-                        #osmid_possible_stop = int(stop_node['osmid_walk'])
-                        osmid_possible_stop = int(network.bus_stops.loc[index, 'osmid_walk'])
+                        osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
 
-                        eta_walk_origin = network.get_eta_walk(origin_node_walk, osmid_possible_stop, min_walk_speed, max_walk_speed)
-                        if eta_walk_origin >= 0 and eta_walk_origin <= max_walking:
+                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, inst.min_walk_speed, inst.max_walk_speed)
+                        
+                        max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
+                        if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
                             stops_origin.append(index)
                             stops_origin_walking_distance.append(eta_walk_origin)
                     
-                    #print(len(stops_origin))
                     if len(stops_origin) > 0:
                         unfeasible_request = False
                 
-                
                 if not unfeasible_request:   
                     #outputs in the json file if the request is 'feasible'
-                    
-                    request_data.update({'originx': origin_point[1]})
-                    request_data.update({'originy': origin_point[0]})
-
-                    request_data.update({'destinationx': destination_point[1]})
-                    request_data.update({'destinationy': destination_point[0]})
-
+                
                     request_data.update({'num_stops_origin': len(stops_origin)})
                     request_data.update({'stops_origin': stops_origin})
                     request_data.update({'walking_time_origin_to_stops': stops_origin_walking_distance})
 
+                    request_data.update({'destinationx': destination_point[1]})
+                    request_data.update({'destinationy': destination_point[0]})
+                    request_data.update({'destination_node': int(destination_node_drive)})
+
                     # add request_data to instance_data container
-                    all_requests.update({i: request_data})
+                    all_requests.update({request_id: request_data})
+                    request_id+=1
 
                     #increases the number of requests
-                    print('#:', i)
-
+                    
                     #not necessary to create return request because the student always returns home
                     #return time is dependent of the school's time window
 
@@ -967,15 +824,15 @@ def generate_requests_SBRP(
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
 
-    #travel_time_json = network.get_travel_time_matrix_osmnx("bus", 0)
-    #travel_time_json = travel_time_json.tolist()
-    travel_time_json = []
-    instance_data.update({'requests': all_requests})
-    #instance_data.update({'requests': all_requests,
-    #                      'num_stations': network.num_stations,
-    #                      'distance_matrix': travel_time_json})
+    travel_time_json = inst.network._get_travel_time_matrix("bus")
+    travel_time_to_school = inst.network._get_travel_time_from_stops_to_school(inst.school_id)
+    
+    instance_data.update({'requests': all_requests,
+                          'num_stations': inst.network.num_stations,
+                          'travel_time_matrix': travel_time_json,
+                          'travel_time_to_school': travel_time_to_school})
 
-    with open(output_file_json, 'w') as file:
+    with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
         file.close()        
 

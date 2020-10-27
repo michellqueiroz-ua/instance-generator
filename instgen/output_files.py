@@ -5,7 +5,7 @@ class JsonConverter(object):
 
     def __init__(self, file_name):
 
-        with open(file_name, 'r') as file:
+        with open(file_name, 'rb') as file:
             self.json_data = json.load(file)
             file.close()
 

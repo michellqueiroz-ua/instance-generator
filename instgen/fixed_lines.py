@@ -1,4 +1,5 @@
 import os
+from multiprocessing import cpu_count
 import networkx as nx
 import ray
 
@@ -266,14 +267,14 @@ def get_nodes_osm(G_walk, G_drive, lat, lon):
     
     return (node_walk, node_drive)
 
-def get_fixed_lines_deconet(param, network, folder_path):
+def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
 
     #num_of_cpu = cpu_count()
     nodes_covered_fixed_lines = []
     ray.shutdown()
-    ray.init(num_cpus=param.num_of_cpu)
+    ray.init(num_cpus=cpu_count())
 
-    save_dir_csv = os.path.join(param.save_dir, 'csv')
+    save_dir_csv = os.path.join(save_dir, 'csv')
 
     if not os.path.isdir(folder_path):
         print('folder does not exist')
@@ -336,22 +337,16 @@ def get_fixed_lines_deconet(param, network, folder_path):
                     if int(row['to_stop_I']) not in dict_subway_lines[route_id]['route_graph'].nodes():
                         dict_subway_lines[route_id]['route_graph'].add_node(row['to_stop_I'])
 
-                    if row['from_stop_I'] not in nodes_covered_fixed_lines:
+                    if int(row['from_stop_I']) not in nodes_covered_fixed_lines:
                         nodes_covered_fixed_lines.append(int(row['from_stop_I']))
 
-                    if row['to_stop_I'] not in nodes_covered_fixed_lines:
+                    if int(row['to_stop_I']) not in nodes_covered_fixed_lines:
                         nodes_covered_fixed_lines.append(int(row['to_stop_I']))
 
                     dict_subway_lines[route_id]['route_graph'].add_edge(row['from_stop_I'], row['to_stop_I'], duration_avg=float(row['duration_avg']))
 
             
-            #shortest_path_subway = get_all_shortest_paths_fix_lines(param, dict_subway_lines, deconet_network_nodes)
-
-            #path_csv_file_subway_lines = os.path.join(save_dir_csv, param.output_file_base+'.subway.lines.csv')
-            #shortest_path_subway = pd.DataFrame(shortest_path_subway)
-            #shortest_path_subway.to_csv(path_csv_file_subway_lines)
             
-            #shortest_path_subway.set_index(['origin_Id', 'destination_Id'], inplace=True)
             
         #add network nodes e shortest_path_subway para network file
        
@@ -371,9 +366,10 @@ def get_fixed_lines_deconet(param, network, folder_path):
         if os.path.isfile(bus_lines_filename):
             bus_lines = pd.read_csv(bus_lines_filename, delimiter=";")
 
-def plot_pt_fixed_lines(param, G, pt_fixed_lines):
-    
-    pt_lines_folder = os.path.join(param.save_dir_images, 'pt_fixed_lines')
+def plot_pt_fixed_lines(G, pt_fixed_lines, save_dir):
+
+    save_dir_images = os.path.join(save_dir, 'images')
+    pt_lines_folder = os.path.join(save_dir_images, 'pt_fixed_lines')
 
     if not os.path.isdir(pt_lines_folder):
         os.mkdir(pt_lines_folder)

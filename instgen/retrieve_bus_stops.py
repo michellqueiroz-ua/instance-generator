@@ -38,6 +38,10 @@ def filter_bus_stops(bus_stops, shortest_path_drive, save_dir, output_file_base)
             
     print('number of bus stops after removal: ', len(bus_stops))
 
+    stations_ids = range(0, len(bus_stops))
+    bus_stops.index = stations_ids
+
+
     bus_stops.to_csv(path_bus_stops)
 
 @ray.remote

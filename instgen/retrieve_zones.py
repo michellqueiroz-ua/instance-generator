@@ -102,7 +102,8 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base):
                                 'center_point_x': poi.geometry.centroid.x,
                                 'osmid_walk': osmid_walk,
                                 'osmid_drive': osmid_drive,
-                                'center_point_distance': distance,
+                                'dist_lat': distance,
+                                'dist_lon': distance,
                             }
 
                             zone_id += 1
