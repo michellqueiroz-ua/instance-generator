@@ -35,7 +35,7 @@ class Network:
         
         self.vehicle_speed = vehicle_speed
 
-    def get_eta_walk(self, u, v, min_walk_speed, max_walk_speed):
+    def get_eta_walk(self, u, v, walk_speed):
         
         
         #returns estimated time walking in seconds from origin_node to destination_node
@@ -55,7 +55,7 @@ class Network:
                 except nx.NetworkXNoPath:
                     distance_walk = np.nan
  
-        walk_speed = random.randint(int(min_walk_speed), int(max_walk_speed))
+        
         speed = walk_speed
         #print(u, v)
         #print(distance_walk)

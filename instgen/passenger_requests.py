@@ -62,6 +62,8 @@ def _generate_requests_ODBRPFL(
             
             arr_time = None
 
+            request_walk_speed = random.randint(int(inst.min_walk_speed), int(inst.max_walk_speed))
+
             request_data = {}  #holds information about this request
 
             #randomly choosing coordinates and repeated for a passenger until he can go to at least 1 stop (for both origin and destination)
@@ -120,7 +122,7 @@ def _generate_requests_ODBRPFL(
 
                     origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
                     destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
-                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)
+                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, request_walk_speed)
 
                     
                     max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
@@ -147,13 +149,13 @@ def _generate_requests_ODBRPFL(
                         #osmid_possible_stop = int(stop_node['osmid_walk'])
                         osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
 
-                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, inst.min_walk_speed, inst.max_walk_speed)
+                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, request_walk_speed)
                         if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
                             stops_origin.append(index)
                             stops_origin_walking_distance.append(eta_walk_origin)
 
                         #eta_walk_destination = inst.network.get_eta_walk(destination_node_walk, osmid_possible_stop) 
-                        eta_walk_destination = inst.network.get_eta_walk(osmid_possible_stop, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)       
+                        eta_walk_destination = inst.network.get_eta_walk(osmid_possible_stop, destination_node_walk, request_walk_speed)       
                         if eta_walk_destination >= 0 and eta_walk_destination <= max_walking_user:
                             stops_destination.append(index)
                             stops_destination_walking_distance.append(eta_walk_destination)
@@ -267,7 +269,8 @@ def _generate_requests_ODBRPFL(
 
     travel_time_json = inst.network._get_travel_time_matrix("bus")
     
-    instance_data.update({'requests': all_requests,
+    instance_data.update({'num_requests:': len(all_requests),
+                          'requests': all_requests,
                           'num_stations': inst.network.num_stations,
                           'travel_time_matrix': travel_time_json})
 
@@ -417,14 +420,14 @@ def _generate_requests_DARP(
                         request_data_return = {}
 
                         #coordinate origin
-                        request_data_return.update({'originx': origin_point[1]})
-                        request_data_return.update({'originy': origin_point[0]})
-                        request_data_return.update({'origin_node': int(origin_node_drive)})
+                        request_data_return.update({'originx': destination_point[1]})
+                        request_data_return.update({'originy': destination_point[0]})
+                        request_data_return.update({'origin_node': int(destination_node_drive)})
 
                         #coordinate destination
-                        request_data_return.update({'destinationx': destination_point[1]})
-                        request_data_return.update({'destinationy': destination_point[0]})
-                        request_data_return.update({'destination_node': int(destination_node_drive)})
+                        request_data_return.update({'destinationx': origin_point[1]})
+                        request_data_return.update({'destinationy': origin_point[0]})
+                        request_data_return.update({'destination_node': int(origin_node_drive)})
 
                         #timestamp -> time the request was made
                         request_data_return.update({'time_stamp': int(request_time_stamp)})
@@ -454,7 +457,8 @@ def _generate_requests_DARP(
         #plt.close(fig) 
 
     travel_time_json = inst.network._get_travel_time_matrix("all")
-    instance_data.update({'requests': all_requests,
+    instance_data.update({'num_requests:': len(all_requests),
+                          'requests': all_requests,
                           'num_stations': inst.network.num_stations,
                           'travel_time_matrix': travel_time_json})
 
@@ -512,6 +516,8 @@ def _generate_requests_ODBRP(
                 nok = False
             
             arr_time = None
+
+            request_walk_speed = random.randint(int(inst.min_walk_speed), int(inst.max_walk_speed))
 
             #holds information about this request
             request_data = {}  
@@ -572,7 +578,7 @@ def _generate_requests_ODBRP(
 
                     origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
                     destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
-                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)
+                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, request_walk_speed)
 
                     max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
 
@@ -596,13 +602,13 @@ def _generate_requests_ODBRP(
                     
                         osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
 
-                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, inst.min_walk_speed, inst.max_walk_speed)
+                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, request_walk_speed)
                         if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
                             stops_origin.append(index)
                             stops_origin_walking_distance.append(eta_walk_origin)
 
                         #eta_walk_destination = inst.network.get_eta_walk(destination_node_walk, osmid_possible_stop) 
-                        eta_walk_destination = inst.network.get_eta_walk(osmid_possible_stop, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)       
+                        eta_walk_destination = inst.network.get_eta_walk(osmid_possible_stop, destination_node_walk, request_walk_speed)       
                         if eta_walk_destination >= 0 and eta_walk_destination <= max_walking_user:
                             stops_destination.append(index)
                             stops_destination_walking_distance.append(eta_walk_destination)
@@ -695,7 +701,8 @@ def _generate_requests_ODBRP(
     inst.network.all_requests = all_requests
 
     travel_time_json = inst.network._get_travel_time_matrix("bus")
-    instance_data.update({'requests': all_requests,
+    instance_data.update({'num_requests:': len(all_requests),
+                          'requests': all_requests,
                           'num_stations': inst.network.num_stations,
                           'travel_time_matrix': travel_time_json})
 
@@ -735,7 +742,8 @@ def _generate_requests_SBRP(
             request_data = {}  #holds information about this request
 
             #randomly choosing coordinates and repeated for a passenger until he can go to at least 1 stop (for both origin and destination)
-            
+            request_walk_speed = random.randint(int(inst.min_walk_speed), int(inst.max_walk_speed))
+
             num_attempts = 0 #limit the number of attempts to generate a request and avoid infinite loop
             while nok:
                 num_attempts += 1
@@ -766,7 +774,7 @@ def _generate_requests_SBRP(
 
                     origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
                     destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
-                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, inst.min_walk_speed, inst.max_walk_speed)
+                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, request_walk_speed)
 
                     #if time_walking > max_walking:
                     #    unfeasible_request = False
@@ -785,7 +793,7 @@ def _generate_requests_SBRP(
                     
                         osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
 
-                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, inst.min_walk_speed, inst.max_walk_speed)
+                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, request_walk_speed)
                         
                         max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
                         if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
@@ -827,7 +835,8 @@ def _generate_requests_SBRP(
     travel_time_json = inst.network._get_travel_time_matrix("bus")
     travel_time_to_school = inst.network._get_travel_time_from_stops_to_school(inst.school_id)
     
-    instance_data.update({'requests': all_requests,
+    instance_data.update({'num_requests:': len(all_requests),
+                          'requests': all_requests,
                           'num_stations': inst.network.num_stations,
                           'travel_time_matrix': travel_time_json,
                           'travel_time_to_school': travel_time_to_school})

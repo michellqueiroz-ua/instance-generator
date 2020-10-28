@@ -31,6 +31,9 @@ class Instance:
             self.network = pickle.load(self.network_class_file)
 
 
+        #problem for which the instance is being created
+        self.problem_type = None
+
         self.request_demand = []
 
         self.num_origins = -1
@@ -58,9 +61,6 @@ class Instance:
 
         #number of replicas of the instance with randomized characteristics 
         self.number_replicas = None
-
-        #problem for which the instance is being created
-        self.problem_type = None
 
         #school id in case of SBRP
         self.school_id = None
