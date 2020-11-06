@@ -17,13 +17,13 @@ def shortest_path_nx(G, u, v):
 
 #ss -> single source to all nodes
 @ray.remote
-def shortest_path_nx_ss(G, u):
+def shortest_path_nx_ss(G, u, weight):
 
     shortest_path_length_u = {}
-    shortest_path_length_u = nx.single_source_dijkstra_path_length(G, u, weight='length')
+    shortest_path_length_u = nx.single_source_dijkstra_path_length(G, u, weight=weight)
     return shortest_path_length_u
 
-def get_distance_matrix_csv(G_walk, G_drive, bus_stops, save_dir, output_file_base):
+def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base):
     shortest_path_walk = []
     shortest_path_drive = []
     
@@ -63,7 +63,7 @@ def get_distance_matrix_csv(G_walk, G_drive, bus_stops, save_dir, output_file_ba
 
         #calculate shortest path between nodes in the walking network to the bus stops
         shortest_path_length_walk = []
-        results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u) for u in bus_stops_ids])
+        results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u, weight="length") for u in bus_stops_ids])
 
         j=0
         for u in bus_stops_ids:
@@ -101,13 +101,17 @@ def get_distance_matrix_csv(G_walk, G_drive, bus_stops, save_dir, output_file_ba
 
         print('calculating shortest paths drive network')
 
+        '''
+        calculate shortest path using travel time considering max speed allowed on roads
+        '''
+
         
         list_nodes = list(G_drive.nodes)
         G_drive_id = ray.put(G_drive)
         #start = time.process_time()
 
         shortest_path_length_drive = []
-        results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u) for u in list_nodes])
+        results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="travel_time") for u in list_nodes])
 
         j=0
         for u in list_nodes:

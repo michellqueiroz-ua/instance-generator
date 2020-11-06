@@ -40,24 +40,25 @@ from fixed_lines import get_fixed_lines_osm
 from fixed_lines import plot_fixed_lines
 
 from output_files import JsonConverter
-from retrieve_bus_stops import filter_bus_stops
-from retrieve_bus_stops import get_bus_stops_matrix_csv
-from retrieve_bus_stops import plot_bus_stops
+from retrieve_bus_stations import filter_bus_stations
+from retrieve_bus_stations import get_bus_stations_matrix_csv
+from retrieve_bus_stations import plot_bus_stations
 from retrieve_zones import retrieve_zones
 from retrieve_schools import retrieve_schools
-from compute_distance_matrix import get_distance_matrix_csv
-from speed_info import calc_mean_max_speed
-from compute_travel_time import get_travel_time_matrix_osmnx_csv
+from compute_distance_matrix import _get_distance_matrix
+from speed_info import _calc_mean_max_speed
+from speed_info import _get_max_speed_road
+from compute_travel_time import _get_travel_time_matrix
 
 from network_class import Network
 from instance_class import Instance
 from request_distribution_class import RequestDistributionTime
        
 def network_stats(network):
-
-    print('used vehicle speed: ', network.vehicle_speed*3.6, ' kmh')
-    print("average dist 2 stops (driving network):", network.travel_time_matrix["dist"].mean())
-    print("average travel time between 2 stops:", network.travel_time_matrix["eta"].mean())
+    pass
+    #print('used vehicle speed: ', network.vehicle_speed*3.6, ' kmh')
+    #print("average dist 2 stops (driving network):", network.travel_time_matrix["dist"].mean())
+    #print("average travel time between 2 stops:", network.travel_time_matrix["eta"].mean())
 
 def download_network_information(
     place_name,
@@ -145,16 +146,53 @@ def download_network_information(
         print('speed mean overall', speed_mean_overall)
     
     print('Now retrieving bus stops')
-    bus_stops = get_bus_stops_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base)
-    
+    bus_stations = get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base)
+
+
+    max_speed_mean_overall = 0
+    counter_max_speeds = 0
+    if vehicle_speed_data == "max":
+        for (u,v,k) in G_drive.edges(data=True):    
+            dict_edge = {}
+            dict_edge = G_drive.get_edge_data(u, v)
+            dict_edge = dict_edge[0]
+            
+            max_speed_mean_overall,  counter_max_speeds = _calc_mean_max_speed(dict_edge, max_speed_mean_overall, counter_max_speeds)
+
+        max_speed_mean_overall = max_speed_mean_overall/counter_max_speeds
+
+        #value to replace the missing max speed values
+        #replace_vehicle_speed is the mean of all input maximum speed values in the network
+        replace_vehicle_speed = float(max_speed_mean_overall)
+
+    #add attribute travel_time to edges
+    for (u,v,k) in G_drive.edges(data=True): 
+
+        if vehicle_speed_data == "max":
+            dict_edge = {}
+            dict_edge = G_drive.get_edge_data(u, v)
+            dict_edge = dict_edge[0]
+            max_speed = _get_max_speed_road(dict_edge)
+
+            if not math.isnan(max_speed):   
+                G_drive[u][v][0]['travel_time'] = int(math.ceil(G_drive[u][v][0]['length']/(max_speed * max_speed_factor)))
+            else:
+                #fill in missing speed with replace_vehicle_speed
+                G_drive[u][v][0]['travel_time'] = int(math.ceil(G_drive[u][v][0]['length']/(replace_vehicle_speed * max_speed_factor)))
+        
+        elif vehicle_speed_data == "set":
+            if not math.isnan(vehicle_speed):   
+                G_drive[u][v][0]['travel_time'] = int(math.ceil(G_drive[u][v][0]['length']/(vehicle_speed)))
+            else:
+                raise ValueError('please set attribute vehicle_speed')
+
+        else: raise ValueError('attribute vehicle_speed_data must be either "set" or "max"')
+
     #computes distance matrix for drivig and walking network
-    shortest_path_walk, shortest_path_drive = get_distance_matrix_csv(G_walk, G_drive, bus_stops, save_dir, output_folder_base)
+    shortest_path_walk, shortest_path_drive = _get_distance_matrix(G_walk, G_drive, bus_stations, save_dir, output_folder_base)
 
     #removes unreacheable stops
-    filter_bus_stops(bus_stops, shortest_path_drive, save_dir, output_folder_base)
-
-    
-    
+    filter_bus_stations(bus_stations, shortest_path_drive, save_dir, output_folder_base)
 
     print('Downloading zones from location')
     zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base)
@@ -166,94 +204,31 @@ def download_network_information(
     #create graph to plot zones here           
     print('number of schools', len(schools))
 
-    print('Now genarating time travel data')
-    #this considers max speed
-    max_speed_mean_overall = 0
-    counter_max_speeds = 0
+
+    network = Network(G_drive, shortest_path_drive, G_walk, shortest_path_walk, polygon, bus_stations, zones, schools)
+    #network.update_travel_time_matrix(travel_time_matrix)
     
-    for (u,v,k) in G_drive.edges(data=True):    
-        dict_edge = {}
-        dict_edge = G_drive.get_edge_data(u, v)
-        dict_edge = dict_edge[0]
-        max_speed_mean_overall,  counter_max_speeds = calc_mean_max_speed(dict_edge, max_speed_mean_overall, counter_max_speeds)
-
-    max_speed_mean_overall = max_speed_mean_overall/counter_max_speeds
-
-    if vehicle_speed_data == "max":
-        vehicle_speed = float(max_speed_mean_overall*max_speed_factor)
-
-    #COME BACK TO THIS LATER - TIME DEPENDENT TIME TRAVEL
-    #colocar range ser o time window do request generation?
-    #for hour in range(24):
-
-    '''
-    for hour in range(1):
-        for (u,v,k) in G_drive.edges(data=True):
-            hour_key = 'travel_time_' + str(hour)
-
-            #0 after [u][v] is necessary to access the edge data
-            edge_length = G_drive[u][v][0]['length']
-            
-            if speed_data != "max":
-                try:
-                    edge_speed = avg_uber_speed_data.loc[(u,v,hour), 'speed_mph_mean'] 
-                except KeyError:
-                    edge_speed = speed_mean_overall
-
-                #convert to m/s
-                #speeds in the uber database are in mph
-                edge_speed = edge_speed/2.237
-            else:
-                dict_edge = {}
-                dict_edge = G_drive.get_edge_data(u, v)
-                dict_edge = dict_edge[0]
-                
-                edge_speed = get_max_speed_road(dict_edge)
-                
-                if math.isnan(edge_speed):
-                    edge_speed = max_speed_mean_overall
-                
-                #max_speed_factor - value between 0 and 1
-                edge_speed = edge_speed*max_speed_factor
-
-            #calculates the eta travel time for the given edge at 'hour'
-            eta =  int(math.ceil(edge_length/edge_speed))
-
-            G_drive[u][v][0][hour_key] = eta
-    '''
-
-    #itid = 0
-    #updates the 'itid in bus_stops'
-    #for index, stop in bus_stops.iterrows():
-    #    bus_stops.loc[index, 'itid'] = int(itid)
-    #    itid = itid + 1
-
-    travel_time_matrix = get_travel_time_matrix_osmnx_csv(vehicle_speed, bus_stops, shortest_path_drive, shortest_path_walk, save_dir, output_folder_base)
-
-    #param.update_network(G_drive, polygon_drive, shortest_path_drive, G_walk, polygon_walk, shortest_path_walk, bus_stops, zones, walk_speed)
-    network = Network(G_drive, shortest_path_drive, G_walk, shortest_path_walk, polygon, bus_stops, zones, schools, vehicle_speed)
-    network.update_travel_time_matrix(travel_time_matrix)
-    
-    plot_bus_stops(network, save_dir_images)
+    plot_bus_stations(network, save_dir_images)
     network_stats(network)
 
-    list_bus_stops = []
-    for index, stop_node in network.bus_stops.iterrows():
-        list_bus_stops.append(index)
+    list_bus_stations = []
+    for index, stop_node in network.bus_stations.iterrows():
+        list_bus_stations.append(index)
 
-    network.list_bus_stops = list_bus_stops
+    network.list_bus_stations = list_bus_stations
 
     #get fixed lines
     if get_fixed_lines == 'osm':
-        pt_fixed_lines = get_fixed_lines_osm(param, G_walk, G_drive, polygon)
-    else:
-        if get_fixed_lines == 'deconet':
+        pt_fixed_lines = get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_folder_base)
+    elif get_fixed_lines == 'deconet':
             #this could be changed for a server or something else
             folder_path_deconet = output_folder_base+'/'+'deconet'
             if not os.path.isdir(folder_path_deconet):
                 raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
             else:
                 get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base)
+                
+    else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
     print('successfully retrieved network')
 
@@ -266,70 +241,3 @@ def download_network_information(
     caching.clear_cache()
 
     return network
-
-
-if __name__ == '__main__':
-
-    caching.clear_cache()
-    
-    is_network_generation = False
-    is_request_generation = False
-
-    for i in range(len(sys.argv)):
-        
-        if sys.argv[i] == "--is_request_generation":
-            is_request_generation = True
-            is_network_generation = False
-
-        if sys.argv[i] == "--is_network_generation":
-            is_network_generation = True
-            is_request_generation = False
-    
-    set_seed = 0
-    seed(set_seed)
-    np.random.seed(set_seed)
-
-    if is_network_generation:
-        #retrieve the instance's network
-        network = download_network_information(place_name='Rennes, France')
-        
-    if is_request_generation:
-        
-        inst1 = Instance(place_name='Rennes, France')
-        inst1.set_problem_type(problem_type="ODBRP")
-        inst1.set_time_window(min_early_departure=7, max_early_departure=11, time_unit="h")
-        inst1.set_lead_time(min_lead_time=0, max_lead_time=5, time_unit="min")
-        inst1.add_request_demand_uniform(max_time=8, min_time=10, number_of_requests=100, time_unit="h")
-        inst1.add_request_demand_normal(mean=8, std=0.5, number_of_requests=100, time_unit="h")
-        inst1.set_range_walk_speed(min_walk_speed=4, max_walk_speed=5, speed_unit="kmh")
-        inst1.set_range_max_walking(lb_max_walking=300, ub_max_walking=600, time_unit="s")
-        inst1.set_delay_vehicle_factor(delay_vehicle_factor=2)
-        inst1.set_inbound_outbound_factor(inbound_outbound_factor=0.5)
-        inst1.set_number_replicas(number_replicas=1)
-        inst1.generate_requests()
-
-        caching.clear_cache()
-        
-        # convert instances from json to cpp and localsolver formats
-        save_dir_cpp = os.path.join(inst1.save_dir, 'cpp_format')
-        if not os.path.isdir(save_dir_cpp):
-            os.mkdir(save_dir_cpp)
-
-        save_dir_localsolver = os.path.join(inst1.save_dir, 'localsolver_format')
-        if not os.path.isdir(save_dir_localsolver):
-            os.mkdir(save_dir_localsolver)
-
-        for instance in os.listdir(os.path.join(inst1.save_dir, 'json_format')):
-            
-            if instance != ".DS_Store":
-                input_name = os.path.join(inst1.save_dir, 'json_format', instance)
-                output_name_cpp = instance.split('.')[0] + '_cpp.pass'
-                output_name_ls = instance.split('.')[0] + '_ls.pass'
-
-                converter = JsonConverter(file_name=input_name)
-                converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst1.network)
-                converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
-
-        #print('placement of stops - testing')
-        #cluster_travel_demand(param, network)
-

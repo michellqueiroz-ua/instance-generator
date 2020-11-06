@@ -1,7 +1,9 @@
+import numpy as np
 
-
-def get_max_speed_road(dict_edge):
+def _get_max_speed_road(dict_edge):
+    
     #returns the max speed in m/s
+    
     try:
         if type(dict_edge['maxspeed']) is not list:
             speed = dict_edge['maxspeed'].split(" ", 1)
@@ -56,7 +58,7 @@ def get_max_speed_road(dict_edge):
         
     return np.nan
 
-def calc_mean_max_speed(dict_edge, max_speed_mean_overall, counter_max_speeds):
+def _calc_mean_max_speed(dict_edge, max_speed_mean_overall, counter_max_speeds):
     #returns the max speed in m/s
     try:
         if type(dict_edge['maxspeed']) is not list:

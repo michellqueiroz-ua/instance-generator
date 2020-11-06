@@ -1,3 +1,4 @@
+import math
 import matplotlib.pyplot as plt
 import os
 import osmnx as ox
@@ -29,13 +30,24 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base):
         zones = pd.read_csv(path_zones_csv_file)
 
         #updates the polygons
-        print('updating polygon')
         for index, zone in zones.iterrows():
 
-            distance = zone['center_point_distance'] 
-            zone_center_point = (zone['center_point_y'], zone['center_point_x'])
+            earth_radius = 6371009  # meters
+            dist_lat = zone['dist_lat']
+            dist_lon = zone['dist_lon']  
+
+            lat = zone['center_point_y']
+            lng = zone['center_point_x']
+
+            delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
+            delta_lng = (dist_lon / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
+            
+            north = lat + delta_lat
+            south = lat - delta_lat
+            east = lng + delta_lng
+            west = lng - delta_lng
                         
-            north, south, east, west = ox.utils_geo.bbox_from_point(zone_center_point, distance)
+            #north, south, east, west = ox.utils_geo.bbox_from_point(zone_center_point, distance)
             polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
             
             zones.loc[index, 'polygon'] = polygon
@@ -66,7 +78,23 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base):
                         #future: see what to do with geometries that are not points
                         if poi['geometry'].geom_type == 'Point':
  
-                            distance = 1000 
+                            earth_radius = 6371009  # meters
+                            dist_lat = 1000
+                            dist_lon = 1000  
+
+                            lat = poi.geometry.centroid.y
+                            lng = poi.geometry.centroid.x
+
+                            delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
+                            delta_lng = (dist_lon / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
+                            
+                            north = lat + delta_lat
+                            south = lat - delta_lat
+                            east = lng + delta_lng
+                            west = lng - delta_lng
+
+                            polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+
                             zone_center_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
                             
                             #osmid nearest node walk
@@ -74,10 +102,6 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base):
 
                             #osmid nearest node drive
                             osmid_drive = ox.get_nearest_node(G_drive, zone_center_point)
-
-                            
-                            north, south, east, west = ox.utils_geo.bbox_from_point(zone_center_point, distance)
-                            polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
 
                             #plot here the center point zone in the walk network
                             nc = ['r' if (node == osmid_walk) else '#336699' for node in G_walk.nodes()]
@@ -102,8 +126,8 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base):
                                 'center_point_x': poi.geometry.centroid.x,
                                 'osmid_walk': osmid_walk,
                                 'osmid_drive': osmid_drive,
-                                'dist_lat': distance,
-                                'dist_lon': distance,
+                                'dist_lat': dist_lat,
+                                'dist_lon': dist_lon,
                             }
 
                             zone_id += 1

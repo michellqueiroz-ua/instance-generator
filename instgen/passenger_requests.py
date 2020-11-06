@@ -46,7 +46,9 @@ def _generate_requests_ODBRPFL(
         num_requests = inst.request_demand[r].num_requests
         print(num_requests)
 
-        for i in range(num_requests):
+
+        i=0
+        while i < num_requests:
             
             #timestamp -> time the request was received by the system
             request_time_stamp = inst.request_demand[r].demand[i]
@@ -143,11 +145,11 @@ def _generate_requests_ODBRPFL(
                 if time_walking > max_walking_user: #if distance between origin and destination is too small the person just walks
                     #add the request
                     #calculates the stations which are close enough to the origin and destination of the request
-                    for index in inst.network.bus_stops_ids:
-                    #for index, node in inst.network.bus_stops.iterrows():
+                    for index in inst.network.bus_stations_ids:
+                    #for index, node in inst.network.bus_stations.iterrows():
 
                         #osmid_possible_stop = int(stop_node['osmid_walk'])
-                        osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
+                        osmid_possible_stop = int(inst.network.bus_stations.loc[index, 'osmid_walk'])
 
                         eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, request_walk_speed)
                         if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
@@ -167,7 +169,7 @@ def _generate_requests_ODBRPFL(
                         #compute arrival time
                         max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
                         if min_eta_bus >= 0:
-                            arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * 2)
+                            arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor)
                         else:
                             unfeasible_request = True
                         
@@ -197,19 +199,99 @@ def _generate_requests_ODBRPFL(
                     #arrival time
                     request_data.update({'arr_time': int(arr_time)})
 
-                    #when generating the requests, consider algo getting the fixed lines
-                    if get_fixed_lines == 'deconet':
+                    #when generating the requests, consider also getting the fixed lines
                         
-                        subway_routes = check_subway_routes_serve_passenger(param, network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive)
+                    subway_routes = check_subway_routes_serve_passenger(inst.network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking_user, request_walk_speed)
+                    
+                    request_data.update({'num_subway_routes': len(subway_routes)})
+
+                    subway_line_ids = []
+                    for route in subway_routes:
+                        subway_line_ids.append(route['line_id'])
+
+                    request_data.update({'subway_line_ids': subway_line_ids})
+
+                    for route in subway_routes:
+
+                        line_id = str(route['line_id'])
+                        #add line_id como acrescimo no fim, pq senao a tag fica repetida
+                        d = {'line_id': line_id}
+                        d['option'+line_id] = route['option']
+
+                        if route['option'] == 1:
+                            d['eta_in_vehicle'+line_id] = route['eta']
+                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
+                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+
+                        if route['option'] == 2:
+                            #request_data.update({'line_id': route['line_id']})
+                            d['eta_in_vehicle'+line_id] = route['eta']
+                            d['num_stops_nearby_pick_up'+line_id] = len(route['stops_u'])
+                            d['stops_nearby_pick_up'+line_id] = route['stops_u']
+                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
+                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+
+                        if route['option'] == 3:
+                            #request_data.update({'line_id': route['line_id']})
+                            d['eta_in_vehicle'+line_id] = route['eta']
+                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
+                            d['num_stops_nearby_drop_off'+line_id] = len(route['stops_v'])
+                            d['stops_nearby_drop_off'+line_id] = route['stops_v']
+                            d['walking_time_from_drop_off'+line_id] =  route['walking_time_v']
+
+                        if route['option'] == 4:
+                            #request_data.update({'line_id': route['line_id']})
+                            d['eta_in_vehicle'+line_id] = route['eta']
+                            d['num_stops_nearby_pick_up'+line_id] = len(route['stops_u'])
+                            d['stops_nearby_pick_up'+line_id] = route['stops_u']
+                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
+                            d['num_stops_nearby_drop_off'+line_id] = len(route['stops_v'])
+                            d['stops_nearby_drop_off'+line_id] = route['stops_v']
+                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
                         
-                        request_data.update({'num_subway_routes': len(subway_routes)})
+                    request_data.update(d)
+
+                    # add request_data to instance_data container
+                    all_requests.update({request_id: request_data})
+                    request_id+=1
+
+                    i+=1
+
+                    create_return_request = random.randint(0, 100)
+
+                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
+                        #create "copy of the request as a return"
+                        request_data_return = {}
+
+                        
+                        request_data_return.update({'num_stops_origin': len(stops_destination)})
+                        request_data_return.update({'stops_origin': stops_destination})
+                        request_data_return.update({'walking_time_origin_to_stops': stops_destination_walking_distance})
+
+                        request_data_return.update({'num_stops_destination': len(stops_origin)})
+                        request_data_return.update({'stops_destination': stops_origin})
+                        request_data_return.update({'walking_time_stops_to_destination': stops_origin_walking_distance})
+
+                        request_data_return.update({'time_stamp': int(request_time_stamp)})
+                    
+                        #departure time for the return
+                        dep_time_return = random.randint(int(arr_time), int(inst.max_early_departure))
+                        request_data_return.update({'dep_time': int(dep_time_return)})
+
+                        #arrival time for the return
+                        max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
+                        arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor) 
+                        request_data_return.update({'arr_time': int(arr_time_return)})
+
+                        subway_routes = check_subway_routes_serve_passenger(inst.network, destination_node_walk, origin_node_walk, destination_node_drive, origin_node_drive, max_walking_user, request_walk_speed)
+                    
+                        request_data_return.update({'num_subway_routes': len(subway_routes)})
 
                         subway_line_ids = []
                         for route in subway_routes:
                             subway_line_ids.append(route['line_id'])
 
-                        request_data.update({'subway_line_ids': subway_line_ids})
-
+                        request_data_return.update({'subway_line_ids': subway_line_ids})
 
                         for route in subway_routes:
 
@@ -249,17 +331,19 @@ def _generate_requests_ODBRPFL(
                                 d['stops_nearby_drop_off'+line_id] = route['stops_v']
                                 d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
                             
-                        request_data.update(d)
+                        request_data_return.update(d)
+                        #increases the number of requests
+                        i += 1
+                        
+                        all_requests.update({request_id: request_data_return})
+                        request_id+=1
 
-
-                    # add request_data to instance_data container
-                    all_requests.update({request_id: request_data})
-                    request_id+=1
-
+                        
                 else:
                     nok = True
                     if num_attempts > 20:
                         nok = False
+            i += 1
         
         #plt.show()
         #plt.savefig('images/foo.png')
@@ -415,7 +499,7 @@ def _generate_requests_DARP(
                     
                     create_return_request = random.randint(0, 100)
 
-                    if create_return_request <= inst.inbound_outbound_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
+                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
 
                         request_data_return = {}
 
@@ -598,9 +682,9 @@ def _generate_requests_ODBRP(
                 if time_walking > max_walking_user: #if distance between origin and destination is too small the person just walks
                     
                     #calculates the stations which are close enough to the origin and destination of the request
-                    for index in inst.network.bus_stops_ids:
+                    for index in inst.network.bus_stations_ids:
                     
-                        osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
+                        osmid_possible_stop = int(inst.network.bus_stations.loc[index, 'osmid_walk'])
 
                         eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, request_walk_speed)
                         if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
@@ -621,7 +705,7 @@ def _generate_requests_ODBRP(
                         #compute arrival time
                         max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
                         if min_eta_bus >= 0:
-                            arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * 2)
+                            arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor)
                         else:
                             unfeasible_request = True
 
@@ -659,7 +743,7 @@ def _generate_requests_ODBRP(
 
                     create_return_request = random.randint(0, 100)
 
-                    if create_return_request <= inst.inbound_outbound_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
+                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
                         #create "copy of the request as a return"
                         request_data_return = {}
 
@@ -680,7 +764,7 @@ def _generate_requests_ODBRP(
 
                         #arrival time for the return
                         max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
-                        arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * 2) 
+                        arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor) 
                         request_data_return.update({'arr_time': int(arr_time_return)})
 
                         i += 1
@@ -789,9 +873,9 @@ def _generate_requests_SBRP(
                     #add the request
                         
                     #calculates the stations which are close enough to the origin and destination of the request
-                    for index in inst.network.bus_stops_ids:
+                    for index in inst.network.bus_stations_ids:
                     
-                        osmid_possible_stop = int(inst.network.bus_stops.loc[index, 'osmid_walk'])
+                        osmid_possible_stop = int(inst.network.bus_stations.loc[index, 'osmid_walk'])
 
                         eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_stop, request_walk_speed)
                         

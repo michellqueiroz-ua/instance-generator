@@ -1,10 +1,16 @@
-import os
+import math
+import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
+import numpy as np
 import networkx as nx
+import os
+import osmapi as osm
+import osmnx as ox
+import pandas as pd
 import ray
 
 
-def retrieve_new_bus_stations(param, network, node_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk):
+def retrieve_new_bus_stations(network, node_walk, max_walking, request_walk_speed, to_node_walk):
 
     #return bus stops that within walking threshold from node_walk
 
@@ -14,13 +20,13 @@ def retrieve_new_bus_stations(param, network, node_walk, max_walking, min_walk_s
     stops = []
     stops_walking_time = []
 
-    for index in network.list_bus_stops:
+    for index in network.bus_stations_ids:
 
-        osmid_possible_stop = int(network.bus_stops.loc[index, 'osmid_walk'])
+        osmid_possible_stop = int(network.bus_stations.loc[index, 'osmid_walk'])
         if to_node_walk:
-            eta_walk = network.get_eta_walk(osmid_possible_stop, node_walk, min_walk_speed, max_walk_speed)
+            eta_walk = network.get_eta_walk(osmid_possible_stop, node_walk, request_walk_speed)
         else:
-            eta_walk = network.get_eta_walk(osmid_possible_stop, node_walk, min_walk_speed, max_walk_speed)
+            eta_walk = network.get_eta_walk(osmid_possible_stop, node_walk, request_walk_speed)
 
         if eta_walk >= 0 and eta_walk <= max_walking:
             stops.append(index)
@@ -28,7 +34,40 @@ def retrieve_new_bus_stations(param, network, node_walk, max_walking, min_walk_s
 
     return stops, stops_walking_time
 
-def check_subway_routes_serve_passenger(network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking):
+def _return_kappa_nearest_stations(network, kappa, origin_node_drive, destination_node_drive):
+
+    stations_origin = []
+
+    stations_destination = []
+    
+    for u in network.nodes_covered_fixed_lines:
+
+        u_drive = int(network.deconet_network_nodes.loc[int(u), 'osmid_drive'])
+        dist_ou_drive = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
+        dist_du_drive = network.shortest_path_drive.loc[destination_node_drive, str(u_drive)]
+
+        og = (u, dist_ou_drive)
+        stations_origin.append(og)
+
+        dn = (u, dist_du_drive)
+        stations_destination.append(dn)
+
+    stations_origin.sort(key = lambda x: x[1])
+
+    stations_destination.sort(key = lambda x: x[1])
+
+    kappa_stations_origin = []
+    kappa_stations_destination = []
+
+    for i in range(kappa):
+        kappa_stations_origin.append(stations_origin[i][0])
+
+        kappa_stations_destination.append(stations_destination[i][0])
+
+    return kappa_stations_origin, kappa_stations_destination
+
+
+def check_subway_routes_serve_passenger(network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking, request_walk_speed):
     
     '''
     check which subway lines can serve the passenger request
@@ -41,7 +80,9 @@ def check_subway_routes_serve_passenger(network, origin_node_walk, destination_n
     #fl_stations_walk = [] 
     #fl_stations_drive = []
 
-    #check maybe KAPPA station here before this next loop
+    #check KAPPA stations which are closer to origin and destination of the passenger
+    stations_origin, stations_destination = _return_kappa_nearest_stations(network, 3, origin_node_drive, destination_node_drive)
+
     for lid in network.subway_lines:
         #u,v are part of the subset of stations
         d = {
@@ -54,8 +95,8 @@ def check_subway_routes_serve_passenger(network, origin_node_walk, destination_n
             'option': np.nan,
         }
 
-        for u in network.nodes_covered_fixed_lines:
-            for v in network.nodes_covered_fixed_lines:
+        for u in stations_origin:
+            for v in stations_destination:
 
                 if u != v:
                 
@@ -74,16 +115,8 @@ def check_subway_routes_serve_passenger(network, origin_node_walk, destination_n
                         #distance from v to destination
                         dist_vd_drive = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
                         
-                        dist_ou_walk = network.get_eta_walk(origin_node_walk, u_walk, min_walk_speed, max_walk_speed)
-                        dist_vd_walk = network.get_eta_walk(v_walk, destination_node_walk, min_walk_speed, max_walk_speed)
-
-                        eta_vd_walk = math.inf
-                        eta_ou_walk = math.inf
-
-                        if not math.isnan(dist_vd_walk):
-                            eta_vd_walk = int(math.ceil(dist_vd_walk/network.walk_speed))
-                        if not math.isnan(dist_ou_walk):
-                            eta_ou_walk = int(math.ceil(dist_ou_walk/network.walk_speed))
+                        eta_ou_walk = network.get_eta_walk(origin_node_walk, u_walk, request_walk_speed)
+                        eta_vd_walk = network.get_eta_walk(v_walk, destination_node_walk, request_walk_speed)
 
                         if not math.isnan(dist_vd_drive):
                             
@@ -161,24 +194,24 @@ def check_subway_routes_serve_passenger(network, origin_node_walk, destination_n
 
             if d['option'] == 2:
                 #get new drop off stops (around node u)
-                stops_u, walking_time_u = retrieve_new_bus_stations(param, network, u_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk=True)
+                stops_u, walking_time_u = retrieve_new_bus_stations(network, u_walk, max_walking, request_walk_speed, to_node_walk=True)
                 d['stops_u'] = stops_u
                 d['walking_time_u'] = walking_time_u
                 
             if d['option'] == 3:
                 #get new pick up stops (around node v)
-                stops_v, walking_time_v = retrieve_new_bus_stations(param, network, v_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk=False)
+                stops_v, walking_time_v = retrieve_new_bus_stations(network, v_walk, max_walking, request_walk_speed, to_node_walk=False)
                 d['stops_v'] = stops_v
                 d['walking_time_v'] = walking_time_v
 
             if d['option'] == 4:
                 #get new drop off stops (around node u)
-                stops_u, walking_time_u = retrieve_new_bus_stations(param, network, u_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk=True)
+                stops_u, walking_time_u = retrieve_new_bus_stations(network, u_walk, max_walking, request_walk_speed, to_node_walk=True)
                 d['stops_u'] = stops_u
                 d['walking_time_u'] = walking_time_u
 
                 #get new pick up stations (around node v)
-                stops_v, walking_time_v = retrieve_new_bus_stations(param, network, v_walk, max_walking, min_walk_speed, max_walk_speed, to_node_walk=False)
+                stops_v, walking_time_v = retrieve_new_bus_stations(network, v_walk, max_walking, request_walk_speed, to_node_walk=False)
                 d['stops_v'] = stops_v
                 d['walking_time_v'] = walking_time_v
 
@@ -210,10 +243,10 @@ def find_shortest_path_fl(u, v, fixed_lines):
 
     return shortest_fixed_line_route
 
-def get_all_shortest_paths_fix_lines(param, fixed_lines, network_nodes):
+def get_all_shortest_paths_fix_lines(fixed_lines, network_nodes):
     
     ray.shutdown()
-    ray.init(num_cpus=param.num_of_cpu)
+    ray.init(num_cpus=cpu_count())
 
     print('shortest route fixed lines')
     shortest_path_line = []
@@ -356,7 +389,7 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
         network.nodes_covered_fixed_lines = nodes_covered_fixed_lines
         network.subway_lines = dict_subway_lines
 
-        plot_fixed_lines(param, network)
+        plot_fixed_lines(network, save_dir)
 
         tram_lines_filename = folder_path+'/network_tram.csv'
         if os.path.isfile(tram_lines_filename):
@@ -382,7 +415,7 @@ def plot_pt_fixed_lines(G, pt_fixed_lines, save_dir):
         fig, ax = ox.plot_graph(G, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=pt_lines_folder+'/'+str(index)+'_'+str(lines['name'])+'.pt_fixed_lines.png')
         plt.close(fig)
 
-def get_fixed_lines_osm(param, G_walk, G_drive, polygon):
+def get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_file_base):
 
     '''
     get fixed lines from OpenStreetMaps
@@ -390,13 +423,13 @@ def get_fixed_lines_osm(param, G_walk, G_drive, polygon):
     api_osm = osm.OsmApi()
     pt_fixed_lines = []
 
-    save_dir_csv = os.path.join(param.save_dir, 'csv')
+    save_dir_csv = os.path.join(save_dir, 'csv')
 
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
 
     #pt = public transport
-    path_pt_lines_csv_file = os.path.join(save_dir_csv, param.output_file_base+'.pt.lines.csv')
+    path_pt_lines_csv_file = os.path.join(save_dir_csv, output_file_base+'.pt.lines.csv')
 
     if os.path.isfile(path_pt_lines_csv_file):
         print('is file pt routes')
@@ -407,7 +440,7 @@ def get_fixed_lines_osm(param, G_walk, G_drive, polygon):
         print('creating file pt routes')
 
         tags = {
-            #'route_master':'bus',
+            'route':'bus',
             'route':'subway',
             'route':'tram',
         }
@@ -421,8 +454,11 @@ def get_fixed_lines_osm(param, G_walk, G_drive, polygon):
             try:
 
                 keys = poi.keys()
+                print(poi)
                     
                 if str(poi['nodes']) != 'nan':
+
+                    print(poi)
                     
                     name = "" 
                     ref = []
@@ -497,11 +533,13 @@ def get_fixed_lines_osm(param, G_walk, G_drive, polygon):
     
     return pt_fixed_lines
 
-def plot_fixed_lines(param, network):
+def plot_fixed_lines(network, save_dir):
 
     #plot all nodes in the network that have a fixed line passing by
     fl_stations_walk = [] 
     fl_stations_drive = []
+    
+    save_dir_images = os.path.join(save_dir, 'images')
 
     for node in network.nodes_covered_fixed_lines:
 
@@ -511,7 +549,7 @@ def plot_fixed_lines(param, network):
         fl_stations_walk.append(fl_station_walk)
         fl_stations_drive.append(fl_station_drive)
 
-    stops_folder = os.path.join(param.save_dir_images, 'bus_stops')
+    stops_folder = os.path.join(save_dir_images, 'bus_stops')
     nc = ['r' if (node in fl_stations_drive) else '#336699' for node in network.G_drive.nodes()]
     ns = [12 if (node in fl_stations_drive) else 6 for node in network.G_drive.nodes()]
     fig, ax = ox.plot_graph(network.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/fixed_lines_nodes_drive.png')

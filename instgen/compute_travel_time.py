@@ -42,10 +42,10 @@ def calc_travel_time_od(origin, destination, vehicle_speed, shortest_path_drive,
     return row
 
 
-def get_travel_time_matrix_osmnx_csv(vehicle_speed, bus_stops, shortest_path_drive, shortest_path_walk, save_dir, output_folder_base, filename=None): 
+def _get_travel_time_matrix(vehicle_speed, bus_stops, shortest_path_drive, shortest_path_walk, save_dir, output_folder_base, filename=None): 
     
     ''' 
-    compute a travel time matrix between bus stops
+    compute a travel time matrix between bus stations
     it is not time dependent
     vehicle speed is determined beforehand.
     '''
@@ -54,8 +54,6 @@ def get_travel_time_matrix_osmnx_csv(vehicle_speed, bus_stops, shortest_path_dri
     save_dir_csv = os.path.join(save_dir, 'csv')
 
    
-    #ray.init(num_cpus=num_of_cpu)
-    
     ray.shutdown()
     ray.init(num_cpus=cpu_count())
 
