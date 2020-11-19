@@ -9,8 +9,54 @@ import osmnx as ox
 import pandas as pd
 import ray
 
+def _evaluate_best_fixed_route(network, fixed_lines, origin_node_drive, destination_node_drive, max_walking):
+    #evaluate the expected gain of the passenger to take the fixed line
 
-def retrieve_new_bus_stations(network, node_walk, max_walking, request_walk_speed, to_node_walk):
+    best_fixed_route = []
+    best_evaluation_route = -math.inf
+    eta_bus_full = network.shortest_path_drive.loc[origin_node_drive, str(destination_node_drive)]
+    #walking_time_bus_full = max_walking * 2
+
+    for line in fixed_lines:
+        
+        eta_by_fixed_line = line['eta']
+        walking_time_fl = 0
+
+        u_drive = int(network.deconet_network_nodes.loc[int(line['u']), 'osmid_drive'])
+        v_drive = int(network.deconet_network_nodes.loc[int(line['v']), 'osmid_drive'])
+
+        if line['option'] == 1:
+            #walking_time_fl += line['walking_time_u'] + line['walking_time_v']
+            eta_bus_partial = 0
+            #walking_time_bus_partial = 0
+
+        if line['option'] == 2:
+            #walking_time_fl += line['walking_time_v']
+            eta_bus_partial = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
+            #walking_time_bus_partial = max_walking * 2
+
+        if line['option'] == 3:
+            #walking_time_fl += line['walking_time_u']
+            eta_bus_partial = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
+            #walking_time_bus_partial = max_walking * 2
+
+        if line['option'] == 4:
+            eta_bus_partial = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
+            eta_bus_partial += network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
+            #walking_time_bus_partial = max_walking * 4
+
+        #evaluation_route = (eta_bus_full + walking_time_bus_full) - (walking_time_fl + eta_bus_partial + walking_time_bus_partial)
+        evaluation_route = (eta_bus_full) - (eta_by_fixed_line + eta_bus_partial)
+
+        if evaluation_route > best_evaluation_route:
+            best_evaluation_route = evaluation_route
+            best_fixed_route = line
+
+    return best_fixed_route 
+    
+
+
+def _retrieve_new_bus_stations(network, node_walk, max_walking, request_walk_speed, to_node_walk):
 
     #return bus stops that within walking threshold from node_walk
 
@@ -66,8 +112,30 @@ def _return_kappa_nearest_stations(network, kappa, origin_node_drive, destinatio
 
     return kappa_stations_origin, kappa_stations_destination
 
+def _return_stations_within_radius(network, node_drive, radius):
+    
+    '''
+    return stations covered by fixed lines that are within a given radius
+    '''
 
-def check_subway_routes_serve_passenger(network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking, request_walk_speed):
+    stations = []
+
+    for u in network.nodes_covered_fixed_lines:
+
+        u_drive = int(network.deconet_network_nodes.loc[int(u), 'osmid_drive'])
+        
+        try:
+            dist_ou_drive = nx.dijkstra_path_length(network.G_drive, node_drive, u_drive, weight='length')
+
+            if dist_ou_drive <= radius:
+                stations.append(u)
+
+        except nx.NetworkXNoPath:
+            pass
+        
+    return stations 
+
+def _check_subway_routes_serve_passenger(network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking, request_walk_speed):
     
     '''
     check which subway lines can serve the passenger request
@@ -81,141 +149,148 @@ def check_subway_routes_serve_passenger(network, origin_node_walk, destination_n
     #fl_stations_drive = []
 
     #check KAPPA stations which are closer to origin and destination of the passenger
-    stations_origin, stations_destination = _return_kappa_nearest_stations(network, 3, origin_node_drive, destination_node_drive)
+    #stations_origin, stations_destination = _return_kappa_nearest_stations(network, 3, origin_node_drive, destination_node_drive)
 
-    for lid in network.subway_lines:
-        #u,v are part of the subset of stations
-        d = {
-            'u': np.nan,
-            'v': np.nan,
-            'line_id': lid,
-            'eta': math.inf,
-            'dist_ou_drive': math.inf,
-            'dist_vd_drive': math.inf,
-            'option': np.nan,
-        }
+    #radius of 2km
+    radius = 2000 
+    stations_origin = _return_stations_within_radius(network, origin_node_drive, radius)
+    stations_destination = _return_stations_within_radius(network, destination_node_drive, radius)
 
-        for u in stations_origin:
-            for v in stations_destination:
+    if (stations_origin) and (stations_destination):
+        for lid in network.subway_lines:
+            #u,v are part of the subset of stations
+            d = {
+                'u': np.nan,
+                'v': np.nan,
+                'line_id': lid,
+                'eta': math.inf,
+                'dist_ou_drive': math.inf,
+                'dist_vd_drive': math.inf,
+                'option': np.nan,
+            }
 
-                if u != v:
-                
-                    try:
+            for u in stations_origin:
+                for v in stations_destination:
 
-                        eta = nx.dijkstra_path_length(network.subway_lines[lid]['route_graph'], u, v, weight='duration_avg')
+                    if u != v:
+                    
+                        try:
 
-                        u_drive = int(network.deconet_network_nodes.loc[int(u), 'osmid_drive'])
-                        v_drive = int(network.deconet_network_nodes.loc[int(v), 'osmid_drive'])
+                            eta = nx.dijkstra_path_length(network.subway_lines[lid]['route_graph'], u, v, weight='duration_avg')
 
-                        u_walk = int(network.deconet_network_nodes.loc[int(u), 'osmid_walk'])
-                        v_walk = int(network.deconet_network_nodes.loc[int(v), 'osmid_walk'])
-                        
-                        #distance from origin to node u and 
-                        dist_ou_drive = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
-                        #distance from v to destination
-                        dist_vd_drive = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
-                        
-                        eta_ou_walk = network.get_eta_walk(origin_node_walk, u_walk, request_walk_speed)
-                        eta_vd_walk = network.get_eta_walk(v_walk, destination_node_walk, request_walk_speed)
+                            u_drive = int(network.deconet_network_nodes.loc[int(u), 'osmid_drive'])
+                            v_drive = int(network.deconet_network_nodes.loc[int(v), 'osmid_drive'])
 
-                        if not math.isnan(dist_vd_drive):
+                            u_walk = int(network.deconet_network_nodes.loc[int(u), 'osmid_walk'])
+                            v_walk = int(network.deconet_network_nodes.loc[int(v), 'osmid_walk'])
                             
-                            #check if (u,v) gets the passenger closer to the destination
-                            if (dist_vd_drive >= 0) and (dist_vd_drive < d['dist_vd_drive']):
+                            #distance from origin to node u and 
+                            dist_ou_drive = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
+                            #distance from v to destination
+                            dist_vd_drive = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
+                            
+                            eta_ou_walk = network.get_eta_walk(origin_node_walk, u_walk, request_walk_speed)
+                            eta_vd_walk = network.get_eta_walk(v_walk, destination_node_walk, request_walk_speed)
 
-                                d['u'] = u
-                                d['v'] = v
-                                d['eta'] = eta
-                                if not math.isnan(dist_ou_drive):
-                                    d['dist_ou_drive'] = dist_ou_drive
-                                d['dist_vd_drive'] = dist_vd_drive
-
-                                #FIXED LINE ONLY
-                                if (eta_ou_walk <= max_walking) and (eta_vd_walk <= max_walking):
-                                    d['option'] = 1
-                                    d['walking_time_u'] = eta_ou_walk
-                                    d['walking_time_v'] = eta_vd_walk
-
-                                # ON DEMAND + FIXED LINE
-                                if (eta_ou_walk > max_walking) and (eta_vd_walk <= max_walking):
-                                    d['option'] = 2
-                                    d['walking_time_v'] = eta_vd_walk
-
-                                # FIXED LINE + ON DEMAND
-                                if (eta_ou_walk <= max_walking) and (eta_vd_walk > max_walking):
-                                    d['option'] = 3
-                                    d['walking_time_u'] = eta_ou_walk
-                                   
-                                # ON DEMAND + FIXED LINE + ON DEMAND
-                                if (eta_ou_walk > max_walking) and (eta_vd_walk > max_walking):
-                                    d['option'] = 4
+                            
+                            if not math.isnan(dist_vd_drive):
                                 
+                                #check if (u,v) gets the passenger closer to the destination
+                                if (dist_vd_drive >= 0) and (dist_vd_drive < d['dist_vd_drive']):
 
-                            else:
-                                #otherwise, check if distance from origin point to station is smaller than before
-                                if not math.isnan(dist_ou_drive):
-                                    if (dist_vd_drive == d['dist_vd_drive']) and (dist_ou_drive < d['dist_ou_drive']):
-
-                                        d['u'] = u
-                                        d['v'] = v
-                                        d['eta'] = eta    
+                                    d['u'] = u
+                                    d['v'] = v
+                                    d['eta'] = eta
+                                    if not math.isnan(dist_ou_drive):
                                         d['dist_ou_drive'] = dist_ou_drive
-                                        d['dist_vd_drive'] = dist_vd_drive
+                                    d['dist_vd_drive'] = dist_vd_drive
 
-                                        #FIXED LINE ONLY
-                                        if (eta_ou_walk <= max_walking) and (eta_vd_walk <= max_walking):
-                                            d['option'] = 1
-                                            d['walking_time_u'] = eta_ou_walk
-                                            d['walking_time_v'] = eta_vd_walk
+                                    #FIXED LINE ONLY
+                                    if (eta_ou_walk <= max_walking) and (eta_vd_walk <= max_walking):
+                                        d['option'] = 1
+                                        d['walking_time_u'] = eta_ou_walk
+                                        d['walking_time_v'] = eta_vd_walk
 
-                                        # ON DEMAND + FIXED LINE
-                                        if (eta_ou_walk > max_walking) and (eta_vd_walk <= max_walking):
-                                            d['option'] = 2
-                                            d['walking_time_v'] = eta_vd_walk
+                                    # ON DEMAND + FIXED LINE
+                                    if (eta_ou_walk > max_walking) and (eta_vd_walk <= max_walking):
+                                        d['option'] = 2
+                                        d['walking_time_v'] = eta_vd_walk
 
-                                        # FIXED LINE + ON DEMAND
-                                        if (eta_ou_walk <= max_walking) and (eta_vd_walk > max_walking):
-                                            d['option'] = 3
-                                            d['walking_time_u'] = eta_ou_walk
-                                            
-                                        # ON DEMAND + FIXED LINE + ON DEMAND
-                                        if (eta_ou_walk > max_walking) and (eta_vd_walk > max_walking):
-                                            d['option'] = 4
-                                            
+                                    # FIXED LINE + ON DEMAND
+                                    if (eta_ou_walk <= max_walking) and (eta_vd_walk > max_walking):
+                                        d['option'] = 3
+                                        d['walking_time_u'] = eta_ou_walk
+                                       
+                                    # ON DEMAND + FIXED LINE + ON DEMAND
+                                    if (eta_ou_walk > max_walking) and (eta_vd_walk > max_walking):
+                                        d['option'] = 4
+                                    
 
-                    except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
+                                else:
+                                    #otherwise, check if distance from origin point to station is smaller than before
+                                    if not math.isnan(dist_ou_drive):
+                                        if (dist_vd_drive == d['dist_vd_drive']) and (dist_ou_drive < d['dist_ou_drive']):
 
-                        pass
+                                            d['u'] = u
+                                            d['v'] = v
+                                            d['eta'] = eta    
+                                            d['dist_ou_drive'] = dist_ou_drive
+                                            d['dist_vd_drive'] = dist_vd_drive
 
-        if not math.isnan(d['u']):
+                                            #FIXED LINE ONLY
+                                            if (eta_ou_walk <= max_walking) and (eta_vd_walk <= max_walking):
+                                                d['option'] = 1
+                                                d['walking_time_u'] = eta_ou_walk
+                                                d['walking_time_v'] = eta_vd_walk
 
-            u_walk = int(network.deconet_network_nodes.loc[int(d['u']), 'osmid_walk'])
-            v_walk = int(network.deconet_network_nodes.loc[int(d['v']), 'osmid_walk'])
+                                            # ON DEMAND + FIXED LINE
+                                            if (eta_ou_walk > max_walking) and (eta_vd_walk <= max_walking):
+                                                d['option'] = 2
+                                                d['walking_time_v'] = eta_vd_walk
 
-            if d['option'] == 2:
-                #get new drop off stops (around node u)
-                stops_u, walking_time_u = retrieve_new_bus_stations(network, u_walk, max_walking, request_walk_speed, to_node_walk=True)
-                d['stops_u'] = stops_u
-                d['walking_time_u'] = walking_time_u
-                
-            if d['option'] == 3:
-                #get new pick up stops (around node v)
-                stops_v, walking_time_v = retrieve_new_bus_stations(network, v_walk, max_walking, request_walk_speed, to_node_walk=False)
-                d['stops_v'] = stops_v
-                d['walking_time_v'] = walking_time_v
+                                            # FIXED LINE + ON DEMAND
+                                            if (eta_ou_walk <= max_walking) and (eta_vd_walk > max_walking):
+                                                d['option'] = 3
+                                                d['walking_time_u'] = eta_ou_walk
+                                                
+                                            # ON DEMAND + FIXED LINE + ON DEMAND
+                                            if (eta_ou_walk > max_walking) and (eta_vd_walk > max_walking):
+                                                d['option'] = 4
+                                                
 
-            if d['option'] == 4:
-                #get new drop off stops (around node u)
-                stops_u, walking_time_u = retrieve_new_bus_stations(network, u_walk, max_walking, request_walk_speed, to_node_walk=True)
-                d['stops_u'] = stops_u
-                d['walking_time_u'] = walking_time_u
+                        except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
 
-                #get new pick up stations (around node v)
-                stops_v, walking_time_v = retrieve_new_bus_stations(network, v_walk, max_walking, request_walk_speed, to_node_walk=False)
-                d['stops_v'] = stops_v
-                d['walking_time_v'] = walking_time_v
+                            pass
 
-            subway_routes.append(d)
+            if not math.isnan(d['u']):
+
+                u_walk = int(network.deconet_network_nodes.loc[int(d['u']), 'osmid_walk'])
+                v_walk = int(network.deconet_network_nodes.loc[int(d['v']), 'osmid_walk'])
+
+                if d['option'] == 2:
+                    #get new drop off stops (around node u)
+                    stops_u, walking_time_u = _retrieve_new_bus_stations(network, u_walk, max_walking, request_walk_speed, to_node_walk=True)
+                    d['stops_u'] = stops_u
+                    d['walking_time_u'] = walking_time_u
+                    
+                if d['option'] == 3:
+                    #get new pick up stops (around node v)
+                    stops_v, walking_time_v = _retrieve_new_bus_stations(network, v_walk, max_walking, request_walk_speed, to_node_walk=False)
+                    d['stops_v'] = stops_v
+                    d['walking_time_v'] = walking_time_v
+
+                if d['option'] == 4:
+                    #get new drop off stops (around node u)
+                    stops_u, walking_time_u = _retrieve_new_bus_stations(network, u_walk, max_walking, request_walk_speed, to_node_walk=True)
+                    d['stops_u'] = stops_u
+                    d['walking_time_u'] = walking_time_u
+
+                    #get new pick up stations (around node v)
+                    stops_v, walking_time_v = _retrieve_new_bus_stations(network, v_walk, max_walking, request_walk_speed, to_node_walk=False)
+                    d['stops_v'] = stops_v
+                    d['walking_time_v'] = walking_time_v
+
+                subway_routes.append(d)
     
     return subway_routes
 

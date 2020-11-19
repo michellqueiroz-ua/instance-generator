@@ -17,7 +17,7 @@ if __name__ == '__main__':
     inst1.set_interval_max_walking(lb_max_walking=300, ub_max_walking=600, time_unit="s")
     inst1.set_return_factor(return_factor=0.5)
     inst1.set_number_replicas(number_replicas=1)
-
+    inst1.add_origin_zone(3)
     inst1.set_delay_vehicle_factor(delay_vehicle_factor=2)
     inst1.set_delay_walk_factor(delay_walk_factor=2)
     inst1.generate_requests()
@@ -41,7 +41,10 @@ if __name__ == '__main__':
             output_name_ls = instance.split('.')[0] + '_ls.pass'
 
             converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst1.network)
+            if inst1.problem_type == "ODBRPFL":
+                converter.convert_normal_odbrpfl(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst1.network)
+            else:
+                converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst1.network)
             converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
 
     #print('placement of stops - testing')

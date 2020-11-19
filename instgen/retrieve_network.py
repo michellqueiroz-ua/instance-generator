@@ -48,7 +48,6 @@ from retrieve_schools import retrieve_schools
 from compute_distance_matrix import _get_distance_matrix
 from speed_info import _calc_mean_max_speed
 from speed_info import _get_max_speed_road
-from compute_travel_time import _get_travel_time_matrix
 
 from network_class import Network
 from instance_class import Instance

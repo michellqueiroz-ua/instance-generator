@@ -5,6 +5,7 @@ import networkx as nx
 import numpy as np
 import random
 from shapely.geometry import Point
+from geopy.distance import geodesic
 
             
 class Network:
@@ -35,6 +36,7 @@ class Network:
 
     def get_eta_walk(self, u, v, walk_speed):
         
+        osm_api = osm.OsmApi()
         
         #returns estimated time walking in seconds from origin_node to destination_node
         #in the case of walking, there is no difference between origin/destination
@@ -51,14 +53,26 @@ class Network:
 
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
                 except nx.NetworkXNoPath:
+
                     distance_walk = np.nan
- 
+                    
+                    
         
         speed = walk_speed
         #print(u, v)
         #print(distance_walk)
         if math.isnan(distance_walk):
-            eta_walk = -1
+            nodeu = osm_api.NodeGet(u)
+
+            nodev = osm_api.NodeGet(v)
+
+            origin = (nodeu['lat'], nodeu['lon'])
+            dest = (nodev['lat'], nodev['lon'])
+
+            distance_walk = geodesic(origin, dest).meters
+
+            eta_walk = int(math.ceil(distance_walk/speed))
+            
         else:
             eta_walk = int(math.ceil(distance_walk/speed))
 

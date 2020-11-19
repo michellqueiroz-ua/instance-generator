@@ -74,12 +74,116 @@ class JsonConverter(object):
             for request in requests.values():
 
                 # origin coordinates
-                file.write(str(request.get('originx')) + '\t' + str(request.get('originy')))
-                file.write('\n')
+                if request.get('originx') is not None:
+                    file.write(str(request.get('originx')) + '\t' + str(request.get('originy')))
+                    file.write('\n')
 
                 # destination coordinates
-                file.write(str(request.get('destinationx')) + '\t' + str(request.get('destinationy')))
+                if request.get('destinationx') is not None:
+                    file.write(str(request.get('destinationx')) + '\t' + str(request.get('destinationy')))
+                    file.write('\n')
+
+                # num stops origin + stops origin
+                file.write(str(request.get('num_stops_origin')) + '\n')
+                for stop in request.get('stops_origin'):
+                    file.write(str(stop) + '\t')
                 file.write('\n')
+                for walking_distance in request.get('walking_time_origin_to_stops'):
+                    file.write(str(walking_distance) + '\t')
+
+                file.write('\n')
+
+                # num stops destination + stops destination
+                file.write(str(request.get('num_stops_destination')) + '\n')
+                for stop in request.get('stops_destination'):
+                    file.write(str(stop) + '\t')
+                file.write('\n')
+                for walking_distance in request.get('walking_time_stops_to_destination'):
+                    file.write(str(walking_distance) + '\t')
+
+                file.write('\n')
+
+                # earliest departure time
+                file.write(str(request.get('dep_time')))
+                file.write('\n')
+
+                # latest arrival time
+                file.write(str(request.get('arr_time')))
+                file.write('\n')
+
+    def convert_normal_odbrpfl(self, output_file_name, network):
+
+        with open(output_file_name, 'w') as file:
+
+            # first line: number of stations
+            #file.write(str(self.json_data.get('num_stations')))
+            #file.write('\n')
+
+            # second line - nr station: distance matrix
+            #dist_matrix = self.json_data.get('distance_matrix')
+            #for row in dist_matrix:
+            #    for distance in row:
+            #        file.write(str(distance))
+            #        file.write('\t')
+            #    file.write('\n')
+
+            #number of stations
+            '''
+            file.write(str(len(network.bus_stops_ids)))
+            file.write('\n')
+            
+            #id for each station
+            
+            for stop1 in network.bus_stops_ids:
+                file.write(str(stop1))
+                file.write('\n')
+
+            #distance matrix
+            for stop1 in network.bus_stops_ids:
+                for stop2 in network.bus_stops_ids:
+                    file.write(str(stop1))
+                    file.write('\t')
+                    file.write(str(stop2))
+                    file.write('\t')
+                    try:
+                        
+                        osmid_stop1 = network.bus_stops.loc[stop1, 'osmid_drive']
+                        osmid_stop2 = network.bus_stops.loc[stop2, 'osmid_drive']
+                        dists1s2 = network.shortest_path_drive.loc[osmid_stop1, str(osmid_stop2)]
+                        
+                        #it is not possible to reach the node
+                        if math.isnan(dists1s2):
+                            dists1s2 = -1
+                            file.write(str(dists1s2))
+                        else:
+                            file.write(str(dists1s2))
+
+                    except KeyError:
+                        dists1s2 = -1
+                        file.write(str(dists1s2))
+                    file.write('\n')
+            '''
+
+            #request information
+            requests = self.json_data.get('requests')
+            num_requests = len(requests)
+
+            #first line: number of requests
+            file.write(str(num_requests))
+            file.write('\n')
+
+            #foreach request
+            for request in requests.values():
+
+                # origin coordinates
+                if request.get('originx') is not None:
+                    file.write(str(request.get('originx')) + '\t' + str(request.get('originy')))
+                    file.write('\n')
+
+                # destination coordinates
+                if request.get('destinationx') is not None:
+                    file.write(str(request.get('destinationx')) + '\t' + str(request.get('destinationy')))
+                    file.write('\n')
 
                 # num stops origin + stops origin
                 file.write(str(request.get('num_stops_origin')) + '\n')
@@ -126,23 +230,52 @@ class JsonConverter(object):
 
                         if option == 2:
                             file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
-                            file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
-                            file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+                            
+                            for stop in request.get('stops_nearby_pick_up'+line_id):
+                                file.write(str(stop) + '\t')
+                            file.write('\n')
+
+                            for walking_time in request.get('walking_time_to_pick_up'+line_id):
+                                file.write(str(walking_time) + '\t')
+                            file.write('\n')
+
                             file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
 
                         if option == 3:
                             file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+
                             file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
-                            file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
-                            file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+                            
+                            for stop in request.get('stops_nearby_drop_off'+line_id):
+                                file.write(str(stop) + '\t')
+                            file.write('\n')
+
+                            for walking_time in request.get('walking_time_from_drop_off'+line_id):
+                                file.write(str(walking_time) + '\t')
+                            file.write('\n')
 
                         if option == 4:
                             file.write(str(request.get('num_stops_nearby_pick_up'+line_id)) + '\n')
-                            file.write(str(request.get('stops_nearby_pick_up'+line_id)) + '\n')
-                            file.write(str(request.get('walking_time_to_pick_up'+line_id)) + '\n')
+
+                            for stop in request.get('stops_nearby_pick_up'+line_id):
+                                file.write(str(stop) + '\t')
+                            file.write('\n')
+
+                            for walking_time in request.get('walking_time_to_pick_up'+line_id):
+                                file.write(str(walking_time) + '\t')
+                            file.write('\n')
+
                             file.write(str(request.get('num_stops_nearby_drop_off'+line_id)) + '\n')
-                            file.write(str(request.get('stops_nearby_drop_off'+line_id)) + '\n')
-                            file.write(str(request.get('walking_time_from_drop_off'+line_id)) + '\n')
+                            
+                            for stop in request.get('stops_nearby_drop_off'+line_id):
+                                file.write(str(stop) + '\t')
+                            file.write('\n')
+
+                            for walking_time in request.get('walking_time_from_drop_off'+line_id):
+                                file.write(str(walking_time) + '\t')
+                            file.write('\n')                       
+                else:
+                    file.write(str(0) + '\n')
 
 
     def convert_localsolver(self, output_file_name):

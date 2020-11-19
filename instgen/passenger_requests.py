@@ -1,5 +1,5 @@
-from fixed_lines import retrieve_new_bus_stations
-from fixed_lines import check_subway_routes_serve_passenger
+from fixed_lines import _check_subway_routes_serve_passenger
+from fixed_lines import _evaluate_best_fixed_route
 import json
 import os
 import osmnx as ox
@@ -201,55 +201,66 @@ def _generate_requests_ODBRPFL(
 
                     #when generating the requests, consider also getting the fixed lines
                         
-                    subway_routes = check_subway_routes_serve_passenger(inst.network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking_user, request_walk_speed)
+                    subway_routes = _check_subway_routes_serve_passenger(inst.network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking_user, request_walk_speed)
+                    best_route = _evaluate_best_fixed_route(inst.network, subway_routes, origin_node_drive, destination_node_drive, max_walking_user)
                     
-                    request_data.update({'num_subway_routes': len(subway_routes)})
+                    request_data.update({'num_subway_routes': 1})
 
-                    subway_line_ids = []
-                    for route in subway_routes:
-                        subway_line_ids.append(route['line_id'])
+                    #if there is no fixed line that can potentially serve the request, i.e., there are no stations in the radius for both origin and destination
+                    if not best_route:
 
-                    request_data.update({'subway_line_ids': subway_line_ids})
+                        line_id = str(-1)
+                        d = {'line_id': line_id}
+                        d['option'+line_id] = 0
 
-                    for route in subway_routes:
+                        request_data.update(d)
 
-                        line_id = str(route['line_id'])
+                    
+                    else:
+                        
+                        subway_line_ids = []    
+                        #print(route)
+                        subway_line_ids.append(int(best_route['line_id'])) 
+
+                        request_data.update({'subway_line_ids': subway_line_ids})
+
+                        line_id = str(best_route['line_id'])
                         #add line_id como acrescimo no fim, pq senao a tag fica repetida
                         d = {'line_id': line_id}
-                        d['option'+line_id] = route['option']
+                        d['option'+line_id] = best_route['option']
 
-                        if route['option'] == 1:
-                            d['eta_in_vehicle'+line_id] = route['eta']
-                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
-                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+                        if best_route['option'] == 1:
+                            d['eta_in_vehicle'+line_id] = best_route['eta']
+                            d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
+                            d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
 
-                        if route['option'] == 2:
+                        if best_route['option'] == 2:
                             #request_data.update({'line_id': route['line_id']})
-                            d['eta_in_vehicle'+line_id] = route['eta']
-                            d['num_stops_nearby_pick_up'+line_id] = len(route['stops_u'])
-                            d['stops_nearby_pick_up'+line_id] = route['stops_u']
-                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
-                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+                            d['eta_in_vehicle'+line_id] = best_route['eta']
+                            d['num_stops_nearby_pick_up'+line_id] = len(best_route['stops_u'])
+                            d['stops_nearby_pick_up'+line_id] = best_route['stops_u']
+                            d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
+                            d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
 
-                        if route['option'] == 3:
+                        if best_route['option'] == 3:
                             #request_data.update({'line_id': route['line_id']})
-                            d['eta_in_vehicle'+line_id] = route['eta']
-                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
-                            d['num_stops_nearby_drop_off'+line_id] = len(route['stops_v'])
-                            d['stops_nearby_drop_off'+line_id] = route['stops_v']
-                            d['walking_time_from_drop_off'+line_id] =  route['walking_time_v']
+                            d['eta_in_vehicle'+line_id] = best_route['eta']
+                            d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
+                            d['num_stops_nearby_drop_off'+line_id] = len(best_route['stops_v'])
+                            d['stops_nearby_drop_off'+line_id] = best_route['stops_v']
+                            d['walking_time_from_drop_off'+line_id] =  best_route['walking_time_v']
 
-                        if route['option'] == 4:
+                        if best_route['option'] == 4:
                             #request_data.update({'line_id': route['line_id']})
-                            d['eta_in_vehicle'+line_id] = route['eta']
-                            d['num_stops_nearby_pick_up'+line_id] = len(route['stops_u'])
-                            d['stops_nearby_pick_up'+line_id] = route['stops_u']
-                            d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
-                            d['num_stops_nearby_drop_off'+line_id] = len(route['stops_v'])
-                            d['stops_nearby_drop_off'+line_id] = route['stops_v']
-                            d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+                            d['eta_in_vehicle'+line_id] = best_route['eta']
+                            d['num_stops_nearby_pick_up'+line_id] = len(best_route['stops_u'])
+                            d['stops_nearby_pick_up'+line_id] = best_route['stops_u']
+                            d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
+                            d['num_stops_nearby_drop_off'+line_id] = len(best_route['stops_v'])
+                            d['stops_nearby_drop_off'+line_id] = best_route['stops_v']
+                            d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
                         
-                    request_data.update(d)
+                        request_data.update(d)
 
                     # add request_data to instance_data container
                     all_requests.update({request_id: request_data})
@@ -283,55 +294,64 @@ def _generate_requests_ODBRPFL(
                         arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor) 
                         request_data_return.update({'arr_time': int(arr_time_return)})
 
-                        subway_routes = check_subway_routes_serve_passenger(inst.network, destination_node_walk, origin_node_walk, destination_node_drive, origin_node_drive, max_walking_user, request_walk_speed)
-                    
-                        request_data_return.update({'num_subway_routes': len(subway_routes)})
+                        subway_routes = _check_subway_routes_serve_passenger(inst.network, destination_node_walk, origin_node_walk, destination_node_drive, origin_node_drive, max_walking_user, request_walk_speed)
+                        best_route = _evaluate_best_fixed_route(inst.network, subway_routes, origin_node_drive, destination_node_drive, max_walking_user)
+                        
+                        request_data_return.update({'num_subway_routes': 1})
 
-                        subway_line_ids = []
-                        for route in subway_routes:
-                            subway_line_ids.append(route['line_id'])
+                        if not best_route:
 
-                        request_data_return.update({'subway_line_ids': subway_line_ids})
+                            line_id = str(-1)
+                            d = {'line_id': line_id}
+                            d['option'+line_id] = 0
 
-                        for route in subway_routes:
+                            request_data.update(d)
 
-                            line_id = str(route['line_id'])
+                        
+                        else:
+                        
+                            subway_line_ids = []    
+                            subway_line_ids.append(best_route['line_id'])
+
+                            request_data_return.update({'subway_line_ids': subway_line_ids})
+
+                            line_id = str(best_route['line_id'])
                             #add line_id como acrescimo no fim, pq senao a tag fica repetida
                             d = {'line_id': line_id}
-                            d['option'+line_id] = route['option']
+                            d['option'+line_id] = best_route['option']
 
-                            if route['option'] == 1:
-                                d['eta_in_vehicle'+line_id] = route['eta']
-                                d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
-                                d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+                            if best_route['option'] == 1:
+                                d['eta_in_vehicle'+line_id] = best_route['eta']
+                                d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
+                                d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
 
-                            if route['option'] == 2:
+                            if best_route['option'] == 2:
                                 #request_data.update({'line_id': route['line_id']})
-                                d['eta_in_vehicle'+line_id] = route['eta']
-                                d['num_stops_nearby_pick_up'+line_id] = len(route['stops_u'])
-                                d['stops_nearby_pick_up'+line_id] = route['stops_u']
-                                d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
-                                d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+                                d['eta_in_vehicle'+line_id] = best_route['eta']
+                                d['num_stops_nearby_pick_up'+line_id] = len(best_route['stops_u'])
+                                d['stops_nearby_pick_up'+line_id] = best_route['stops_u']
+                                d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
+                                d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
 
-                            if route['option'] == 3:
+                            if best_route['option'] == 3:
                                 #request_data.update({'line_id': route['line_id']})
-                                d['eta_in_vehicle'+line_id] = route['eta']
-                                d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
-                                d['num_stops_nearby_drop_off'+line_id] = len(route['stops_v'])
-                                d['stops_nearby_drop_off'+line_id] = route['stops_v']
-                                d['walking_time_from_drop_off'+line_id] =  route['walking_time_v']
+                                d['eta_in_vehicle'+line_id] = best_route['eta']
+                                d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
+                                d['num_stops_nearby_drop_off'+line_id] = len(best_route['stops_v'])
+                                d['stops_nearby_drop_off'+line_id] = best_route['stops_v']
+                                d['walking_time_from_drop_off'+line_id] =  best_route['walking_time_v']
 
-                            if route['option'] == 4:
+                            if best_route['option'] == 4:
                                 #request_data.update({'line_id': route['line_id']})
-                                d['eta_in_vehicle'+line_id] = route['eta']
-                                d['num_stops_nearby_pick_up'+line_id] = len(route['stops_u'])
-                                d['stops_nearby_pick_up'+line_id] = route['stops_u']
-                                d['walking_time_to_pick_up'+line_id] = route['walking_time_u']
-                                d['num_stops_nearby_drop_off'+line_id] = len(route['stops_v'])
-                                d['stops_nearby_drop_off'+line_id] = route['stops_v']
-                                d['walking_time_from_drop_off'+line_id] = route['walking_time_v']
+                                d['eta_in_vehicle'+line_id] = best_route['eta']
+                                d['num_stops_nearby_pick_up'+line_id] = len(best_route['stops_u'])
+                                d['stops_nearby_pick_up'+line_id] = best_route['stops_u']
+                                d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
+                                d['num_stops_nearby_drop_off'+line_id] = len(best_route['stops_v'])
+                                d['stops_nearby_drop_off'+line_id] = best_route['stops_v']
+                                d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
                             
-                        request_data_return.update(d)
+                            request_data_return.update(d)
                         #increases the number of requests
                         i += 1
                         
