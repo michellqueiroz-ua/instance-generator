@@ -48,12 +48,13 @@ class Network:
             try:
                 su = str(u)
                 distance_walk = self.shortest_path_walk.loc[v, su]
+            
             except KeyError:
+                
                 try:
-
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
+                
                 except nx.NetworkXNoPath:
-
                     distance_walk = np.nan
                     
                     
@@ -62,6 +63,7 @@ class Network:
         #print(u, v)
         #print(distance_walk)
         if math.isnan(distance_walk):
+            '''
             nodeu = osm_api.NodeGet(u)
 
             nodev = osm_api.NodeGet(v)
@@ -72,28 +74,13 @@ class Network:
             distance_walk = geodesic(origin, dest).meters
 
             eta_walk = int(math.ceil(distance_walk/speed))
+            '''
+
+            eta_walk = -1
             
         else:
             eta_walk = int(math.ceil(distance_walk/speed))
 
-        ''' 
-        try:
-            distance_walk = nx.dijkstra_path_length(self.G_walk, origin_node, destination_node, weight='length')
-            #destination_node = str(destination_node)
-            #distance_walk = self.shortest_path_walk.loc[origin_node, destination_node]
-            #distance_walk = self.dict_shortest_path_length_walk[origin_node][destination_node]
-            #get the speed of the given travel mode
-            #i = self.get_travel_mode_index("walking")
-            #speed = self.travel_modes[i].speed
-            speed = self.walk_speed
-            #calculates the estimated travel time by walking
-            if math.isnan(distance_walk):
-                eta_walk = -1
-            else:  
-                eta_walk = int(math.ceil(distance_walk/speed))
-        except (nx.NetworkXNoPath, KeyError):
-            eta_walk = -1
-        '''
         return eta_walk
 
     def _return_estimated_travel_time_drive(self, origin_node, destination_node):
@@ -141,9 +128,10 @@ class Network:
         return max_eta_bus, min_eta_bus
 
 
-    def _get_travel_time_matrix(self, nodes):
+    def _get_travel_time_matrix(self, nodes, inst=None):
         
         
+
         if nodes == "bus":
             '''
             return travel time matrix between all bus stations in the network
@@ -152,7 +140,7 @@ class Network:
             travel_time = []
             
             #loop for computing the travel time matrix
-            i = 0
+            i=0
             for index_o, origin_stop in self.bus_stations.iterrows():
                 j=0
                 for index_d, destination_stop in self.bus_stations.iterrows(): 
@@ -163,15 +151,60 @@ class Network:
                     #calculating travel time and storing in travel_time matrix
                     if not math.isnan(od_travel_time):
                         if od_travel_time >= 0:
-                            element = (i, j, od_travel_time)
+                            element = (str(u), str(v), str(od_travel_time))
                             travel_time.append(element)
+                        '''
                         else:
                             od_travel_time = -1
                             od_travel_time = int(od_travel_time)
                             element = (i, j, -1)
                             travel_time.append(element)
+                        '''
                     j+=1
                 i+=1
+
+        if nodes == "subway":
+            
+            travel_time = []
+
+            for line_id in self.subway_lines:
+
+                for u in self.nodes_covered_fixed_lines:
+                    for v in self.nodes_covered_fixed_lines:
+
+                        try:
+
+                            eta = nx.dijkstra_path_length(self.subway_lines[line_id]['route_graph'], u, v, weight='duration_avg')
+                            
+                            element = (str(u), str(v), str(int(eta)), str(line_id))
+                            travel_time.append(element)
+
+                        except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
+                            pass
+
+        if nodes == "hybrid":
+
+            travel_time = []
+
+            for u in self.bus_stations_ids:
+                for v in self.nodes_covered_fixed_lines:
+
+                    uwalk = self.bus_stations.loc[u, 'osmid_walk']
+                    udrive = self.bus_stations.loc[u, 'osmid_drive']
+                    vwalk = self.deconet_network_nodes.loc[int(v), 'osmid_walk']
+                    avg_walk_speed = (inst.min_walk_speed+inst.max_walk_speed)/2
+                    
+                    #from u to v
+                    eta1 = self.get_eta_walk(uwalk, vwalk, avg_walk_speed)
+                    #from v to u
+                    eta2 = self.get_eta_walk(vwalk, uwalk, avg_walk_speed)
+                    if eta1 >= 0:
+                        element = (str(udrive), str(v), str(eta1))
+                        travel_time.append(element)
+
+                    if eta2 >= 0:
+                        element = (str(v), str(udrive), str(eta2))
+                        travel_time.append(element)
 
         if nodes == "all":
             '''
@@ -188,13 +221,15 @@ class Network:
                     #calculating travel time and storing in travel_time matrix
                     if not math.isnan(od_travel_time):
                         if od_travel_time >= 0:
-                            element = (u, v, od_travel_time)
+                            element = (str(u), str(v), str(od_travel_time))
                             travel_time.append(element)
+                        '''
                         else:
                             od_travel_time = -1
                             od_travel_time = int(od_travel_time)
                             element = (u, v, od_travel_time)
                             travel_time.append(element)
+                        '''
                     j+=1
                 i+=1
 

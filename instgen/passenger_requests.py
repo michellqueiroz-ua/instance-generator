@@ -126,7 +126,6 @@ def _generate_requests_ODBRPFL(
                     destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
                     time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, request_walk_speed)
 
-                    
                     max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
                     
                     #time walking from origin to destination must be higher of maximum walking by the user
@@ -141,6 +140,7 @@ def _generate_requests_ODBRPFL(
 
                 stops_origin_walking_distance = []
                 stops_destination_walking_distance = []
+
 
                 if time_walking > max_walking_user: #if distance between origin and destination is too small the person just walks
                     #add the request
@@ -162,6 +162,26 @@ def _generate_requests_ODBRPFL(
                             stops_destination.append(index)
                             stops_destination_walking_distance.append(eta_walk_destination)
 
+                    fl_stations_origin = []
+                    fl_stations_destination = []
+
+                    fl_stations_origin_walking_distance = []
+                    fl_stations_destination_walking_distance = []
+
+                    #calculates the FIXED LINE stations which are close enough - i.e. walking distance- to the origin and destination of the request
+                    for node in inst.network.nodes_covered_fixed_lines:
+
+                        osmid_possible_fixed_station = inst.network.deconet_network_nodes.loc[int(node), 'osmid_walk']
+                        eta_walk_origin = inst.network.get_eta_walk(origin_node_walk, osmid_possible_fixed_station, request_walk_speed)
+                        if eta_walk_origin >= 0 and eta_walk_origin <= max_walking_user:
+                            fl_stations_origin.append(node)
+                            fl_stations_origin_walking_distance.append(eta_walk_origin)
+
+                        eta_walk_destination = inst.network.get_eta_walk(osmid_possible_fixed_station, destination_node_walk, request_walk_speed) 
+                        if eta_walk_destination >= 0 and eta_walk_destination <= max_walking_user:
+                            fl_stations_destination.append(node)
+                            fl_stations_destination_walking_distance.append(eta_walk_destination)
+
                 # Check whether each passenger can walk to stops (origin + destination)
                 if len(stops_origin) > 0 and len(stops_destination) > 0:
                     if not (set(stops_origin) & set(stops_destination)):
@@ -182,6 +202,14 @@ def _generate_requests_ODBRPFL(
                 if  not unfeasible_request:   
                     #prints in the json file if the request is feasible
 
+                    #coordinate origin
+                    request_data.update({'originx': origin_point[1]})
+                    request_data.update({'originy': origin_point[0]})
+
+                    #coordinate destination
+                    request_data.update({'destinationx': destination_point[1]})
+                    request_data.update({'destinationy': destination_point[0]})
+
                     request_data.update({'num_stops_origin': len(stops_origin)})
                     request_data.update({'stops_origin': stops_origin})
                     request_data.update({'walking_time_origin_to_stops': stops_origin_walking_distance})
@@ -189,6 +217,17 @@ def _generate_requests_ODBRPFL(
                     request_data.update({'num_stops_destination': len(stops_destination)})
                     request_data.update({'stops_destination': stops_destination})
                     request_data.update({'walking_time_stops_to_destination': stops_destination_walking_distance})
+
+                    request_data.update({'num_stations_fl_origin': len(fl_stations_origin)})
+                    
+                    request_data.update({'stations_fl_origin': fl_stations_origin})
+                    request_data.update({'walking_time_origin_to_stations_fl': fl_stations_origin_walking_distance})
+
+                    request_data.update({'num_stations_fl_destination': len(fl_stations_destination)})
+                   
+                    request_data.update({'stations_fl_destination': fl_stations_destination})
+                    request_data.update({'walking_time_stations_fl_to_destination': fl_stations_destination_walking_distance})
+
 
                     #timestamp -> time the request was made
                     request_data.update({'time_stamp': int(request_time_stamp)})
@@ -200,81 +239,25 @@ def _generate_requests_ODBRPFL(
                     request_data.update({'arr_time': int(arr_time)})
 
                     #when generating the requests, consider also getting the fixed lines
-                        
-                    subway_routes = _check_subway_routes_serve_passenger(inst.network, origin_node_walk, destination_node_walk, origin_node_drive, destination_node_drive, max_walking_user, request_walk_speed)
-                    best_route = _evaluate_best_fixed_route(inst.network, subway_routes, origin_node_drive, destination_node_drive, max_walking_user)
-                    
-                    request_data.update({'num_subway_routes': 1})
-
-                    #if there is no fixed line that can potentially serve the request, i.e., there are no stations in the radius for both origin and destination
-                    if not best_route:
-
-                        line_id = str(-1)
-                        d = {'line_id': line_id}
-                        d['option'+line_id] = 0
-
-                        request_data.update(d)
-
-                    
-                    else:
-                        
-                        subway_line_ids = []    
-                        #print(route)
-                        subway_line_ids.append(int(best_route['line_id'])) 
-
-                        request_data.update({'subway_line_ids': subway_line_ids})
-
-                        line_id = str(best_route['line_id'])
-                        #add line_id como acrescimo no fim, pq senao a tag fica repetida
-                        d = {'line_id': line_id}
-                        d['option'+line_id] = best_route['option']
-
-                        if best_route['option'] == 1:
-                            d['eta_in_vehicle'+line_id] = best_route['eta']
-                            d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
-                            d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
-
-                        if best_route['option'] == 2:
-                            #request_data.update({'line_id': route['line_id']})
-                            d['eta_in_vehicle'+line_id] = best_route['eta']
-                            d['num_stops_nearby_pick_up'+line_id] = len(best_route['stops_u'])
-                            d['stops_nearby_pick_up'+line_id] = best_route['stops_u']
-                            d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
-                            d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
-
-                        if best_route['option'] == 3:
-                            #request_data.update({'line_id': route['line_id']})
-                            d['eta_in_vehicle'+line_id] = best_route['eta']
-                            d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
-                            d['num_stops_nearby_drop_off'+line_id] = len(best_route['stops_v'])
-                            d['stops_nearby_drop_off'+line_id] = best_route['stops_v']
-                            d['walking_time_from_drop_off'+line_id] =  best_route['walking_time_v']
-
-                        if best_route['option'] == 4:
-                            #request_data.update({'line_id': route['line_id']})
-                            d['eta_in_vehicle'+line_id] = best_route['eta']
-                            d['num_stops_nearby_pick_up'+line_id] = len(best_route['stops_u'])
-                            d['stops_nearby_pick_up'+line_id] = best_route['stops_u']
-                            d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
-                            d['num_stops_nearby_drop_off'+line_id] = len(best_route['stops_v'])
-                            d['stops_nearby_drop_off'+line_id] = best_route['stops_v']
-                            d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
-                        
-                        request_data.update(d)
-
+                     
                     # add request_data to instance_data container
                     all_requests.update({request_id: request_data})
                     request_id+=1
 
-                    i+=1
-
                     create_return_request = random.randint(0, 100)
 
-                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
+                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests-1:
                         #create "copy of the request as a return"
                         request_data_return = {}
 
+                        #coordinate origin
+                        request_data_return.update({'originx': destination_point[1]})
+                        request_data_return.update({'originy': destination_point[0]})
                         
+                        #coordinate destination
+                        request_data_return.update({'destinationx': origin_point[1]})
+                        request_data_return.update({'destinationy': origin_point[0]})
+
                         request_data_return.update({'num_stops_origin': len(stops_destination)})
                         request_data_return.update({'stops_origin': stops_destination})
                         request_data_return.update({'walking_time_origin_to_stops': stops_destination_walking_distance})
@@ -282,6 +265,16 @@ def _generate_requests_ODBRPFL(
                         request_data_return.update({'num_stops_destination': len(stops_origin)})
                         request_data_return.update({'stops_destination': stops_origin})
                         request_data_return.update({'walking_time_stops_to_destination': stops_origin_walking_distance})
+
+                        request_data_return.update({'num_stations_fl_origin': len(fl_stations_destination)})
+                        
+                        request_data_return.update({'stations_fl_origin': fl_stations_destination})
+                        request_data_return.update({'walking_time_origin_to_stations_fl': fl_stations_destination_walking_distance})
+
+                        request_data_return.update({'num_stations_fl_destination': len(fl_stations_origin)})
+                        
+                        request_data_return.update({'stations_fl_destination': fl_stations_origin})
+                        request_data_return.update({'walking_time_stations_fl_to_destination': fl_stations_origin_walking_distance})
 
                         request_data_return.update({'time_stamp': int(request_time_stamp)})
                     
@@ -294,64 +287,6 @@ def _generate_requests_ODBRPFL(
                         arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor) 
                         request_data_return.update({'arr_time': int(arr_time_return)})
 
-                        subway_routes = _check_subway_routes_serve_passenger(inst.network, destination_node_walk, origin_node_walk, destination_node_drive, origin_node_drive, max_walking_user, request_walk_speed)
-                        best_route = _evaluate_best_fixed_route(inst.network, subway_routes, origin_node_drive, destination_node_drive, max_walking_user)
-                        
-                        request_data_return.update({'num_subway_routes': 1})
-
-                        if not best_route:
-
-                            line_id = str(-1)
-                            d = {'line_id': line_id}
-                            d['option'+line_id] = 0
-
-                            request_data.update(d)
-
-                        
-                        else:
-                        
-                            subway_line_ids = []    
-                            subway_line_ids.append(best_route['line_id'])
-
-                            request_data_return.update({'subway_line_ids': subway_line_ids})
-
-                            line_id = str(best_route['line_id'])
-                            #add line_id como acrescimo no fim, pq senao a tag fica repetida
-                            d = {'line_id': line_id}
-                            d['option'+line_id] = best_route['option']
-
-                            if best_route['option'] == 1:
-                                d['eta_in_vehicle'+line_id] = best_route['eta']
-                                d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
-                                d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
-
-                            if best_route['option'] == 2:
-                                #request_data.update({'line_id': route['line_id']})
-                                d['eta_in_vehicle'+line_id] = best_route['eta']
-                                d['num_stops_nearby_pick_up'+line_id] = len(best_route['stops_u'])
-                                d['stops_nearby_pick_up'+line_id] = best_route['stops_u']
-                                d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
-                                d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
-
-                            if best_route['option'] == 3:
-                                #request_data.update({'line_id': route['line_id']})
-                                d['eta_in_vehicle'+line_id] = best_route['eta']
-                                d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
-                                d['num_stops_nearby_drop_off'+line_id] = len(best_route['stops_v'])
-                                d['stops_nearby_drop_off'+line_id] = best_route['stops_v']
-                                d['walking_time_from_drop_off'+line_id] =  best_route['walking_time_v']
-
-                            if best_route['option'] == 4:
-                                #request_data.update({'line_id': route['line_id']})
-                                d['eta_in_vehicle'+line_id] = best_route['eta']
-                                d['num_stops_nearby_pick_up'+line_id] = len(best_route['stops_u'])
-                                d['stops_nearby_pick_up'+line_id] = best_route['stops_u']
-                                d['walking_time_to_pick_up'+line_id] = best_route['walking_time_u']
-                                d['num_stops_nearby_drop_off'+line_id] = len(best_route['stops_v'])
-                                d['stops_nearby_drop_off'+line_id] = best_route['stops_v']
-                                d['walking_time_from_drop_off'+line_id] = best_route['walking_time_v']
-                            
-                            request_data_return.update(d)
                         #increases the number of requests
                         i += 1
                         
@@ -371,12 +306,22 @@ def _generate_requests_ODBRPFL(
 
     #inst.network.all_requests = all_requests
 
-    travel_time_json = inst.network._get_travel_time_matrix("bus")
+    #travel time between bus stations
+    travel_time_bus_json = inst.network._get_travel_time_matrix("bus")
+
+    #how the subway stations connect with each other
+    travel_time_subway_json = inst.network._get_travel_time_matrix("subway")
+
+    #how the bus stations and fixed line stations are connected with each other by walking times
+    travel_time_hybrid_json = inst.network._get_travel_time_matrix("hybrid", inst=inst)
     
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
                           'num_stations': inst.network.num_stations,
-                          'travel_time_matrix': travel_time_json})
+                          'travel_time_matrix_bus': travel_time_bus_json,
+                          'travel_time_matrix_subway': travel_time_subway_json,
+                          'travel_time_matrix_hybrid': travel_time_hybrid_json,
+                          })
 
     with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
@@ -513,13 +458,9 @@ def _generate_requests_DARP(
                     all_requests.update({request_id: request_data})
                     request_id+=1
 
-                    #increases the number of requests
-                    i += 1
-
-                    
                     create_return_request = random.randint(0, 100)
 
-                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
+                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests-1:
 
                         request_data_return = {}
 
@@ -555,7 +496,10 @@ def _generate_requests_DARP(
                     nok = True
                     if num_attempts > 20:
                         nok = False
+            
+            #increases the number of requests
             i += 1
+
         #plt.show()
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
@@ -737,6 +681,13 @@ def _generate_requests_ODBRP(
                 if  not unfeasible_request:   
                     #prints in the json file if the request is feasible
 
+                    #coordinate origin
+                    request_data.update({'originx': origin_point[1]})
+                    request_data.update({'originy': origin_point[0]})
+
+                    #coordinate destination
+                    request_data.update({'destinationx': destination_point[1]})
+                    request_data.update({'destinationy': destination_point[0]})
 
                     request_data.update({'num_stops_origin': len(stops_origin)})
                     request_data.update({'stops_origin': stops_origin})
@@ -763,10 +714,17 @@ def _generate_requests_ODBRP(
 
                     create_return_request = random.randint(0, 100)
 
-                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests:
+                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests-1:
                         #create "copy of the request as a return"
                         request_data_return = {}
 
+                        #coordinate origin
+                        request_data_return.update({'originx': destination_point[1]})
+                        request_data_return.update({'originy': destination_point[0]})
+                        
+                        #coordinate destination
+                        request_data_return.update({'destinationx': origin_point[1]})
+                        request_data_return.update({'destinationy': origin_point[0]})
                         
                         request_data_return.update({'num_stops_origin': len(stops_destination)})
                         request_data_return.update({'stops_origin': stops_destination})

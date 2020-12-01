@@ -11,13 +11,12 @@ if __name__ == '__main__':
     inst1.set_problem_type(problem_type="ODBRPFL")
     inst1.add_request_demand_uniform(max_time=8, min_time=10, number_of_requests=100, time_unit="h")
     inst1.add_request_demand_normal(mean=8, std=0.5, number_of_requests=100, time_unit="h")
-    inst1.set_time_window(min_early_departure=7, max_early_departure=11, time_unit="h")
+    inst1.set_time_window(min_early_departure=5, max_early_departure=11, time_unit="h")
     inst1.set_interval_lead_time(min_lead_time=0, max_lead_time=5, time_unit="min")
     inst1.set_interval_walk_speed(min_walk_speed=4, max_walk_speed=5, speed_unit="kmh")
     inst1.set_interval_max_walking(lb_max_walking=300, ub_max_walking=600, time_unit="s")
     inst1.set_return_factor(return_factor=0.5)
     inst1.set_number_replicas(number_replicas=1)
-    inst1.add_origin_zone(3)
     inst1.set_delay_vehicle_factor(delay_vehicle_factor=2)
     inst1.set_delay_walk_factor(delay_walk_factor=2)
     inst1.generate_requests()
@@ -41,10 +40,7 @@ if __name__ == '__main__':
             output_name_ls = instance.split('.')[0] + '_ls.pass'
 
             converter = JsonConverter(file_name=input_name)
-            if inst1.problem_type == "ODBRPFL":
-                converter.convert_normal_odbrpfl(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst1.network)
-            else:
-                converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst1.network)
+            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst1.network, problem_type=inst1.problem_type)
             converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
 
     #print('placement of stops - testing')

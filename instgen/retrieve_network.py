@@ -217,17 +217,18 @@ def download_network_information(
     network.list_bus_stations = list_bus_stations
 
     #get fixed lines
-    if get_fixed_lines == 'osm':
-        pt_fixed_lines = get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_folder_base)
-    elif get_fixed_lines == 'deconet':
-            #this could be changed for a server or something else
-            folder_path_deconet = output_folder_base+'/'+'deconet'
-            if not os.path.isdir(folder_path_deconet):
-                raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
-            else:
-                get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base)
-                
-    else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
+    if get_fixed_lines is not None:
+        if get_fixed_lines == 'osm':
+            pt_fixed_lines = get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_folder_base)
+        elif get_fixed_lines == 'deconet':
+                #this could be changed for a server or something else
+                folder_path_deconet = output_folder_base+'/'+'deconet'
+                if not os.path.isdir(folder_path_deconet):
+                    raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
+                else:
+                    get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base)
+                    
+        else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
     print('successfully retrieved network')
 
