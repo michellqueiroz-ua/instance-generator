@@ -72,6 +72,10 @@ class Instance:
         #probability of each request having a return
         self.return_factor = None
 
+        #vehicle requirements for DARP problem
+        self.wheelchair = False
+        self.ambulatory = False
+
     
     def add_request_demand_uniform(self, 
         min_time, 
@@ -298,6 +302,13 @@ class Instance:
 
         self.return_factor = float(return_factor)
 
+    def add_vehicle_requirements(self, req):
+
+        if req == "wheelchair":
+            self.wheelchair = True
+
+        if req == "ambulatory":
+            self.ambulatory = True
 
     def generate_requests(self):
 

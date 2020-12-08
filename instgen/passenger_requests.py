@@ -346,6 +346,12 @@ def _generate_requests_DARP(
     num_requests = 0
     request_id = 0
 
+    depot_point = inst.network._get_random_coord(inst.network.polygon)
+    depot_point = (depot_point.y, depot_point.x)
+    depot_node_drive = ox.get_nearest_node(inst.network.G_drive, depot_point)
+    node_list = []
+
+    node_list.append(depot_node_drive)
     #for each PDF
     for r in range(len(inst.request_demand)):
         
@@ -428,6 +434,12 @@ def _generate_requests_DARP(
                 origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
                 destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
                 
+                if origin_node_drive not in node_list:
+                    node_list.append(origin_node_drive)
+
+                if destination_node_drive not in node_list:
+                    node_list.append(destination_node_drive)
+                
                 #compute estimated arrival time
                 estimated_travel_time = inst.network._return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
                 if estimated_travel_time >= 0:
@@ -453,6 +465,26 @@ def _generate_requests_DARP(
 
                     #arrival time
                     request_data.update({'arr_time': int(arr_time)})
+
+                    #compute if request need some vehicle requirement, e.g., wheelchair, ambulatory passenger
+                    #0-> no requirement
+                    #1-> wheelchair
+                    #2-> ambulatory
+                    min_req = 0
+                    max_req = 0
+                    if inst.wheelchair and inst.ambulatory:
+                        max_req = 2
+                        vehicle_requirement = random.randint(min_req, max_req)
+                    else:
+                        if inst.wheelchair:
+                            max_req = 1
+                            vehicle_requirement = random.randint(min_req, max_req)
+                        elif inst.ambulatory:
+                            max_req = 1
+                            vehicle_requirement = random.randint(min_req, max_req)
+                            if vehicle_requirement > 0:
+                                vehicle_requirement = 2
+                    request_data.update({'vehicle_requirement': int(vehicle_requirement)})
 
                     # add request_data to instance_data container
                     all_requests.update({request_id: request_data})
@@ -486,6 +518,8 @@ def _generate_requests_DARP(
                         arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * estimated_travel_time)
                         request_data_return.update({'arr_time': int(arr_time_return)})
 
+                        request_data_return.update({'vehicle_requirement': int(vehicle_requirement)})
+
                         all_requests.update({request_id: request_data_return})
                         request_id+=1
 
@@ -504,11 +538,13 @@ def _generate_requests_DARP(
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
 
-    travel_time_json = inst.network._get_travel_time_matrix("all")
+    travel_time_json = inst.network._get_travel_time_matrix("list", node_list=node_list)
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
-                          'num_stations': inst.network.num_stations,
-                          'travel_time_matrix': travel_time_json})
+                          'depot': str(depot_node_drive),
+                          'num_nodes': len(node_list),
+                          'travel_time_matrix': travel_time_json
+                          })
 
     with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)

@@ -128,7 +128,7 @@ class Network:
         return max_eta_bus, min_eta_bus
 
 
-    def _get_travel_time_matrix(self, nodes, inst=None):
+    def _get_travel_time_matrix(self, nodes, inst=None, node_list=None):
         
         
 
@@ -205,6 +205,19 @@ class Network:
                     if eta2 >= 0:
                         element = (str(v), str(udrive), str(eta2))
                         travel_time.append(element)
+
+        if nodes == "list":
+            travel_time = []
+
+            for u in node_list:
+                for v in node_list:
+                    od_travel_time = self._return_estimated_travel_time_drive(u, v)  
+
+                    if not math.isnan(od_travel_time):
+                        if od_travel_time >= 0:
+                            element = (str(u), str(v), str(od_travel_time))
+                            travel_time.append(element)
+
 
         if nodes == "all":
             '''
