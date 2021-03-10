@@ -7,6 +7,7 @@ import numpy as np
 import pickle
 import random
 from request_distribution_class import RequestDistributionTime
+from spatial_distribution_class import SpatialDistribution
 from shapely.geometry import Point
 from passenger_requests import _generate_requests_DARP
 from passenger_requests import _generate_requests_ODBRP
@@ -36,12 +37,16 @@ class Instance:
 
         self.request_demand = []
 
+        self.spatial_distribution = []
+
+        '''
         self.num_origins = -1
         self.num_destinations = -1
         self.is_random_origin_zones = True
         self.is_random_destination_zones = True
         self.origin_zones = []
         self.destination_zones = []
+        '''
 
         #time window
         self.min_early_departure = None
@@ -76,6 +81,8 @@ class Instance:
         self.wheelchair = False
         self.ambulatory = False
 
+
+
     
     def add_request_demand_uniform(self, 
         min_time, 
@@ -89,22 +96,14 @@ class Instance:
         '''
         if time_unit == "s":
             min_time = int(min_time)
+            max_time = int(max_time)
         
         elif time_unit == "h":
             min_time = int(min_time*3600)
-
-        elif time_unit == "min":
-            min_time = int(min_time*60)
-
-        else: raise ValueError('time_unit method argument must be either "h" or "min", or "s"')
-
-        if time_unit == "s":
-            max_time = int(max_time)
-
-        elif time_unit == "h":
             max_time = int(max_time*3600)
 
         elif time_unit == "min":
+            min_time = int(min_time*60)
             max_time = int(max_time*60)
 
         else: raise ValueError('time_unit method argument must be either "h" or "min", or "s"')
@@ -124,22 +123,14 @@ class Instance:
         '''
         if time_unit == "s":
             mean = int(mean)
+            std = int(std)
         
         elif time_unit == "h":
             mean = int(mean*3600)
-
-        elif time_unit == "min":
-            mean = int(mean*60)
-
-        else: raise ValueError('time_unit method argument must be either "h" or "min", or "s"')
-
-        if time_unit == "s":
-            std = int(std)
-
-        elif time_unit == "h":
             std = int(std*3600)
 
         elif time_unit == "min":
+            mean = int(mean*60)
             std = int(std*60)
 
         else: raise ValueError('time_unit method argument must be either "h" or "min", or "s"')
@@ -147,6 +138,12 @@ class Instance:
         dnd = RequestDistributionTime(mean, std, number_of_requests, "normal")
         self.request_demand.append(dnd)
 
+    def add_spatial_distribution(self, num_origins, num_destinations, prob, origin_zones=[], destination_zones=[], is_random_origin_zones=False, is_random_destination_zones=False):
+
+        sd = SpatialDistribution(num_origins, num_destinations, prob, origin_zones, destination_zones, is_random_origin_zones, is_random_destination_zones)
+        self.spatial_distribution.append(sd)
+
+    '''
     def set_number_origins(self, num_origins):
 
         self.num_origins = int(num_origins)
@@ -178,6 +175,8 @@ class Instance:
 
         if self.num_destinations != -1:
             self.destination_zones = np.random.randint(0, num_zones, self.num_destinations)
+    '''
+
 
     def set_time_window(self, min_early_departure, max_early_departure, time_unit):
 

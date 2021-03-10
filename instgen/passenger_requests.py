@@ -11,6 +11,36 @@ import random
 import ray
 from shapely.geometry import Point
 
+def plot_requests(network, save_dir_images, origin_points, destination_points):
+
+
+    fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#336699', node_size=6)
+
+    requests_folder = os.path.join(save_dir_images, 'requests')
+
+    if not os.path.isdir(requests_folder):
+        os.mkdir(requests_folder)
+
+
+    #plot origin locations
+    for origin in origin_points:
+
+        ax.scatter(origin[1], origin[0], c='red', s=8)
+
+    plt.savefig(requests_folder+'/requests_origin_locations')
+    plt.close(fig) 
+
+
+    #plot destination locations
+    fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#336699', node_size=6)
+
+    for destination in destination_points:
+
+        ax.scatter(destination[1], destination[0], c='green', s=8)
+
+    plt.savefig(requests_folder+'/requests_destination_locations')
+    plt.close(fig)
+
 def _generate_requests_ODBRPFL( 
     inst,
     replicate_num
@@ -24,6 +54,8 @@ def _generate_requests_ODBRPFL(
     instance_data = {}  
 
     print("Now generating " + " request_data")
+    origin_points=[]
+    destination_points=[]
     lines = []
     all_requests = {} 
     h = 0
@@ -36,12 +68,17 @@ def _generate_requests_ODBRPFL(
         #randomly generates the earliest departure times or latest arrival times
         inst.request_demand[r].sample_times()
 
-        #randomly generates the zones 
-        if inst.is_random_origin_zones:
-            inst.randomly_sample_origin_zones(len(inst.network.zones))
 
-        if inst.is_random_destination_zones:
-            inst.randomly_sample_destination_zones(len(inst.network.zones))     
+        weightssd = (inst.spatial_distribution[0].prob, inst.spatial_distribution[1].prob, inst.spatial_distribution[2].prob, inst.spatial_distribution[3].prob)
+        
+        for sd in inst.spatial_distribution:
+
+            #randomly generates the zones 
+            if sd.is_random_origin_zones:
+                sd.randomly_sample_origin_zones(len(inst.network.zones))
+
+            if sd.is_random_destination_zones:
+                sd.randomly_sample_destination_zones(len(inst.network.zones))     
 
         num_requests = inst.request_demand[r].num_requests
         print(num_requests)
@@ -51,11 +88,11 @@ def _generate_requests_ODBRPFL(
         while i < num_requests:
             
             #timestamp -> time the request was received by the system
-            request_time_stamp = inst.request_demand[r].demand[i]
+            dep_time = inst.request_demand[r].demand[i]
             
             request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
 
-            dep_time = int(request_time_stamp + request_lead_time)
+            request_time_stamp = int(dep_time - request_lead_time)
 
             if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
                 nok = True
@@ -83,18 +120,22 @@ def _generate_requests_ODBRPFL(
                 #def generate_feasible_request
                 while unfeasible_request:
 
+                    sdlist = [0,1,2,3]
+                    sdid = random.choices(sdlist, weights=weightssd, k=1)
+                    sd = inst.spatial_distribution[sdid[0]]
+
                     #generate coordinates for origin
-                    if inst.num_origins == -1:
+                    if sd.num_origins == -1:
 
                         origin_point = inst.network._get_random_coord(inst.network.polygon)
                         origin_point = (origin_point.y, origin_point.x)
     
                     else:
 
-                        random_zone = np.random.uniform(0, inst.num_origins, 1)
+                        random_zone = np.random.uniform(0, sd.num_origins, 1)
                         random_zone = int(random_zone)
 
-                        random_zone_id = int(inst.request_demand[r].origin_zones[random_zone])
+                        random_zone_id = int(sd.origin_zones[random_zone])
                         polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
                         
                         #generate coordinates within the given zone
@@ -103,7 +144,7 @@ def _generate_requests_ODBRPFL(
                         origin_point = (origin_point.y, origin_point.x)
 
                     #generate coordinates for destination
-                    if inst.num_destinations == -1:
+                    if sd.num_destinations == -1:
                         
                         destination_point = inst.network._get_random_coord(inst.network.polygon)
                         #ax.scatter(destination_point.x, destination_point.y, c='green')
@@ -111,10 +152,10 @@ def _generate_requests_ODBRPFL(
 
                     else:
                         
-                        random_zone = np.random.uniform(0, inst.num_destinations, 1)
+                        random_zone = np.random.uniform(0, sd.num_destinations, 1)
                         random_zone = int(random_zone)
                         
-                        random_zone_id = int(inst.request_demand[r].destination_zones[random_zone])
+                        random_zone_id = int(sd.destination_zones[random_zone])
                         polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
             
                         #generate coordinates within the given zone
@@ -189,7 +230,9 @@ def _generate_requests_ODBRPFL(
                         #compute arrival time
                         max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
                         if min_eta_bus >= 0:
-                            arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor)
+                            #arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor)
+                            flex_time = inst.delay_vehicle_factor * max_eta_bus
+                            arr_time = dep_time + max_eta_bus + flex_time
                         else:
                             unfeasible_request = True
                         
@@ -206,9 +249,13 @@ def _generate_requests_ODBRPFL(
                     request_data.update({'originx': origin_point[1]})
                     request_data.update({'originy': origin_point[0]})
 
+                    origin_points.append(origin_point)
+
                     #coordinate destination
                     request_data.update({'destinationx': destination_point[1]})
                     request_data.update({'destinationy': destination_point[0]})
+
+                    destination_points.append(destination_point)
 
                     request_data.update({'num_stops_origin': len(stops_origin)})
                     request_data.update({'stops_origin': stops_origin})
@@ -284,7 +331,9 @@ def _generate_requests_ODBRPFL(
 
                         #arrival time for the return
                         max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
-                        arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor) 
+                        #arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor) 
+                        flex_time = inst.delay_vehicle_factor * max_eta_bus
+                        arr_time_return = dep_time_return + max_eta_bus + flex_time
                         request_data_return.update({'arr_time': int(arr_time_return)})
 
                         #increases the number of requests
@@ -318,10 +367,14 @@ def _generate_requests_ODBRPFL(
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
                           'num_stations': inst.network.num_stations,
-                          'travel_time_matrix_bus': travel_time_bus_json,
+                          'travel_time_matrix': travel_time_bus_json,
                           'travel_time_matrix_subway': travel_time_subway_json,
                           'travel_time_matrix_hybrid': travel_time_hybrid_json,
                           })
+
+    save_dir = os.getcwd()+'/'+inst.output_folder_base
+    save_dir_images = os.path.join(save_dir, 'images')
+    plot_requests(inst.network, save_dir_images, origin_points, destination_points)
 
     with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
@@ -340,6 +393,8 @@ def _generate_requests_DARP(
     instance_data = {}  
 
     print("Now generating " + " request_data")
+    origin_points=[]
+    destination_points=[]
     lines = []
     all_requests = {} 
     h = 0
@@ -360,12 +415,17 @@ def _generate_requests_DARP(
         #randomly generates the time stamp of the requests
         inst.request_demand[r].sample_times()
 
-        #randomly generates the zones 
-        if inst.is_random_origin_zones:
-            inst.randomly_sample_origin_zones(len(inst.network.zones))
+        weightssd = (inst.spatial_distribution[0].prob, inst.spatial_distribution[1].prob, inst.spatial_distribution[2].prob, inst.spatial_distribution[3].prob)
 
-        if inst.is_random_destination_zones:
-            inst.randomly_sample_destination_zones(len(inst.network.zones))     
+        #randomly generates the zones 
+        for sd in inst.spatial_distribution:
+
+            #randomly generates the zones 
+            if sd.is_random_origin_zones:
+                sd.randomly_sample_origin_zones(len(inst.network.zones))
+
+            if sd.is_random_destination_zones:
+                sd.randomly_sample_destination_zones(len(inst.network.zones))      
 
         num_requests = inst.request_demand[r].num_requests
         print(num_requests)
@@ -373,11 +433,11 @@ def _generate_requests_DARP(
         while i < num_requests:
 
             #timestamp -> time the request was received by the system
-            request_time_stamp = inst.request_demand[r].demand[i]
+            dep_time = inst.request_demand[r].demand[i]
             
             request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
 
-            dep_time = int(request_time_stamp + request_lead_time)
+            request_time_stamp = int(dep_time - request_lead_time)
 
             if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
                 nok = True
@@ -398,34 +458,38 @@ def _generate_requests_DARP(
                 origin_point = []
                 destination_point = []
                 unfeasible_request = False
+
+                sdlist = [0,1,2,3]
+                sdid = random.choices(sdlist, weights=weightssd, k=1)
+                sd = inst.spatial_distribution[sdid[0]]
                 
                 #generate coordinates for origin
-                if inst.num_origins == -1:
+                if sd.num_origins == -1:
 
                     origin_point = inst.network._get_random_coord(inst.network.polygon)
                     origin_point = (origin_point.y, origin_point.x)
 
                 else:
 
-                    random_zone = np.random.uniform(0, inst.num_origins, 1)
+                    random_zone = np.random.uniform(0, sd.num_origins, 1)
                     random_zone = int(random_zone)
-                    random_zone_id = int(inst.request_demand[r].origin_zones[random_zone])
+                    random_zone_id = int(sd.origin_zones[random_zone])
                     polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
         
                     origin_point = inst.network._get_random_coord(polygon_zone)
                     origin_point = (origin_point.y, origin_point.x)
 
                 #generate coordinates for destination
-                if inst.num_destinations == -1:
+                if sd.num_destinations == -1:
                     
                     destination_point = inst.network._get_random_coord(inst.network.polygon)
                     destination_point = (destination_point.y, destination_point.x)
 
                 else:
 
-                    random_zone = np.random.uniform(0, inst.num_destinations, 1)
+                    random_zone = np.random.uniform(0, sd.num_destinations, 1)
                     random_zone = int(random_zone)
-                    random_zone_id = int(inst.request_demand[r].destination_zones[random_zone])
+                    random_zone_id = int(sd.destination_zones[random_zone])
                     polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
 
                     destination_point = inst.network._get_random_coord(polygon_zone)
@@ -443,7 +507,9 @@ def _generate_requests_DARP(
                 #compute estimated arrival time
                 estimated_travel_time = inst.network._return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
                 if estimated_travel_time >= 0:
-                    arr_time = (dep_time) + (inst.delay_vehicle_factor * estimated_travel_time) 
+                    #arr_time = (dep_time) + (inst.delay_vehicle_factor * estimated_travel_time) 
+                    flex_time = inst.delay_vehicle_factor * estimated_travel_time
+                    arr_time = dep_time + estimated_travel_time + flex_time
                 else:
                     unfeasible_request = True
 
@@ -454,9 +520,13 @@ def _generate_requests_DARP(
                     request_data.update({'originy': origin_point[0]})
                     request_data.update({'origin_node': int(origin_node_drive)})
 
+                    origin_points.append(origin_point)
+
                     request_data.update({'destinationx': destination_point[1]})
                     request_data.update({'destinationy': destination_point[0]})
                     request_data.update({'destination_node': int(destination_node_drive)})
+
+                    destination_points.append(destination_point)
 
                     request_data.update({'time_stamp': int(request_time_stamp)})
                     
@@ -515,9 +585,10 @@ def _generate_requests_DARP(
 
                         #arrival time
                         estimated_travel_time = inst.network._return_estimated_travel_time_drive(destination_node_drive, origin_node_drive)
-                        arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * estimated_travel_time)
+                        #arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * estimated_travel_time)
+                        flex_time = inst.delay_vehicle_factor * estimated_travel_time
+                        arr_time_return = dep_time_return + estimated_travel_time + flex_time
                         request_data_return.update({'arr_time': int(arr_time_return)})
-
                         request_data_return.update({'vehicle_requirement': int(vehicle_requirement)})
 
                         all_requests.update({request_id: request_data_return})
@@ -538,6 +609,8 @@ def _generate_requests_DARP(
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
 
+    inst.network.node_list_darp = node_list
+
     travel_time_json = inst.network._get_travel_time_matrix("list", node_list=node_list)
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
@@ -545,6 +618,10 @@ def _generate_requests_DARP(
                           'num_nodes': len(node_list),
                           'travel_time_matrix': travel_time_json
                           })
+
+    save_dir = os.getcwd()+'/'+inst.output_folder_base
+    save_dir_images = os.path.join(save_dir, 'images')
+    plot_requests(inst.network, save_dir_images, origin_points, destination_points)
 
     with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
@@ -563,6 +640,8 @@ def _generate_requests_ODBRP(
     instance_data = {}  
 
     print("Now generating " + " request_data")
+    origin_points=[]
+    destination_points=[]
     lines = []
     all_requests = {} 
     h = 0
@@ -575,12 +654,17 @@ def _generate_requests_ODBRP(
         #randomly samples the earliest departure times or latest arrival times
         inst.request_demand[r].sample_times()
 
-        #randomly generates the zones 
-        if inst.is_random_origin_zones:
-            inst.randomly_sample_origin_zones(len(inst.network.zones))
+        weightssd = (inst.spatial_distribution[0].prob, inst.spatial_distribution[1].prob, inst.spatial_distribution[2].prob, inst.spatial_distribution[3].prob)
 
-        if inst.is_random_destination_zones:
-            inst.randomly_sample_destination_zones(len(inst.network.zones))     
+        #randomly generates the zones 
+        for sd in inst.spatial_distribution:
+
+            #randomly generates the zones 
+            if sd.is_random_origin_zones:
+                sd.randomly_sample_origin_zones(len(inst.network.zones))
+
+            if sd.is_random_destination_zones:
+                sd.randomly_sample_destination_zones(len(inst.network.zones))      
 
         num_requests = inst.request_demand[r].num_requests
         print(num_requests)
@@ -588,11 +672,11 @@ def _generate_requests_ODBRP(
         while i < num_requests:
             
             #timestamp -> time the request was received by the system
-            request_time_stamp = int(inst.request_demand[r].demand[i])
+            dep_time = inst.request_demand[r].demand[i]
             
             request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
-            
-            dep_time = int(request_time_stamp + request_lead_time)
+
+            request_time_stamp = int(dep_time - request_lead_time)
 
             if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
                 nok = True
@@ -621,18 +705,22 @@ def _generate_requests_ODBRP(
                 #def generate_feasible_request
                 while unfeasible_request:
 
+                    sdlist = [0,1,2,3]
+                    sdid = random.choices(sdlist, weights=weightssd, k=1)
+                    sd = inst.spatial_distribution[sdid[0]]
+
                     #generate coordinates for origin
-                    if inst.num_origins == -1:
+                    if sd.num_origins == -1:
 
                         origin_point = inst.network._get_random_coord(inst.network.polygon)
                         origin_point = (origin_point.y, origin_point.x)
     
                     else:
 
-                        random_zone = np.random.uniform(0, inst.num_origins, 1)
+                        random_zone = np.random.uniform(0, sd.num_origins, 1)
                         random_zone = int(random_zone)
 
-                        random_zone_id = int(inst.request_demand[r].origin_zones[random_zone])
+                        random_zone_id = int(sd.origin_zones[random_zone])
                         polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
                         
                         #generate coordinates within the given zone
@@ -641,7 +729,7 @@ def _generate_requests_ODBRP(
                         origin_point = (origin_point.y, origin_point.x)
 
                     #generate coordinates for destination
-                    if inst.num_destinations == -1:
+                    if sd.num_destinations == -1:
                         
                         destination_point = inst.network._get_random_coord(inst.network.polygon)
                         #ax.scatter(destination_point.x, destination_point.y, c='green')
@@ -649,10 +737,10 @@ def _generate_requests_ODBRP(
 
                     else:
                         
-                        random_zone = np.random.uniform(0, inst.num_destinations, 1)
+                        random_zone = np.random.uniform(0, sd.num_destinations, 1)
                         random_zone = int(random_zone)
                         
-                        random_zone_id = int(inst.request_demand[r].destination_zones[random_zone])
+                        random_zone_id = int(sd.destination_zones[random_zone])
                         polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
             
                         #generate coordinates within the given zone
@@ -705,7 +793,9 @@ def _generate_requests_ODBRP(
                         #compute arrival time
                         max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
                         if min_eta_bus >= 0:
-                            arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor)
+                            #arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor)
+                            flex_time = inst.delay_vehicle_factor * max_eta_bus
+                            arr_time = dep_time + max_eta_bus + flex_time
                         else:
                             unfeasible_request = True
 
@@ -721,9 +811,13 @@ def _generate_requests_ODBRP(
                     request_data.update({'originx': origin_point[1]})
                     request_data.update({'originy': origin_point[0]})
 
+                    origin_points.append(origin_point)
+
                     #coordinate destination
                     request_data.update({'destinationx': destination_point[1]})
                     request_data.update({'destinationy': destination_point[0]})
+
+                    destination_points.append(destination_point)
 
                     request_data.update({'num_stops_origin': len(stops_origin)})
                     request_data.update({'stops_origin': stops_origin})
@@ -778,7 +872,9 @@ def _generate_requests_ODBRP(
 
                         #arrival time for the return
                         max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
-                        arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor) 
+                        #arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor) 
+                        flex_time = inst.delay_vehicle_factor * max_eta_bus
+                        arr_time_return = dep_time_return + max_eta_bus + flex_time
                         request_data_return.update({'arr_time': int(arr_time_return)})
 
                         i += 1
@@ -804,6 +900,10 @@ def _generate_requests_ODBRP(
                           'num_stations': inst.network.num_stations,
                           'travel_time_matrix': travel_time_json})
 
+    save_dir = os.getcwd()+'/'+inst.output_folder_base
+    save_dir_images = os.path.join(save_dir, 'images')
+    plot_requests(inst.network, save_dir_images, origin_points, destination_points)
+
     with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)
         file.close()
@@ -817,6 +917,8 @@ def _generate_requests_SBRP(
     instance_data = {}  
 
     print("Now generating " + " request_data")
+    origin_points=[]
+    destination_points=[]
     lines = []
     all_requests = {} 
     h = 0
@@ -825,9 +927,14 @@ def _generate_requests_SBRP(
 
     #for each PDF
     for r in range(len(inst.request_demand)):
+
+        weightssd = (inst.spatial_distribution[0].prob, inst.spatial_distribution[1].prob, inst.spatial_distribution[2].prob, inst.spatial_distribution[3].prob)
          
-        if inst.is_random_origin_zones:
-            inst.randomly_sample_origin_zones(len(inst.network.zones))
+        for sd in inst.spatial_distribution:
+
+            #randomly generates the zones 
+            if sd.is_random_origin_zones:
+                sd.randomly_sample_origin_zones(len(inst.network.zones))
 
         #destination is the school
           
@@ -853,15 +960,19 @@ def _generate_requests_SBRP(
                 
                 #generate coordinates for origin
                 while unfeasible_request:
+
+                    sdlist = [0,1,2,3]
+                    sdid = random.choices(sdlist, weights=weightssd, k=1)
+                    sd = inst.spatial_distribution[sdid[0]]
                     
-                    if inst.num_origins == -1:
+                    if sd.num_origins == -1:
                         origin_point = inst.network._get_random_coord(inst.network.polygon)
                         origin_point = (origin_point.y, origin_point.x)
 
                     else:
-                        random_zone = np.random.uniform(0, inst.num_origins, 1)
+                        random_zone = np.random.uniform(0, sd.num_origins, 1)
                         random_zone = int(random_zone)
-                        random_zone_id = int(inst.origin_zones[random_zone])
+                        random_zone_id = int(sd.origin_zones[random_zone])
                         polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
                         
                         origin_point = inst.network._get_random_coord(polygon_zone)
@@ -903,14 +1014,20 @@ def _generate_requests_SBRP(
                 
                 if not unfeasible_request:   
                     #outputs in the json file if the request is 'feasible'
-                
-                    request_data.update({'num_stops_origin': len(stops_origin)})
-                    request_data.update({'stops_origin': stops_origin})
-                    request_data.update({'walking_time_origin_to_stops': stops_origin_walking_distance})
+
+                    request_data.update({'originx': origin_point[1]})
+                    request_data.update({'originy': origin_point[0]})
+                    request_data.update({'origin_node': int(origin_node_drive)})
+
+                    origin_points.append(origin_point)
 
                     request_data.update({'destinationx': destination_point[1]})
                     request_data.update({'destinationy': destination_point[0]})
                     request_data.update({'destination_node': int(destination_node_drive)})
+                
+                    request_data.update({'num_stops_origin': len(stops_origin)})
+                    request_data.update({'stops_origin': stops_origin})
+                    request_data.update({'walking_time_origin_to_stops': stops_origin_walking_distance})
 
                     # add request_data to instance_data container
                     all_requests.update({request_id: request_data})
@@ -938,6 +1055,10 @@ def _generate_requests_SBRP(
                           'num_stations': inst.network.num_stations,
                           'travel_time_matrix': travel_time_json,
                           'travel_time_to_school': travel_time_to_school})
+
+    save_dir = os.getcwd()+'/'+inst.output_folder_base
+    save_dir_images = os.path.join(save_dir, 'images')
+    plot_requests(inst.network, save_dir_images, origin_points, destination_points)
 
     with open(inst.output_file_json, 'w') as file:
         json.dump(instance_data, file, indent=4)

@@ -11,6 +11,7 @@ class JsonConverter(object):
 
     def convert_normal(self, output_file_name, network, problem_type):
 
+        
         with open(output_file_name, 'w') as file:
 
             # first line: number of stations
@@ -38,7 +39,7 @@ class JsonConverter(object):
                 file.write('\n')
 
                 #print info of travel time bus
-                travel_time_matrix_bus = self.json_data.get('travel_time_matrix_bus')
+                travel_time_matrix_bus = self.json_data.get('travel_time_matrix')
                 
                 file.write(str(len(travel_time_matrix_bus)))
                 file.write('\n')
@@ -80,6 +81,29 @@ class JsonConverter(object):
                 file.write('\n')
 
                 for pair in travel_time_matrix_hybrid:
+                    for element in pair:
+                        file.write(str(element))
+                        file.write('\t')
+                    file.write('\n')
+
+
+            if problem_type == "DARP":
+                #number of nodes
+                file.write(str(self.json_data.get('num_nodes')))
+                file.write('\n')
+
+                
+                for node in network.node_list_darp:
+                    file.write(str(node))
+                    file.write('\t')
+                file.write('\n')
+
+                travel_time_matrix_darp = self.json_data.get('travel_time_matrix')
+
+                file.write(str(len(travel_time_matrix_darp)))
+                file.write('\n')
+
+                for pair in travel_time_matrix_darp:
                     for element in pair:
                         file.write(str(element))
                         file.write('\t')

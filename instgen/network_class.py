@@ -26,6 +26,8 @@ class Network:
         self.bus_stations_ids = []
         for index, stop_node in self.bus_stations.iterrows():
             self.bus_stations_ids.append(index)
+
+        self.node_list_darp = []
        
         self.zones = zones
 
@@ -54,10 +56,10 @@ class Network:
                 try:
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
                 
-                except nx.NetworkXNoPath:
+                except (nx.NetworkXNoPath, nx.NodeNotFound):
                     distance_walk = np.nan
                     
-                    
+                    #nx.exception.NodeNotFound
         
         speed = walk_speed
         #print(u, v)
