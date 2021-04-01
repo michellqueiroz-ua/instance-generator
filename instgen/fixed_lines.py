@@ -375,6 +375,104 @@ def get_nodes_osm(G_walk, G_drive, lat, lon):
     
     return (node_walk, node_drive)
 
+def break_lines_in_pieces(subway_lines):
+
+    connecting_nodes = []
+    transfer_nodes = []
+
+    for id1 in subway_lines:
+        for id2 in subway_lines:
+
+            if (id1 != id2) and (id1 > id2):
+
+                nodes1 = list(subway_lines[id1]['route_graph'].nodes)
+                nodes2 = list(subway_lines[id2]['route_graph'].nodes)
+
+                for n in nodes1:
+                    if n in nodes2:
+                        if (n not in connecting_nodes):
+                            connecting_nodes.append(n)
+
+                        if (n not in transfer_nodes):
+                            transfer_nodes.append(n)
+
+    linepieces = []
+    direct_lines = []
+
+    for ids in subway_lines:
+
+        begin_route = []
+        end_route = []
+
+        begin_route = [node for node in subway_lines[ids]['route_graph'].nodes if subway_lines[ids]['route_graph'].in_degree(node) == 0]
+        end_route = [node for node in subway_lines[ids]['route_graph'].nodes if subway_lines[ids]['route_graph'].out_degree(node) == 0]
+
+        if (len(begin_route) > 0):
+            subway_lines[ids]['begin_route'] = begin_route[0]
+        #else:
+            #circular it doesnot matter the begin or end
+
+        if (len(end_route) > 0):
+            subway_lines[ids]['end_route'] = end_route[0]
+        #else:
+            #circular it doesnot matter the begin or end
+
+        if (begin_route[0] not in connecting_nodes):
+            connecting_nodes.append(begin_route[0])
+
+        if (end_route[0] not in connecting_nodes):
+            connecting_nodes.append(end_route[0])
+
+        nodes_path = nx.dijkstra_path(subway_lines[ids]['route_graph'], begin_route[0], end_route[0], weight='duration_avg')
+        
+
+        ix = 0
+        jx = 1
+
+        i = nodes_path[ix]
+        j = nodes_path[jx]
+
+        if (len(nodes_path) == 2):
+       
+            #i to j is a line piece
+            linepieces.append(nodes_path)
+
+
+        dl = []
+        while j != end_route[0]:
+
+            lp = [] 
+
+            while (j not in transfer_nodes) or (j != end_route[0]):
+                jx += 1
+                j = nodes_path[jx]
+
+            #i to j is a line piece
+            for k in range(ix,jx+1):
+                lp.append(nodes_path[k])
+
+            linepieces.append(lp)
+
+            ix = jx
+            jx = ix+1
+
+            if (ix < len(nodes_path)):
+                i = nodes_path[ix]
+
+            if (jx < len(nodes_path)):
+                j = nodes_path[jx]
+
+            if (i == begin_route[0]):
+                dl.append(i)
+                dl.append(j)
+            else:
+                dl.append(j)
+
+        direct_lines.append(dl)
+
+
+    return linepieces, connecting_nodes, direct_lines, transfer_nodes
+
 def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
 
     #num_of_cpu = cpu_count()
@@ -416,7 +514,6 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
         
         deconet_network_nodes.set_index('stop_I', inplace=True)
 
-        
         subway_lines_filename = folder_path+'/network_subway.csv'
         print('entering subway lines')
         if os.path.isfile(subway_lines_filename):
@@ -428,7 +525,17 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
             for index, row in subway_lines.iterrows():
                 
                 rts = row['route_I_counts'].split(',')
-                #print(rts)
+
+                '''
+                if len(rts) > 1:
+                    if int(row['from_stop_I']) not in connecting_nodes:
+                        connecting_nodes.append(int(row['from_stop_I']))
+
+                    if int(row['to_stop_I']) not in connecting_nodes:
+                        connecting_nodes.append(int(row['to_stop_I']))
+                '''
+
+                #print(rts) 
                 for r in rts:
 
                     rtuple = r.split(':')
@@ -440,7 +547,7 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
                         dict_subway_lines[route_id]['route_graph'] = nx.DiGraph() #creates a graph for the given line/route
 
                     if int(row['from_stop_I']) not in dict_subway_lines[route_id]['route_graph'].nodes():
-                            dict_subway_lines[route_id]['route_graph'].add_node(row['from_stop_I'])
+                        dict_subway_lines[route_id]['route_graph'].add_node(row['from_stop_I'])
 
                     if int(row['to_stop_I']) not in dict_subway_lines[route_id]['route_graph'].nodes():
                         dict_subway_lines[route_id]['route_graph'].add_node(row['to_stop_I'])
@@ -453,9 +560,7 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
 
                     dict_subway_lines[route_id]['route_graph'].add_edge(row['from_stop_I'], row['to_stop_I'], duration_avg=float(row['duration_avg']))
 
-            
-            
-            
+              
         #add network nodes e shortest_path_subway para network file
        
         #network.shortest_path_subway = shortest_path_subway
@@ -463,6 +568,13 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
         network.deconet_network_nodes = deconet_network_nodes
         network.nodes_covered_fixed_lines = nodes_covered_fixed_lines
         network.subway_lines = dict_subway_lines
+
+        linepieces, connecting_nodes, direct_lines, transfer_nodes = break_lines_in_pieces(dict_subway_lines)
+
+        network.linepieces = linepieces
+        network.connecting_nodes = connecting_nodes
+        network.direct_lines = direct_lines
+        network.transfer_nodes = transfer_nodes
 
         plot_fixed_lines(network, save_dir)
 

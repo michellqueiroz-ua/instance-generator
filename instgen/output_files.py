@@ -1,6 +1,48 @@
 import json
 import math
 
+def output_fixed_route_network(output_file_name, network):
+
+    with open(output_file_name, 'w') as file:
+
+        for lp in network.linepieces:
+
+            file.write(str(len(lp)))
+            file.write(' ')
+
+            for station in lp:
+                file.write(str(len(station)))
+                file.write(' ')
+
+            file.write('\n')
+
+        file.write(str(len(network.connecting_nodes)))
+        file.write('\n')
+
+        for station in network.connecting_nodes:
+            file.write(str(len(station)))
+            file.write(' ')
+        file.write('\n')
+
+        for dl in network.direct_lines:
+
+            file.write(str(len(dl)))
+            file.write(' ')
+
+            for station in dl:
+                file.write(str(len(station)))
+                file.write(' ')
+
+            file.write('\n')
+
+        file.write(str(len(network.transfer_nodes)))
+        file.write('\n')
+
+        for station in network.transfer_nodes:
+            file.write(str(len(station)))
+            file.write(' ')
+        file.write('\n')
+
 class JsonConverter(object):
 
     def __init__(self, file_name):
