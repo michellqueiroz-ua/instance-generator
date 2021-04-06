@@ -60,6 +60,20 @@ def output_fixed_route_network(output_file_name, network):
             file.write(' ')
         file.write('\n')
 
+        for ids in network.subway_lines:
+
+            file.write(str(ids))
+            file.write(' ')
+            
+            nodes_path = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], network.subway_lines[ids]['begin_route'], network.subway_lines[ids]['end_route'], weight='duration_avg')
+
+            for u in range(len(nodes_path)):
+                file.write(str(nodes_path[u]))
+                file.write(' ')
+            file.write('\n')
+
+
+
 class JsonConverter(object):
 
     def __init__(self, file_name):

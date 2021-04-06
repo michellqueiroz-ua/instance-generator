@@ -375,24 +375,24 @@ def get_nodes_osm(G_walk, G_drive, lat, lon):
     
     return (node_walk, node_drive)
 
-def break_lines_in_pieces(network, subway_lines):
+def break_lines_in_pieces(network):
 
     connecting_nodes = []
     transfer_nodes = []
     connecting_nodes2 = []
     transfer_nodes2 = []
 
-    for id1 in subway_lines:
-        for id2 in subway_lines:
+    for id1 in network.subway_lines:
+        for id2 in network.subway_lines:
 
             if (id1 != id2) and (id1 > id2):
 
-                nodes1 = list(subway_lines[id1]['route_graph'].nodes)
-                nodes2 = list(subway_lines[id2]['route_graph'].nodes)
+                nodes1 = list(network.subway_lines[id1]['route_graph'].nodes)
+                nodes2 = list(network.subway_lines[id2]['route_graph'].nodes)
 
                 for n in nodes1:
 
-                    bn = network.deconet_network_nodes.loc[int(n), 'bindex']
+                    bn = int(network.deconet_network_nodes.loc[int(n), 'bindex'])
                     if n in nodes2:
                         if (n not in connecting_nodes):
                             connecting_nodes.append(n)
@@ -408,36 +408,38 @@ def break_lines_in_pieces(network, subway_lines):
     linepieces_dist = []
     direct_lines_dist = []
 
-    for ids in subway_lines:
+    for ids in network.subway_lines:
 
         begin_route = []
         end_route = []
 
-        begin_route = [node for node in subway_lines[ids]['route_graph'].nodes if subway_lines[ids]['route_graph'].in_degree(node) == 0]
-        end_route = [node for node in subway_lines[ids]['route_graph'].nodes if subway_lines[ids]['route_graph'].out_degree(node) == 0]
+        begin_route = [node for node in network.subway_lines[ids]['route_graph'].nodes if network.subway_lines[ids]['route_graph'].in_degree(node) == 0]
+        end_route = [node for node in network.subway_lines[ids]['route_graph'].nodes if network.subway_lines[ids]['route_graph'].out_degree(node) == 0]
 
         print(begin_route)
         print(end_route)
 
         if (len(begin_route) > 0):
-            subway_lines[ids]['begin_route'] = begin_route[0]
+            network.subway_lines[ids]['begin_route'] = begin_route[0]
         #else:
             #circular it doesnot matter the begin or end
 
         if (len(end_route) > 0):
-            subway_lines[ids]['end_route'] = end_route[0]
+            network.subway_lines[ids]['end_route'] = end_route[0]
         #else:
             #circular it doesnot matter the begin or end
 
         if (begin_route[0] not in connecting_nodes):
-            bn = network.deconet_network_nodes.loc[int(begin_route[0]), 'bindex']
-            connecting_nodes.append(bn)
+            bn = int(network.deconet_network_nodes.loc[int(begin_route[0]), 'bindex'])
+            connecting_nodes.append(begin_route[0])
+            connecting_nodes2.append(bn)
 
         if (end_route[0] not in connecting_nodes):
-            bn = network.deconet_network_nodes.loc[int(end_route[0]), 'bindex']
-            connecting_nodes.append(bn)
+            bn = int(network.deconet_network_nodes.loc[int(end_route[0]), 'bindex'])
+            connecting_nodes.append(end_route[0])
+            connecting_nodes2.append(bn)
 
-        nodes_path = nx.dijkstra_path(subway_lines[ids]['route_graph'], begin_route[0], end_route[0], weight='duration_avg')
+        nodes_path = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], begin_route[0], end_route[0], weight='duration_avg')
 
         nodes_path_length = []
 
@@ -445,12 +447,9 @@ def break_lines_in_pieces(network, subway_lines):
             
             if (nodes_path[u] != end_route[0]):
 
-                distuv = nx.dijkstra_path_length(subway_lines[ids]['route_graph'], nodes_path[u], nodes_path[u+1], weight='duration_avg')
+                distuv = nx.dijkstra_path_length(network.subway_lines[ids]['route_graph'], nodes_path[u], nodes_path[u+1], weight='duration_avg')
                 nodes_path_length.append(distuv)
                 u += 1
-
-
-        
 
         ix = 0
         jx = 1
@@ -464,7 +463,7 @@ def break_lines_in_pieces(network, subway_lines):
             lp = []
             
             for node in nodes_path:
-                bn = network.deconet_network_nodes.loc[int(node), 'bindex']
+                bn = int(network.deconet_network_nodes.loc[int(node), 'bindex'])
                 lp.append(bn)
 
             linepieces.append(lp)
@@ -482,19 +481,19 @@ def break_lines_in_pieces(network, subway_lines):
                 jx += 1
                 j = nodes_path[jx]
 
-            bi = network.deconet_network_nodes.loc[int(i), 'bindex']
-            bj = network.deconet_network_nodes.loc[int(j), 'bindex']
+            bi = int(network.deconet_network_nodes.loc[int(i), 'bindex'])
+            bj = int(network.deconet_network_nodes.loc[int(j), 'bindex'])
 
             #i to j is a line piece
             for k in range(ix,jx+1):
-                bk = network.deconet_network_nodes.loc[int(nodes_path[k]), 'bindex']
+                bk = int(network.deconet_network_nodes.loc[int(nodes_path[k]), 'bindex'])
                 #lp.append(nodes_path[k])
                 lp.append(bk)
                 lp2.append(nodes_path[k])
 
 
             for u in range(len(lp2)-1):
-                distuv = nx.dijkstra_path_length(subway_lines[ids]['route_graph'], lp2[u], lp2[u+1], weight='duration_avg')
+                distuv = nx.dijkstra_path_length(network.subway_lines[ids]['route_graph'], lp2[u], lp2[u+1], weight='duration_avg')
                 lp_dist.append(distuv)
 
             linepieces.append(lp)
@@ -642,7 +641,7 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
         
         transform_fixed_routes_stations_in_bus_stations(network)
 
-        linepieces, linepieces_dist, connecting_nodes, direct_lines, transfer_nodes = break_lines_in_pieces(network, dict_subway_lines)
+        linepieces, linepieces_dist, connecting_nodes, direct_lines, transfer_nodes = break_lines_in_pieces(network)
         
         network.linepieces = linepieces
         network.linepieces_dist = linepieces_dist
