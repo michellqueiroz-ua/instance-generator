@@ -14,7 +14,7 @@ from shapely.geometry import Point
 def plot_requests(network, save_dir_images, origin_points, destination_points):
 
 
-    fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#336699', node_size=6)
+    fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
     requests_folder = os.path.join(save_dir_images, 'requests')
 
@@ -25,18 +25,18 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
     #plot origin locations
     for origin in origin_points:
 
-        ax.scatter(origin[1], origin[0], c='red', s=8)
+        ax.scatter(origin[1], origin[0], c='red', s=8, marker=",")
 
     plt.savefig(requests_folder+'/requests_origin_locations')
     plt.close(fig) 
 
 
     #plot destination locations
-    fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#336699', node_size=6)
+    fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
     for destination in destination_points:
 
-        ax.scatter(destination[1], destination[0], c='green', s=8)
+        ax.scatter(destination[1], destination[0], c='green', s=8, marker="o")
 
     plt.savefig(requests_folder+'/requests_destination_locations')
     plt.close(fig)
@@ -209,6 +209,7 @@ def _generate_requests_ODBRPFL(
                     fl_stations_origin_walking_distance = []
                     fl_stations_destination_walking_distance = []
 
+                    '''
                     #calculates the FIXED LINE stations which are close enough - i.e. walking distance- to the origin and destination of the request
                     for node in inst.network.nodes_covered_fixed_lines:
 
@@ -222,6 +223,7 @@ def _generate_requests_ODBRPFL(
                         if eta_walk_destination >= 0 and eta_walk_destination <= max_walking_user:
                             fl_stations_destination.append(node)
                             fl_stations_destination_walking_distance.append(eta_walk_destination)
+                    '''
 
                 # Check whether each passenger can walk to stops (origin + destination)
                 if len(stops_origin) > 0 and len(stops_destination) > 0:
@@ -265,15 +267,15 @@ def _generate_requests_ODBRPFL(
                     request_data.update({'stops_destination': stops_destination})
                     request_data.update({'walking_time_stops_to_destination': stops_destination_walking_distance})
 
-                    request_data.update({'num_stations_fl_origin': len(fl_stations_origin)})
+                    #request_data.update({'num_stations_fl_origin': len(fl_stations_origin)})
                     
-                    request_data.update({'stations_fl_origin': fl_stations_origin})
-                    request_data.update({'walking_time_origin_to_stations_fl': fl_stations_origin_walking_distance})
+                    #request_data.update({'stations_fl_origin': fl_stations_origin})
+                    #request_data.update({'walking_time_origin_to_stations_fl': fl_stations_origin_walking_distance})
 
-                    request_data.update({'num_stations_fl_destination': len(fl_stations_destination)})
+                    #request_data.update({'num_stations_fl_destination': len(fl_stations_destination)})
                    
-                    request_data.update({'stations_fl_destination': fl_stations_destination})
-                    request_data.update({'walking_time_stations_fl_to_destination': fl_stations_destination_walking_distance})
+                    #request_data.update({'stations_fl_destination': fl_stations_destination})
+                    #request_data.update({'walking_time_stations_fl_to_destination': fl_stations_destination_walking_distance})
 
 
                     #timestamp -> time the request was made
@@ -313,15 +315,15 @@ def _generate_requests_ODBRPFL(
                         request_data_return.update({'stops_destination': stops_origin})
                         request_data_return.update({'walking_time_stops_to_destination': stops_origin_walking_distance})
 
-                        request_data_return.update({'num_stations_fl_origin': len(fl_stations_destination)})
+                        #request_data_return.update({'num_stations_fl_origin': len(fl_stations_destination)})
                         
-                        request_data_return.update({'stations_fl_origin': fl_stations_destination})
-                        request_data_return.update({'walking_time_origin_to_stations_fl': fl_stations_destination_walking_distance})
+                        #request_data_return.update({'stations_fl_origin': fl_stations_destination})
+                        #request_data_return.update({'walking_time_origin_to_stations_fl': fl_stations_destination_walking_distance})
 
-                        request_data_return.update({'num_stations_fl_destination': len(fl_stations_origin)})
+                        #request_data_return.update({'num_stations_fl_destination': len(fl_stations_origin)})
                         
-                        request_data_return.update({'stations_fl_destination': fl_stations_origin})
-                        request_data_return.update({'walking_time_stations_fl_to_destination': fl_stations_origin_walking_distance})
+                        #request_data_return.update({'stations_fl_destination': fl_stations_origin})
+                        #request_data_return.update({'walking_time_stations_fl_to_destination': fl_stations_origin_walking_distance})
 
                         request_data_return.update({'time_stamp': int(request_time_stamp)})
                     
@@ -362,14 +364,14 @@ def _generate_requests_ODBRPFL(
     travel_time_subway_json = inst.network._get_travel_time_matrix("subway")
 
     #how the bus stations and fixed line stations are connected with each other by walking times
-    travel_time_hybrid_json = inst.network._get_travel_time_matrix("hybrid", inst=inst)
+    #travel_time_hybrid_json = inst.network._get_travel_time_matrix("hybrid", inst=inst)
     
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
                           'num_stations': inst.network.num_stations,
                           'travel_time_matrix': travel_time_bus_json,
-                          'travel_time_matrix_subway': travel_time_subway_json,
-                          'travel_time_matrix_hybrid': travel_time_hybrid_json,
+                          #'travel_time_matrix_subway': travel_time_subway_json,
+                          #'travel_time_matrix_hybrid': travel_time_hybrid_json,
                           })
 
     save_dir = os.getcwd()+'/'+inst.output_folder_base

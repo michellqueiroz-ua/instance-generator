@@ -375,10 +375,12 @@ def get_nodes_osm(G_walk, G_drive, lat, lon):
     
     return (node_walk, node_drive)
 
-def break_lines_in_pieces(subway_lines):
+def break_lines_in_pieces(network, subway_lines):
 
     connecting_nodes = []
     transfer_nodes = []
+    connecting_nodes2 = []
+    transfer_nodes2 = []
 
     for id1 in subway_lines:
         for id2 in subway_lines:
@@ -389,15 +391,22 @@ def break_lines_in_pieces(subway_lines):
                 nodes2 = list(subway_lines[id2]['route_graph'].nodes)
 
                 for n in nodes1:
+
+                    bn = network.deconet_network_nodes.loc[int(n), 'bindex']
                     if n in nodes2:
                         if (n not in connecting_nodes):
                             connecting_nodes.append(n)
-
+                            connecting_nodes2.append(bn)
+                            
                         if (n not in transfer_nodes):
                             transfer_nodes.append(n)
+                            transfer_nodes2.append(bn)
 
     linepieces = []
     direct_lines = []
+
+    linepieces_dist = []
+    direct_lines_dist = []
 
     for ids in subway_lines:
 
@@ -406,6 +415,9 @@ def break_lines_in_pieces(subway_lines):
 
         begin_route = [node for node in subway_lines[ids]['route_graph'].nodes if subway_lines[ids]['route_graph'].in_degree(node) == 0]
         end_route = [node for node in subway_lines[ids]['route_graph'].nodes if subway_lines[ids]['route_graph'].out_degree(node) == 0]
+
+        print(begin_route)
+        print(end_route)
 
         if (len(begin_route) > 0):
             subway_lines[ids]['begin_route'] = begin_route[0]
@@ -418,12 +430,26 @@ def break_lines_in_pieces(subway_lines):
             #circular it doesnot matter the begin or end
 
         if (begin_route[0] not in connecting_nodes):
-            connecting_nodes.append(begin_route[0])
+            bn = network.deconet_network_nodes.loc[int(begin_route[0]), 'bindex']
+            connecting_nodes.append(bn)
 
         if (end_route[0] not in connecting_nodes):
-            connecting_nodes.append(end_route[0])
+            bn = network.deconet_network_nodes.loc[int(end_route[0]), 'bindex']
+            connecting_nodes.append(bn)
 
         nodes_path = nx.dijkstra_path(subway_lines[ids]['route_graph'], begin_route[0], end_route[0], weight='duration_avg')
+
+        nodes_path_length = []
+
+        for u in range(len(nodes_path)):
+            
+            if (nodes_path[u] != end_route[0]):
+
+                distuv = nx.dijkstra_path_length(subway_lines[ids]['route_graph'], nodes_path[u], nodes_path[u+1], weight='duration_avg')
+                nodes_path_length.append(distuv)
+                u += 1
+
+
         
 
         ix = 0
@@ -435,23 +461,50 @@ def break_lines_in_pieces(subway_lines):
         if (len(nodes_path) == 2):
        
             #i to j is a line piece
-            linepieces.append(nodes_path)
+            lp = []
+            
+            for node in nodes_path:
+                bn = network.deconet_network_nodes.loc[int(node), 'bindex']
+                lp.append(bn)
+
+            linepieces.append(lp)
+            linepieces_dist.append(nodes_path_length)
 
 
         dl = []
         while j != end_route[0]:
 
             lp = [] 
+            lp2 = [] 
+            lp_dist = []
 
-            while (j not in transfer_nodes) or (j != end_route[0]):
+            while (j not in transfer_nodes) and (j != end_route[0]):
                 jx += 1
                 j = nodes_path[jx]
 
+            bi = network.deconet_network_nodes.loc[int(i), 'bindex']
+            bj = network.deconet_network_nodes.loc[int(j), 'bindex']
+
             #i to j is a line piece
             for k in range(ix,jx+1):
-                lp.append(nodes_path[k])
+                bk = network.deconet_network_nodes.loc[int(nodes_path[k]), 'bindex']
+                #lp.append(nodes_path[k])
+                lp.append(bk)
+                lp2.append(nodes_path[k])
+
+
+            for u in range(len(lp2)-1):
+                distuv = nx.dijkstra_path_length(subway_lines[ids]['route_graph'], lp2[u], lp2[u+1], weight='duration_avg')
+                lp_dist.append(distuv)
 
             linepieces.append(lp)
+            linepieces_dist.append(lp_dist)
+
+            if (i == begin_route[0]):
+                dl.append(bi)
+                dl.append(bj)
+            else:
+                dl.append(bj)
 
             ix = jx
             jx = ix+1
@@ -462,16 +515,33 @@ def break_lines_in_pieces(subway_lines):
             if (jx < len(nodes_path)):
                 j = nodes_path[jx]
 
-            if (i == begin_route[0]):
-                dl.append(i)
-                dl.append(j)
-            else:
-                dl.append(j)
-
         direct_lines.append(dl)
 
 
-    return linepieces, connecting_nodes, direct_lines, transfer_nodes
+    return linepieces, linepieces_dist, connecting_nodes2, direct_lines, transfer_nodes2
+
+def transform_fixed_routes_stations_in_bus_stations(network):
+
+    #transform fixed route stations in bus stations also
+
+    network.deconet_network_nodes['bindex'] = np.nan
+    for node in network.nodes_covered_fixed_lines:
+
+        d = {
+            'osmid_walk': network.deconet_network_nodes.loc[int(node), 'osmid_walk'],
+            'osmid_drive': network.deconet_network_nodes.loc[int(node), 'osmid_drive'],
+            'lat': network.deconet_network_nodes.loc[int(node), 'lat'],
+            'lon': network.deconet_network_nodes.loc[int(node), 'lon'],
+        }
+
+        network.bus_stations = network.bus_stations.append(d, ignore_index=True)
+        lid = network.bus_stations.last_valid_index()
+        network.deconet_network_nodes.loc[int(node), 'bindex'] = lid
+
+    for index, stop_node in network.bus_stations.iterrows():
+        if index not in network.bus_stations_ids:
+            network.bus_stations_ids.append(index)
+
 
 def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
 
@@ -569,9 +639,13 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
         network.nodes_covered_fixed_lines = nodes_covered_fixed_lines
         network.subway_lines = dict_subway_lines
 
-        linepieces, connecting_nodes, direct_lines, transfer_nodes = break_lines_in_pieces(dict_subway_lines)
+        
+        transform_fixed_routes_stations_in_bus_stations(network)
 
+        linepieces, linepieces_dist, connecting_nodes, direct_lines, transfer_nodes = break_lines_in_pieces(network, dict_subway_lines)
+        
         network.linepieces = linepieces
+        network.linepieces_dist = linepieces_dist
         network.connecting_nodes = connecting_nodes
         network.direct_lines = direct_lines
         network.transfer_nodes = transfer_nodes
@@ -736,7 +810,7 @@ def plot_fixed_lines(network, save_dir):
         fl_stations_walk.append(fl_station_walk)
         fl_stations_drive.append(fl_station_drive)
 
-    stops_folder = os.path.join(save_dir_images, 'bus_stops')
+    stops_folder = os.path.join(save_dir_images, 'fixed_lines')
     nc = ['r' if (node in fl_stations_drive) else '#336699' for node in network.G_drive.nodes()]
     ns = [12 if (node in fl_stations_drive) else 6 for node in network.G_drive.nodes()]
     fig, ax = ox.plot_graph(network.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/fixed_lines_nodes_drive.png')

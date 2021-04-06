@@ -10,7 +10,7 @@ from geopy.distance import geodesic
             
 class Network:
 
-    def __init__(self, G_drive, shortest_path_drive, G_walk, shortest_path_walk, polygon, bus_stations, zones, schools):
+    def __init__(self, G_drive, G_walk, polygon, bus_stations, zones, schools):
         
         #network graphs
         self.G_drive = G_drive
@@ -33,8 +33,8 @@ class Network:
 
         self.schools = schools
 
-        self.shortest_path_drive = shortest_path_drive
-        self.shortest_path_walk = shortest_path_walk
+        #self.shortest_path_drive = shortest_path_drive
+        #self.shortest_path_walk = shortest_path_walk
 
     def get_eta_walk(self, u, v, walk_speed):
         
@@ -153,7 +153,7 @@ class Network:
                     #calculating travel time and storing in travel_time matrix
                     if not math.isnan(od_travel_time):
                         if od_travel_time >= 0:
-                            element = (str(u), str(v), str(od_travel_time))
+                            element = (str(index_o), str(index_d), str(od_travel_time))
                             travel_time.append(element)
                         '''
                         else:

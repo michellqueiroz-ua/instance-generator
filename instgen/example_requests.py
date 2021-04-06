@@ -38,7 +38,6 @@ if __name__ == '__main__':
     if not os.path.isdir(save_dir_localsolver):
         os.mkdir(save_dir_localsolver)
 
-    converter = JsonConverter(file_name=input_name)
     for instance in os.listdir(os.path.join(inst1.save_dir, 'json_format')):
         
         if instance != ".DS_Store":

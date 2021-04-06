@@ -187,11 +187,8 @@ def download_network_information(
 
         else: raise ValueError('attribute vehicle_speed_data must be either "set" or "max"')
 
-    #computes distance matrix for drivig and walking network
-    shortest_path_walk, shortest_path_drive = _get_distance_matrix(G_walk, G_drive, bus_stations, save_dir, output_folder_base)
-
-    #removes unreacheable stops
-    filter_bus_stations(bus_stations, shortest_path_drive, save_dir, output_folder_base)
+    
+    
 
     print('Downloading zones from location')
     zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base)
@@ -204,18 +201,20 @@ def download_network_information(
     print('number of schools', len(schools))
 
 
-    network = Network(G_drive, shortest_path_drive, G_walk, shortest_path_walk, polygon, bus_stations, zones, schools)
+    network = Network(G_drive, G_walk, polygon, bus_stations, zones, schools)
     #network.update_travel_time_matrix(travel_time_matrix)
     
     plot_bus_stations(network, save_dir_images)
     network_stats(network)
 
+    '''
     list_bus_stations = []
     for index, stop_node in network.bus_stations.iterrows():
         list_bus_stations.append(index)
 
     network.list_bus_stations = list_bus_stations
-
+    '''
+    
     #get fixed lines
     if get_fixed_lines is not None:
         if get_fixed_lines == 'osm':
@@ -229,6 +228,15 @@ def download_network_information(
                     get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base)
                     
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
+
+    #computes distance matrix for drivig and walking network
+    shortest_path_walk, shortest_path_drive = _get_distance_matrix(G_walk, G_drive, bus_stations, save_dir, output_folder_base)
+
+    #removes unreacheable stops
+    filter_bus_stations(bus_stations, shortest_path_drive, save_dir, output_folder_base)
+
+    network.shortest_path_walk = shortest_path_walk
+    network.shortest_path_drive = shortest_path_drive
 
     print('successfully retrieved network')
 

@@ -5,32 +5,49 @@ def output_fixed_route_network(output_file_name, network):
 
     with open(output_file_name, 'w') as file:
 
+        file.write(str(len(network.linepieces)))
+        file.write('\n')
+
+        i = 0
         for lp in network.linepieces:
 
             file.write(str(len(lp)))
             file.write(' ')
 
             for station in lp:
-                file.write(str(len(station)))
+                file.write(str(station))
                 file.write(' ')
 
             file.write('\n')
+
+            file.write(str(len(network.linepieces_dist[i])))
+            file.write(' ')
+
+            for distuv in network.linepieces_dist[i]:
+                file.write(str(distuv))
+                file.write(' ')
+
+            file.write('\n')
+
+            i += 1
 
         file.write(str(len(network.connecting_nodes)))
         file.write('\n')
 
         for station in network.connecting_nodes:
-            file.write(str(len(station)))
+            file.write(str(station))
             file.write(' ')
         file.write('\n')
 
+        file.write(str(len(network.linepieces)))
+        file.write('\n')
         for dl in network.direct_lines:
 
             file.write(str(len(dl)))
             file.write(' ')
 
             for station in dl:
-                file.write(str(len(station)))
+                file.write(str(station))
                 file.write(' ')
 
             file.write('\n')
@@ -39,7 +56,7 @@ def output_fixed_route_network(output_file_name, network):
         file.write('\n')
 
         for station in network.transfer_nodes:
-            file.write(str(len(station)))
+            file.write(str(station))
             file.write(' ')
         file.write('\n')
 
@@ -75,8 +92,8 @@ class JsonConverter(object):
                 
                 #id for each bus station
                 for station in network.bus_stations_ids:
-                    osmid_station = network.bus_stations.loc[station, 'osmid_drive']
-                    file.write(str(osmid_station))
+                    #osmid_station = network.bus_stations.loc[station, 'osmid_drive']
+                    file.write(str(station))
                     file.write('\t')
                 file.write('\n')
 
@@ -93,6 +110,7 @@ class JsonConverter(object):
                     file.write('\n')
 
 
+            '''
             if problem_type == "ODBRPFL":
                 #number of fixed line stations
                 file.write(str(len(network.nodes_covered_fixed_lines)))
@@ -127,7 +145,7 @@ class JsonConverter(object):
                         file.write(str(element))
                         file.write('\t')
                     file.write('\n')
-
+            '''
 
             if problem_type == "DARP":
                 #number of nodes
@@ -197,6 +215,7 @@ class JsonConverter(object):
 
                     file.write('\n')
 
+                '''
                 # num fixed line origin + stations fixed line origin
                 if request.get('num_stations_fl_origin') is not None:
                     file.write(str(request.get('num_stations_fl_origin')) + '\n')
@@ -222,6 +241,7 @@ class JsonConverter(object):
                             file.write(str(walking_distance) + '\t')
 
                         file.write('\n')
+                '''
 
                 # earliest departure time
                 file.write(str(request.get('dep_time')))
