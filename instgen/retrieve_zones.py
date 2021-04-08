@@ -6,7 +6,7 @@ import pandas as pd
 from shapely.geometry import Polygon
 
 
-def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base):
+def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BBx, BBy):
 
     zones = []
     zone_id = 0
@@ -79,8 +79,8 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base):
                         if poi['geometry'].geom_type == 'Point':
  
                             earth_radius = 6371009  # meters
-                            dist_lat = 1000
-                            dist_lon = 1000  
+                            dist_lat = BBx
+                            dist_lon = BBy  
 
                             lat = poi.geometry.centroid.y
                             lng = poi.geometry.centroid.x

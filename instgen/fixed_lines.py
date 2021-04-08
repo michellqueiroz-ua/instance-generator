@@ -375,6 +375,34 @@ def get_nodes_osm(G_walk, G_drive, lat, lon):
     
     return (node_walk, node_drive)
 
+def remove_duplicate_lines(network):
+
+    exclude_line = []
+
+    for id1 in network.subway_lines:
+        print(id1)
+        for id2 in network.subway_lines:
+
+            if (id1 != id2) and (id1 > id2):
+
+                nodes_path1 = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], network.subway_lines[id1]['begin_route'], network.subway_lines[id1]['end_route'], weight='duration_avg')
+                nodes_path2 = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], network.subway_lines[id2]['begin_route'], network.subway_lines[id2]['end_route'], weight='duration_avg')
+
+                nodes_path2.reverse()
+
+                if nodes_path1 == nodes_path2:
+                    #lines are the same, its just the reverse. so one can be excluded
+                    if id2 not in exclude_line:
+                        exclude_line.append(id2)
+
+    for idex in exclude_line:
+        print(idex)
+        network.subway_lines.pop(idex, None)
+
+    for id1 in network.subway_lines:
+        print(id1)
+
+
 def break_lines_in_pieces(network):
 
     connecting_nodes = []
@@ -416,8 +444,8 @@ def break_lines_in_pieces(network):
         begin_route = [node for node in network.subway_lines[ids]['route_graph'].nodes if network.subway_lines[ids]['route_graph'].in_degree(node) == 0]
         end_route = [node for node in network.subway_lines[ids]['route_graph'].nodes if network.subway_lines[ids]['route_graph'].out_degree(node) == 0]
 
-        print(begin_route)
-        print(end_route)
+        #print(begin_route)
+        #print(end_route)
 
         if (len(begin_route) > 0):
             network.subway_lines[ids]['begin_route'] = begin_route[0]
@@ -439,13 +467,17 @@ def break_lines_in_pieces(network):
             connecting_nodes.append(end_route[0])
             connecting_nodes2.append(bn)
 
-        nodes_path = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], begin_route[0], end_route[0], weight='duration_avg')
+    remove_duplicate_lines(network)
+
+    for ids in network.subway_lines:
+
+        nodes_path = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], network.subway_lines[ids]['begin_route'], network.subway_lines[ids]['end_route'], weight='duration_avg')
 
         nodes_path_length = []
 
         for u in range(len(nodes_path)):
             
-            if (nodes_path[u] != end_route[0]):
+            if (nodes_path[u] != network.subway_lines[ids]['end_route']):
 
                 distuv = nx.dijkstra_path_length(network.subway_lines[ids]['route_graph'], nodes_path[u], nodes_path[u+1], weight='duration_avg')
                 nodes_path_length.append(distuv)
@@ -471,13 +503,13 @@ def break_lines_in_pieces(network):
 
 
         dl = []
-        while j != end_route[0]:
+        while jx < len(nodes_path):
 
             lp = [] 
             lp2 = [] 
             lp_dist = []
 
-            while (j not in transfer_nodes) and (j != end_route[0]):
+            while (j not in transfer_nodes) and (j != network.subway_lines[ids]['end_route']):
                 jx += 1
                 j = nodes_path[jx]
 
@@ -499,7 +531,7 @@ def break_lines_in_pieces(network):
             linepieces.append(lp)
             linepieces_dist.append(lp_dist)
 
-            if (i == begin_route[0]):
+            if (i == network.subway_lines[ids]['begin_route']):
                 dl.append(bi)
                 dl.append(bj)
             else:

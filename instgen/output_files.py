@@ -1,5 +1,6 @@
 import json
 import math
+import networkx as nx
 
 def output_fixed_route_network(output_file_name, network):
 
@@ -39,7 +40,7 @@ def output_fixed_route_network(output_file_name, network):
             file.write(' ')
         file.write('\n')
 
-        file.write(str(len(network.linepieces)))
+        file.write(str(len(network.direct_lines)))
         file.write('\n')
         for dl in network.direct_lines:
 
@@ -67,8 +68,11 @@ def output_fixed_route_network(output_file_name, network):
             
             nodes_path = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], network.subway_lines[ids]['begin_route'], network.subway_lines[ids]['end_route'], weight='duration_avg')
 
+            file.write(str(len(nodes_path)))
+            file.write(' ')
+
             for u in range(len(nodes_path)):
-                file.write(str(nodes_path[u]))
+                file.write(str(network.deconet_network_nodes.loc[int(nodes_path[u]), 'bindex']))
                 file.write(' ')
             file.write('\n')
 

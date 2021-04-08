@@ -5,7 +5,7 @@ import osmnx as ox
 import pandas as pd
 import ray
 
-def filter_bus_stations(bus_stations, shortest_path_drive, save_dir, output_file_base):
+def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base):
 
     '''
     this function deletes useless bus stops, i.e., they are not reacheable from any node 
@@ -13,14 +13,14 @@ def filter_bus_stations(bus_stations, shortest_path_drive, save_dir, output_file
 
     save_dir_csv = os.path.join(save_dir, 'csv')
     path_bus_stations = os.path.join(save_dir_csv, output_file_base+'.stations.csv')
-    print('number of bus stops before cleaning: ', len(bus_stations))
+    print('number of bus stops before cleaning: ', len(network.bus_stations))
 
     useless_bus_station = True
     while useless_bus_station:
         useless_bus_station = False
-        for index1, stop1 in bus_stations.iterrows():
+        for index1, stop1 in network.bus_stations.iterrows():
             unreachable_nodes = 0
-            for index2, stop2 in bus_stations.iterrows():
+            for index2, stop2 in network.bus_stations.iterrows():
                 try:
                     osmid_origin_stop = stop1['osmid_drive']
                     osmid_destination_stop = stop2['osmid_drive']
@@ -32,17 +32,16 @@ def filter_bus_stations(bus_stations, shortest_path_drive, save_dir, output_file
                 except KeyError:
                     unreachable_nodes = unreachable_nodes + 1
                 
-            if unreachable_nodes == len(bus_stations) - 1:
-                bus_stations = bus_stations.drop(index1)
+            if unreachable_nodes == len(network.bus_stations) - 1:
+                network.bus_stations = network.bus_stations.drop(index1)
                 useless_bus_station = True
             
-    print('number of bus stops after removal: ', len(bus_stations))
+    print('number of bus stops after removal: ', len(network.bus_stations))
 
-    stations_ids = range(0, len(bus_stations))
-    bus_stations.index = stations_ids
+    #stations_ids = range(0, len(network.bus_stations))
+    #bus_stations.index = stations_ids
 
-
-    bus_stations.to_csv(path_bus_stations)
+    network.bus_stations.to_csv(path_bus_stations)
 
 @ray.remote
 def get_bus_station(G_walk, G_drive, index, poi):

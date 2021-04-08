@@ -64,7 +64,9 @@ def download_network_information(
     vehicle_speed_data="max", 
     vehicle_speed=None, 
     max_speed_factor=0.5, 
-    get_fixed_lines=None
+    get_fixed_lines=None,
+    BBx=1000,
+    BBy=1000
 ):
     '''
     download and compute several information from "place_name"
@@ -191,7 +193,7 @@ def download_network_information(
     
 
     print('Downloading zones from location')
-    zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base)
+    zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BBx, BBy)
     #create graph to plot zones here           
     print('number of zones', len(zones))
 
@@ -214,7 +216,7 @@ def download_network_information(
 
     network.list_bus_stations = list_bus_stations
     '''
-    
+
     #get fixed lines
     if get_fixed_lines is not None:
         if get_fixed_lines == 'osm':
@@ -225,6 +227,7 @@ def download_network_information(
                 if not os.path.isdir(folder_path_deconet):
                     raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
                 else:
+                    print('getting fixed lines DECONET')
                     get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base)
                     
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
@@ -233,7 +236,7 @@ def download_network_information(
     shortest_path_walk, shortest_path_drive = _get_distance_matrix(G_walk, G_drive, bus_stations, save_dir, output_folder_base)
 
     #removes unreacheable stops
-    filter_bus_stations(bus_stations, shortest_path_drive, save_dir, output_folder_base)
+    filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
     network.shortest_path_walk = shortest_path_walk
     network.shortest_path_drive = shortest_path_drive
