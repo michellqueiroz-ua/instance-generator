@@ -31,7 +31,6 @@ class Instance:
         with open(self.network_class_file, 'rb') as self.network_class_file:
             self.network = pickle.load(self.network_class_file)
 
-
         #problem for which the instance is being created
         self.problem_type = None
 
@@ -67,9 +66,15 @@ class Instance:
         #number of replicas of the instance with randomized characteristics 
         self.number_replicas = None
 
+        #num depots DARP
+        self.num_depots = 1
+        self.depot_nodes_drive = []
+        self.depot_nodes_walk = []
+
         #school id in case of SBRP
-        self.school_id = None
-        self.school_station = None
+        self.num_schools = 1
+        self.school_ids = []
+        #self.school_station = None
 
         #factor to compute delay travel time by the vehicle
         self.delay_vehicle_factor = None
@@ -241,7 +246,6 @@ class Instance:
         else: raise ValueError('speed_unit method argument must be either "kmh", "mph" or "mps"')
 
 
-
     def set_interval_max_walking(self, lb_max_walking, ub_max_walking, time_unit):
 
         '''
@@ -270,7 +274,21 @@ class Instance:
         elif time_unit == "h":
             self.ub_max_walking = int(ub_max_walking*3600)
 
-        else: raise ValueError('time_unit method argument must be either "h" or "min", or "s"') 
+        else: raise ValueError('time_unit method argument must be either "h" or "min", or "s"')
+
+    def add_time_window_gap(self, g, time_unit):
+
+        if time_unit == "s":
+            self.g = int(g) 
+
+        elif time_unit == "min":
+            self.g = int(g*60)
+
+        elif time_unit == "h":
+            self.g = int(g*3600)
+
+        else: raise ValueError('time_unit method argument must be either "h" or "min", or "s"')
+
 
     def set_problem_type(self, problem_type, school_id=None):
 
@@ -279,11 +297,63 @@ class Instance:
 
         else: raise ValueError('problem_type method argument must be either "ODBRP",  "ODBRPFL", "DARP" or "SBRP"') 
 
+        '''
         if problem_type == "SBRP":
             self.school_id = school_id
             
             if school_id is None:
                 raise ValueError('problem SBRP requires school as parameter. please provide school ID')
+        '''
+
+    def set_num_schools(self, num_schools):
+
+        self.num_schools = num_schools
+
+    def set_num_depots(self, num_depots):
+
+        self.num_depots = num_depots
+
+    def add_school_from_name(self, school_name):
+
+        school = network.schools[network.schools['school_name'] == school_name]
+
+        print(school)
+
+        if school is not None:
+          
+            self.school_ids.append(school['school_id'])
+
+    def add_school_from_address(self, address_school):
+
+        #catch erro de não existir o lugar
+
+        school_point = ox.geocoder.geocode(query=address_school)
+        school_node_drive = ox.get_nearest_node(self.network.G_drive, school_point)
+        school_node_walk = ox.get_nearest_node(self.network.G_walk, school_point)
+
+        lid = network.schools.last_valid_index()
+        lid += 1
+
+        d = {
+            'school_id': lid,
+            'school_name': school_name,
+            'osmid_walk': school_node_walk,
+            'osmid_drive': school_node_drive,
+            'lat': school_point[0],
+            'lon': school_point[1],
+        }
+
+        network.schools = network.schools.append(d, ignore_index=True)
+        self.school_ids.append(lid)
+
+    def add_depot_from_address(self, depot_address):
+
+        depot_point = ox.geocoder.geocode(query=depot_address)
+        depot_node_drive = ox.get_nearest_node(self.network.G_drive, depot_point)
+        depot_node_walk = ox.get_nearest_node(self.network.G_walk, depot_point)
+
+        self.depot_nodes_drive.append(depot_node_drive)
+        self.depot_nodes_walk.append(depot_node_walk)
 
     def set_number_replicas(self, number_replicas):
 
@@ -328,10 +398,6 @@ class Instance:
                 _generate_requests_SBRP(self, replicate_num)
 
           
-        
-
-
-
     '''
     sets the interval of walking time (in units of time), that the user is willing to walk to reach a pre defined location, such as bus stations
     value is randomized for each user

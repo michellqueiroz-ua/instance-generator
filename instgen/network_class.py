@@ -10,8 +10,10 @@ from geopy.distance import geodesic
             
 class Network:
 
-    def __init__(self, G_drive, G_walk, polygon, bus_stations, zones, schools):
+    def __init__(self, place_name, G_drive, G_walk, polygon, bus_stations, zones, schools):
         
+        self.place_name = place_name
+
         #network graphs
         self.G_drive = G_drive
         self.G_walk = G_walk
@@ -24,8 +26,8 @@ class Network:
 
         #used in request generation to avoid using iterrows
         self.bus_stations_ids = []
-        for index, stop_node in self.bus_stations.iterrows():
-            self.bus_stations_ids.append(index)
+        #for index, stop_node in self.bus_stations.iterrows():
+        #    self.bus_stations_ids.append(index)
 
         self.node_list_darp = []
        
@@ -54,6 +56,7 @@ class Network:
             except KeyError:
                 
                 try:
+                    #print(u,v)
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
                 
                 except (nx.NetworkXNoPath, nx.NodeNotFound):
@@ -61,9 +64,6 @@ class Network:
                     
                     #nx.exception.NodeNotFound
         
-        speed = walk_speed
-        #print(u, v)
-        #print(distance_walk)
         if math.isnan(distance_walk):
             '''
             nodeu = osm_api.NodeGet(u)
@@ -81,7 +81,7 @@ class Network:
             eta_walk = -1
             
         else:
-            eta_walk = int(math.ceil(distance_walk/speed))
+            eta_walk = int(math.ceil(distance_walk/walk_speed))
 
         return eta_walk
 
@@ -132,14 +132,13 @@ class Network:
 
     def _get_travel_time_matrix(self, nodes, inst=None, node_list=None):
         
-        
-
         if nodes == "bus":
-            '''
-            return travel time matrix between all bus stations in the network
-            '''
-            #travel_time = np.ndarray((len(self.bus_stations), len(self.bus_stations)))
-            travel_time = []
+            
+            #return travel time matrix between all bus stations in the network
+            
+            travel_time = np.ndarray((len(self.bus_stations), len(self.bus_stations)))
+            #travel_time = []
+            
             
             #loop for computing the travel time matrix
             i=0
@@ -153,8 +152,9 @@ class Network:
                     #calculating travel time and storing in travel_time matrix
                     if not math.isnan(od_travel_time):
                         if od_travel_time >= 0:
-                            element = (str(index_o), str(index_d), str(od_travel_time))
-                            travel_time.append(element)
+                            #element = (str(index_o), str(index_d), str(od_travel_time))
+                            #travel_time.append(element)
+                            travel_time[u][v] = od_travel_time
                         '''
                         else:
                             od_travel_time = -1
@@ -165,6 +165,21 @@ class Network:
                     j+=1
                 i+=1
 
+        if nodes == "list":
+            #travel_time = []
+            travel_time = np.ndarray((len(node_list), len(node_list))) 
+
+            for u in range(0, len(node_list)):
+                for v in range(0, len(node_list)):
+                    od_travel_time = self._return_estimated_travel_time_drive(node_list[u], node_list[v])  
+
+                    if not math.isnan(od_travel_time):
+                        if od_travel_time >= 0:
+                            travel_time[u][v] = od_travel_time
+                            #element = (str(u), str(v), str(od_travel_time))
+                            #travel_time.append(element)
+
+        '''
         if nodes == "subway":
             
             travel_time = []
@@ -183,7 +198,9 @@ class Network:
 
                         except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
                             pass
+        '''
 
+        '''
         if nodes == "hybrid":
 
             travel_time = []
@@ -207,7 +224,9 @@ class Network:
                     if eta2 >= 0:
                         element = (str(v), str(udrive), str(eta2))
                         travel_time.append(element)
+        '''
 
+        '''
         if nodes == "list":
             travel_time = []
 
@@ -220,11 +239,10 @@ class Network:
                             element = (str(u), str(v), str(od_travel_time))
                             travel_time.append(element)
 
-
         if nodes == "all":
-            '''
-            return travel time matrix between all nodes in the network
-            '''
+            
+            #return travel time matrix between all nodes in the network
+            
             travel_time = []
             #loop for computing the travel time matrix
             i = 0
@@ -238,15 +256,12 @@ class Network:
                         if od_travel_time >= 0:
                             element = (str(u), str(v), str(od_travel_time))
                             travel_time.append(element)
-                        '''
-                        else:
-                            od_travel_time = -1
-                            od_travel_time = int(od_travel_time)
-                            element = (u, v, od_travel_time)
-                            travel_time.append(element)
-                        '''
+                    
                     j+=1
                 i+=1
+        '''
+
+
 
         return travel_time
 

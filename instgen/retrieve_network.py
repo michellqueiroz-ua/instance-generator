@@ -25,6 +25,7 @@ from shapely.geometry import Polygon
 from streamlit import caching
 import sys
 import time
+import warnings
 
 try:
     import tkinter as tk
@@ -68,6 +69,8 @@ def download_network_information(
     BBx=1000,
     BBy=1000
 ):
+
+    warnings.filterwarnings(action="ignore")
     '''
     download and compute several information from "place_name"
     '''
@@ -148,7 +151,7 @@ def download_network_information(
     
     print('Now retrieving bus stops')
     bus_stations = get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base)
-
+    print('number of bus stations: ', len(bus_stations))
 
     max_speed_mean_overall = 0
     counter_max_speeds = 0
@@ -203,7 +206,7 @@ def download_network_information(
     print('number of schools', len(schools))
 
 
-    network = Network(G_drive, G_walk, polygon, bus_stations, zones, schools)
+    network = Network(place_name, G_drive, G_walk, polygon, bus_stations, zones, schools)
     #network.update_travel_time_matrix(travel_time_matrix)
     
     plot_bus_stations(network, save_dir_images)
@@ -222,21 +225,32 @@ def download_network_information(
         if get_fixed_lines == 'osm':
             pt_fixed_lines = get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_folder_base)
         elif get_fixed_lines == 'deconet':
-                #this could be changed for a server or something else
+                
                 folder_path_deconet = output_folder_base+'/'+'deconet'
+
                 if not os.path.isdir(folder_path_deconet):
-                    raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
-                else:
-                    print('getting fixed lines DECONET')
-                    get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base)
-                    
+                    os.mkdir(folder_path_deconet)
+
+                print('getting fixed lines DECONET')
+                get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base, place_name)
+
+                #if not os.path.isdir(folder_path_deconet):
+                #    raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
+                #else:         
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
     #computes distance matrix for drivig and walking network
-    shortest_path_walk, shortest_path_drive = _get_distance_matrix(G_walk, G_drive, bus_stations, save_dir, output_folder_base)
+    shortest_path_walk, shortest_path_drive = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
 
     #removes unreacheable stops
-    filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
+    #filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
+
+    network.bus_stations_ids = []
+    for index, stop_node in network.bus_stations.iterrows():
+        if index not in network.bus_stations_ids:
+            network.bus_stations_ids.append(index)
+            
+    network.num_stations = len(network.bus_stations)
 
     network.shortest_path_walk = shortest_path_walk
     network.shortest_path_drive = shortest_path_drive

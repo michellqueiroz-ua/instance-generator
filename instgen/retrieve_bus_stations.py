@@ -4,6 +4,8 @@ import os
 import osmnx as ox
 import pandas as pd
 import ray
+import warnings
+
 
 def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base):
 
@@ -67,6 +69,7 @@ def get_bus_station(G_walk, G_drive, index, poi):
 
 def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
 
+    warnings.filterwarnings(action="ignore")
     '''
     retrieve the bus stops from the location
     '''

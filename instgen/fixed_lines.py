@@ -1,3 +1,4 @@
+from google_drive_downloader import GoogleDriveDownloader as gdd
 import math
 import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
@@ -8,6 +9,8 @@ import osmapi as osm
 import osmnx as ox
 import pandas as pd
 import ray
+import requests
+import warnings
 
 def _evaluate_best_fixed_route(network, fixed_lines, origin_node_drive, destination_node_drive, max_walking):
     #evaluate the expected gain of the passenger to take the fixed line
@@ -54,7 +57,6 @@ def _evaluate_best_fixed_route(network, fixed_lines, origin_node_drive, destinat
 
     return best_fixed_route 
     
-
 
 def _retrieve_new_bus_stations(network, node_walk, max_walking, request_walk_speed, to_node_walk):
 
@@ -368,10 +370,12 @@ def get_nodes_osm(G_walk, G_drive, lat, lon):
     #network_nodes.loc[index, 'lat']
                 
     u, v, key = ox.get_nearest_edge(G_walk, node_point)
-    node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(lat, lon, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
+    nodes = [u, v]
+    node_walk = min(nodes, key=lambda n: ox.distance.great_circle_vec(lat, lon, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
     
     u, v, key = ox.get_nearest_edge(G_drive, node_point)
-    node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(lat, lon, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
+    nodes = [u, v]
+    node_drive = min(nodes, key=lambda n: ox.distance.great_circle_vec(lat, lon, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
     
     return (node_walk, node_drive)
 
@@ -385,8 +389,8 @@ def remove_duplicate_lines(network):
 
             if (id1 != id2) and (id1 > id2):
 
-                nodes_path1 = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], network.subway_lines[id1]['begin_route'], network.subway_lines[id1]['end_route'], weight='duration_avg')
-                nodes_path2 = nx.dijkstra_path(network.subway_lines[ids]['route_graph'], network.subway_lines[id2]['begin_route'], network.subway_lines[id2]['end_route'], weight='duration_avg')
+                nodes_path1 = nx.dijkstra_path(network.subway_lines[id1]['route_graph'], network.subway_lines[id1]['begin_route'], network.subway_lines[id1]['end_route'], weight='duration_avg')
+                nodes_path2 = nx.dijkstra_path(network.subway_lines[id2]['route_graph'], network.subway_lines[id2]['begin_route'], network.subway_lines[id2]['end_route'], weight='duration_avg')
 
                 nodes_path2.reverse()
 
@@ -395,12 +399,24 @@ def remove_duplicate_lines(network):
                     if id2 not in exclude_line:
                         exclude_line.append(id2)
 
+                if (len(nodes_path2) < len(nodes_path1)):
+
+                    if(set(nodes_path2).issubset(set(nodes_path1))):
+                        if id2 not in exclude_line:
+                            exclude_line.append(id2)
+
+                elif (len(nodes_path1) < len(nodes_path2)):
+
+                    if(set(nodes_path1).issubset(set(nodes_path2))):
+                        if id1 not in exclude_line:
+                            exclude_line.append(id1)
+
     for idex in exclude_line:
-        print(idex)
+        #print(idex)
         network.subway_lines.pop(idex, None)
 
-    for id1 in network.subway_lines:
-        print(id1)
+    #for id1 in network.subway_lines:
+    #    print(id1)
 
 
 def break_lines_in_pieces(network):
@@ -410,29 +426,8 @@ def break_lines_in_pieces(network):
     connecting_nodes2 = []
     transfer_nodes2 = []
 
-    for id1 in network.subway_lines:
-        for id2 in network.subway_lines:
-
-            if (id1 != id2) and (id1 > id2):
-
-                nodes1 = list(network.subway_lines[id1]['route_graph'].nodes)
-                nodes2 = list(network.subway_lines[id2]['route_graph'].nodes)
-
-                for n in nodes1:
-
-                    bn = int(network.deconet_network_nodes.loc[int(n), 'bindex'])
-                    if n in nodes2:
-                        if (n not in connecting_nodes):
-                            connecting_nodes.append(n)
-                            connecting_nodes2.append(bn)
-                            
-                        if (n not in transfer_nodes):
-                            transfer_nodes.append(n)
-                            transfer_nodes2.append(bn)
-
     linepieces = []
     direct_lines = []
-
     linepieces_dist = []
     direct_lines_dist = []
 
@@ -468,6 +463,26 @@ def break_lines_in_pieces(network):
             connecting_nodes2.append(bn)
 
     remove_duplicate_lines(network)
+
+    for id1 in network.subway_lines:
+        for id2 in network.subway_lines:
+
+            if (id1 != id2) and (id1 > id2):
+
+                nodes1 = list(network.subway_lines[id1]['route_graph'].nodes)
+                nodes2 = list(network.subway_lines[id2]['route_graph'].nodes)
+
+                for n in nodes1:
+
+                    bn = int(network.deconet_network_nodes.loc[int(n), 'bindex'])
+                    if n in nodes2:
+                        if (n not in connecting_nodes):
+                            connecting_nodes.append(n)
+                            connecting_nodes2.append(bn)
+                            
+                        if (n not in transfer_nodes):
+                            transfer_nodes.append(n)
+                            transfer_nodes2.append(bn)
 
     for ids in network.subway_lines:
 
@@ -569,12 +584,21 @@ def transform_fixed_routes_stations_in_bus_stations(network):
         lid = network.bus_stations.last_valid_index()
         network.deconet_network_nodes.loc[int(node), 'bindex'] = lid
 
-    for index, stop_node in network.bus_stations.iterrows():
-        if index not in network.bus_stations_ids:
-            network.bus_stations_ids.append(index)
+def get_files_ID(place_name):
+
+    file_id_nn = -1
+    file_id_sn = -1
+
+    if (place_name == 'Lisbon, Portugal'):
+        file_id_nn = '1RXmVrGbajAtMXzpXx2sud-t0Nec2el7q'
+        file_id_sn = '1PtDSAW4zZwm6EzqmUq7nq_kkC21klgIk'
 
 
-def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
+    return file_id_nn, file_id_sn
+
+def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base, place_name):
+
+    warnings.filterwarnings(action="ignore")
 
     #num_of_cpu = cpu_count()
     nodes_covered_fixed_lines = []
@@ -583,37 +607,26 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
 
     save_dir_csv = os.path.join(save_dir, 'csv')
 
-    if not os.path.isdir(folder_path):
-        print('folder does not exist')
+    file_id_nn, file_id_sn = get_files_ID(place_name)
+    
+    if file_id_nn == -1:
+        print('DECONET data files do not exist for this specific city.')
         return -1
+
+    gdd.download_file_from_google_drive(file_id=file_id_nn,
+                                    dest_path=folder_path+'/network_nodes.csv')
+
+    gdd.download_file_from_google_drive(file_id=file_id_sn,
+                                    dest_path=folder_path+'/network_subway.csv')
 
     network_nodes_filename = folder_path+'/network_nodes.csv'
     if os.path.isfile(network_nodes_filename):
         deconet_network_nodes = pd.read_csv(network_nodes_filename, delimiter=";")
-        #print(network_nodes.head())
-        #print(network_nodes.keys())
-        #map the network nodes to open street maps
-
+        
         G_walk_id = ray.put(network.G_walk)
         G_drive_id = ray.put(network.G_drive)
-        #for index, node in network_nodes.iterrows():
-        #    all_nodes.append(node)
-
-        osm_nodes = ray.get([get_nodes_osm.remote(G_walk_id, G_drive_id, node['lat'], node['lon']) for index, node in deconet_network_nodes.iterrows()])
-
-        j=0
-        deconet_network_nodes['osmid_walk'] = np.nan
-        deconet_network_nodes['osmid_drive'] = np.nan
-        for index, node in deconet_network_nodes.iterrows():
-            
-            node_walk = osm_nodes[j][0]
-            node_drive = osm_nodes[j][1]
-
-            deconet_network_nodes.loc[index, 'osmid_walk'] = node_walk
-            deconet_network_nodes.loc[index, 'osmid_drive'] = node_drive
-            j += 1
         
-        deconet_network_nodes.set_index('stop_I', inplace=True)
+        #print("HEEEERE")
 
         subway_lines_filename = folder_path+'/network_subway.csv'
         print('entering subway lines')
@@ -661,7 +674,29 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base):
 
                     dict_subway_lines[route_id]['route_graph'].add_edge(row['from_stop_I'], row['to_stop_I'], duration_avg=float(row['duration_avg']))
 
-              
+        
+        #print("HEEEERE")
+        #print(len(nodes_covered_fixed_lines))
+
+        deconet_network_nodes.set_index('stop_I', inplace=True)
+        
+        #map the network nodes to open street maps
+        #osm_nodes = ray.get([get_nodes_osm.remote(G_walk_id, G_drive_id, node['lat'], node['lon']) for node in nodes_covered_fixed_lines])
+        osm_nodes = ray.get([get_nodes_osm.remote(G_walk_id, G_drive_id, deconet_network_nodes.loc[int(node), 'lat'], deconet_network_nodes.loc[int(node), 'lon']) for node in nodes_covered_fixed_lines])
+
+        j=0
+        deconet_network_nodes['osmid_walk'] = np.nan
+        deconet_network_nodes['osmid_drive'] = np.nan
+        for node in nodes_covered_fixed_lines:
+            
+            node_walk = osm_nodes[j][0]
+            node_drive = osm_nodes[j][1]
+
+            deconet_network_nodes.loc[int(node), 'osmid_walk'] = node_walk
+            deconet_network_nodes.loc[int(node), 'osmid_drive'] = node_drive
+            j += 1
+        
+        #print("HEEEERE")
         #add network nodes e shortest_path_subway para network file
        
         #network.shortest_path_subway = shortest_path_subway

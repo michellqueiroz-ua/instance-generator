@@ -21,11 +21,11 @@ def output_fixed_route_network(output_file_name, network):
 
             file.write('\n')
 
-            file.write(str(len(network.linepieces_dist[i])))
-            file.write(' ')
+            #file.write(str(len(network.linepieces_dist[i])))
+            #file.write(' ')
 
             for distuv in network.linepieces_dist[i]:
-                file.write(str(distuv))
+                file.write(str(int(distuv)))
                 file.write(' ')
 
             file.write('\n')
@@ -72,7 +72,7 @@ def output_fixed_route_network(output_file_name, network):
             file.write(' ')
 
             for u in range(len(nodes_path)):
-                file.write(str(network.deconet_network_nodes.loc[int(nodes_path[u]), 'bindex']))
+                file.write(str(int(network.deconet_network_nodes.loc[int(nodes_path[u]), 'bindex'])))
                 file.write(' ')
             file.write('\n')
 
@@ -103,6 +103,19 @@ class JsonConverter(object):
             #        file.write('\t')
             #    file.write('\n')
 
+            if problem_type == "SBRP":
+
+                #number of depots
+                file.write(str(self.json_data.get('num_schools')))
+                file.write('\n')
+
+                #ids of depots
+                school_ids = self.json_data.get('schools')
+                for node in school_ids:
+                    file.write(str(node))
+                    file.write('\t')
+                file.write('\n')
+
             if problem_type == "ODBRP" or problem_type == "SBRP" or problem_type == "ODBRPFL":
                 #number of bus stations
                 file.write(str(len(network.bus_stations_ids)))
@@ -118,6 +131,7 @@ class JsonConverter(object):
                 #print info of travel time bus
                 travel_time_matrix_bus = self.json_data.get('travel_time_matrix')
                 
+                '''
                 file.write(str(len(travel_time_matrix_bus)))
                 file.write('\n')
 
@@ -126,7 +140,13 @@ class JsonConverter(object):
                         file.write(str(element))
                         file.write('\t')
                     file.write('\n')
+                '''
 
+                for row in travel_time_matrix_bus:
+                    for element in row:
+                        file.write(str(element))
+                        file.write('\t')
+                    file.write('\n')
 
             '''
             if problem_type == "ODBRPFL":
@@ -166,23 +186,42 @@ class JsonConverter(object):
             '''
 
             if problem_type == "DARP":
+
+                #number of depots
+                file.write(str(self.json_data.get('num_depots')))
+                file.write('\n')
+
+                #ids of depots
+                depot_ids = self.json_data.get('depots')
+                for node in depot_ids:
+                    file.write(str(node))
+                    file.write('\t')
+                file.write('\n')
+
                 #number of nodes
                 file.write(str(self.json_data.get('num_nodes')))
                 file.write('\n')
 
-                
-                for node in network.node_list_darp:
+                for node in network.node_list_darp_seq:
                     file.write(str(node))
                     file.write('\t')
                 file.write('\n')
 
                 travel_time_matrix_darp = self.json_data.get('travel_time_matrix')
 
+                '''
                 file.write(str(len(travel_time_matrix_darp)))
                 file.write('\n')
 
                 for pair in travel_time_matrix_darp:
                     for element in pair:
+                        file.write(str(element))
+                        file.write('\t')
+                    file.write('\n')
+                '''
+
+                for row in travel_time_matrix_darp:
+                    for element in row:
                         file.write(str(element))
                         file.write('\t')
                     file.write('\n')
@@ -204,9 +243,17 @@ class JsonConverter(object):
                     file.write(str(request.get('originx')) + '\t' + str(request.get('originy')))
                     file.write('\n')
 
+                if request.get('origin_node') is not None:
+                    file.write(str(request.get('origin_node')))
+                    file.write('\n')
+
                 # destination coordinates
                 if request.get('destinationx') is not None:
                     file.write(str(request.get('destinationx')) + '\t' + str(request.get('destinationy')))
+                    file.write('\n')
+
+                if request.get('destination_node') is not None:
+                    file.write(str(request.get('destination_node')))
                     file.write('\n')
 
                 # num bus stations origin + bus stations origin
@@ -263,7 +310,18 @@ class JsonConverter(object):
 
                 # earliest departure time
                 file.write(str(request.get('dep_time')))
+                
+                #latest departure time
+                if problem_type == "DARP":
+                    file.write(' ')
+                    file.write(str(request.get('l_dep_time')))
+                    
                 file.write('\n')
+
+                #earliest arrival time
+                if problem_type == "DARP":
+                    file.write(str(request.get('e_arr_time')))
+                    file.write(' ')
 
                 # latest arrival time
                 file.write(str(request.get('arr_time')))
