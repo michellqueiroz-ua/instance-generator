@@ -359,8 +359,9 @@ def _generate_requests_ODBRPFL(
     #inst.network.all_requests = all_requests
 
     #travel time between bus stations
-    travel_time_bus_json = inst.network._get_travel_time_matrix("bus")
+    travel_time_bus = inst.network._get_travel_time_matrix("bus")
 
+    travel_time_bus_json = travel_time_bus.tolist()
     #how the subway stations connect with each other
     #travel_time_subway_json = inst.network._get_travel_time_matrix("subway")
 
@@ -673,7 +674,26 @@ def _generate_requests_DARP(
     inst.network.node_list_darp = node_list
     inst.network.node_list_darp_seq = node_list_seq
 
-    travel_time_json = inst.network._get_travel_time_matrix("list", node_list=node_list)
+    travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
+
+    travel_time_json = travel_time.tolist()
+    #creates a graph that will serve as the travel time matrix for the given set of requests
+    gtt = nx.DiGraph() 
+
+    for depot in inst.depot_nodes_seq:
+
+        gtt.add_node(depot, type="depot")
+
+    for node in range(len(inst.depot_nodes_seq), len(node_list)):
+
+        gtt.add_node(node, type="node")
+
+    for u in node_list:
+        for v in node_list:
+
+            gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+
+
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
                           'num_depots': len(inst.num_depots),
@@ -959,7 +979,10 @@ def _generate_requests_ODBRP(
 
     inst.network.all_requests = all_requests
 
-    travel_time_json = inst.network._get_travel_time_matrix("bus")
+    travel_time = inst.network._get_travel_time_matrix("bus")
+
+    travel_time_json = travel_time.tolist()
+
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
                           'num_stations': inst.network.num_stations,
@@ -1154,9 +1177,10 @@ def _generate_requests_SBRP(
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
 
-    travel_time_json = inst.network._get_travel_time_matrix("list", node_list=node_list)
+    travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
     #travel_time_to_school = inst.network._get_travel_time_from_stops_to_school(inst.school_id)
 
+    travel_time_json = travel_time.tolist()
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
                           'num_schools': inst.num_schools,

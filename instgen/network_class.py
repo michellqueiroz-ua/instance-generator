@@ -154,7 +154,8 @@ class Network:
                         if od_travel_time >= 0:
                             #element = (str(index_o), str(index_d), str(od_travel_time))
                             #travel_time.append(element)
-                            travel_time[u][v] = od_travel_time
+                            travel_time[index_o][index_d] = od_travel_time
+                            #print(od_travel_time)
                         '''
                         else:
                             od_travel_time = -1

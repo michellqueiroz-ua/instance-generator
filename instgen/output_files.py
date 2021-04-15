@@ -144,7 +144,7 @@ class JsonConverter(object):
 
                 for row in travel_time_matrix_bus:
                     for element in row:
-                        file.write(str(element))
+                        file.write(str(int(element)))
                         file.write('\t')
                     file.write('\n')
 
@@ -260,8 +260,8 @@ class JsonConverter(object):
                 if request.get('num_stops_origin') is not None:
                     file.write(str(request.get('num_stops_origin')) + '\n')
                     for stop in request.get('stops_origin'):
-                        osmid_station = network.bus_stations.loc[stop, 'osmid_drive']
-                        file.write(str(osmid_station) + '\t')
+                        #osmid_station = network.bus_stations.loc[stop, 'osmid_drive']
+                        file.write(str(int(stop)) + '\t')
                     file.write('\n')
                     for walking_distance in request.get('walking_time_origin_to_stops'):
                         file.write(str(walking_distance) + '\t')
@@ -272,8 +272,8 @@ class JsonConverter(object):
                 if request.get('num_stops_destination') is not None:
                     file.write(str(request.get('num_stops_destination')) + '\n')
                     for stop in request.get('stops_destination'):
-                        osmid_station = network.bus_stations.loc[stop, 'osmid_drive']
-                        file.write(str(osmid_station) + '\t')
+                        #osmid_station = network.bus_stations.loc[stop, 'osmid_drive']
+                        file.write(str(int(stop)) + '\t')
                     file.write('\n')
                     for walking_distance in request.get('walking_time_stops_to_destination'):
                         file.write(str(walking_distance) + '\t')
