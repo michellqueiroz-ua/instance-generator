@@ -25,6 +25,7 @@ class Instance:
         self.save_dir = os.getcwd()+'/'+self.output_folder_base
         self.pickle_dir = os.path.join(self.save_dir, 'pickle')
         self.save_dir_json = os.path.join(self.save_dir, 'json_format')
+        self.save_dir_graphml = os.path.join(self.save_dir, 'graphml_format')
         
         self.network_class_file = self.pickle_dir+'/'+self.output_folder_base+'.network.class.pkl'
 
@@ -70,10 +71,14 @@ class Instance:
         self.num_depots = 1
         self.depot_nodes_drive = []
         self.depot_nodes_walk = []
+        self.can_set_random_depot = True
+        self.can_set_address_depot = True
 
         #school id in case of SBRP
         self.num_schools = 1
         self.school_ids = []
+        self.can_set_random_shool = True
+        self.can_set_address_school = True
         #self.school_station = None
 
         #factor to compute delay travel time by the vehicle
@@ -87,8 +92,6 @@ class Instance:
         self.ambulatory = False
 
 
-
-    
     def add_request_demand_uniform(self, 
         min_time, 
         max_time, 
@@ -307,53 +310,81 @@ class Instance:
 
     def set_num_schools(self, num_schools):
 
-        self.num_schools = num_schools
+        if self.can_set_random_school:
+            self.num_schools = num_schools
+            self.can_set_address_school = False
+        else: raise ValueError('this function can not be called after adding school from address')
+
 
     def set_num_depots(self, num_depots):
 
-        self.num_depots = num_depots
+        if self.can_set_random_depot:
+            self.num_depots = num_depots
+            self.can_set_address_depot = False
+        else: raise ValueError('this function can not be called after adding depot from address')
+
 
     def add_school_from_name(self, school_name):
 
-        school = network.schools[network.schools['school_name'] == school_name]
+        if self.can_set_address_school:
+            school = network.schools[network.schools['school_name'] == school_name]
 
-        print(school)
+            print(school)
 
-        if school is not None:
-          
-            self.school_ids.append(school['school_id'])
+            if school is not None:
+              
+                self.school_ids.append(school['school_id'])
+
+                self.num_schools = len(school_ids)
+                self.can_set_random_school = False
+
+        else: raise ValueError('this function can not be called after setting the number of schools with set_num_schools')
+
 
     def add_school_from_address(self, address_school):
 
         #catch erro de não existir o lugar
 
-        school_point = ox.geocoder.geocode(query=address_school)
-        school_node_drive = ox.get_nearest_node(self.network.G_drive, school_point)
-        school_node_walk = ox.get_nearest_node(self.network.G_walk, school_point)
+        if self.can_set_address_school:
+            school_point = ox.geocoder.geocode(query=address_school)
+            school_node_drive = ox.get_nearest_node(self.network.G_drive, school_point)
+            school_node_walk = ox.get_nearest_node(self.network.G_walk, school_point)
 
-        lid = network.schools.last_valid_index()
-        lid += 1
+            lid = network.schools.last_valid_index()
+            lid += 1
 
-        d = {
-            'school_id': lid,
-            'school_name': school_name,
-            'osmid_walk': school_node_walk,
-            'osmid_drive': school_node_drive,
-            'lat': school_point[0],
-            'lon': school_point[1],
-        }
+            d = {
+                'school_id': lid,
+                'school_name': school_name,
+                'osmid_walk': school_node_walk,
+                'osmid_drive': school_node_drive,
+                'lat': school_point[0],
+                'lon': school_point[1],
+            }
 
-        network.schools = network.schools.append(d, ignore_index=True)
-        self.school_ids.append(lid)
+            network.schools = network.schools.append(d, ignore_index=True)
+            self.school_ids.append(lid)
+
+            self.can_set_random_school = False
+            self.num_schools = len(school_ids)
+
+        else: raise ValueError('this function can not be called after setting the number of schools with set_num_schools')
+
 
     def add_depot_from_address(self, depot_address):
 
-        depot_point = ox.geocoder.geocode(query=depot_address)
-        depot_node_drive = ox.get_nearest_node(self.network.G_drive, depot_point)
-        depot_node_walk = ox.get_nearest_node(self.network.G_walk, depot_point)
+        if self.can_set_address_depot:
+            depot_point = ox.geocoder.geocode(query=depot_address)
+            depot_node_drive = ox.get_nearest_node(self.network.G_drive, depot_point)
+            depot_node_walk = ox.get_nearest_node(self.network.G_walk, depot_point)
 
-        self.depot_nodes_drive.append(depot_node_drive)
-        self.depot_nodes_walk.append(depot_node_walk)
+            self.depot_nodes_drive.append(depot_node_drive)
+            self.depot_nodes_walk.append(depot_node_walk)
+
+            self.num_depots = len(self.depot_nodes_drive)
+            self.can_set_random_depot = False
+
+        else: raise ValueError('this function can not be called after setting the number of depots with set_num_depots')
 
     def set_number_replicas(self, number_replicas):
 

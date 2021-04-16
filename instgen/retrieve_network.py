@@ -95,6 +95,10 @@ def download_network_information(
     if not os.path.isdir(pickle_dir):
         os.mkdir(pickle_dir)
 
+    graphml_dir = os.path.join(save_dir, 'graphml_format')
+    if not os.path.isdir(graphml_dir):
+        os.mkdir(graphml_dir)
+
     '''
     ‘drive’ – get drivable public streets (but not service roads)
     ‘drive_service’ – get drivable public streets, including service roads
@@ -193,8 +197,6 @@ def download_network_information(
         else: raise ValueError('attribute vehicle_speed_data must be either "set" or "max"')
 
     
-    
-
     print('Downloading zones from location')
     zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BBx, BBy)
     #create graph to plot zones here           
@@ -240,8 +242,9 @@ def download_network_information(
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
     #computes distance matrix for drivig and walking network
-    shortest_path_walk, shortest_path_drive = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
+    shortest_path_walk, shortest_path_drive, unreachable_nodes = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
 
+    network.G_drive.remove_nodes_from(unreachable_nodes)
     #removes unreacheable stops
     #filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 

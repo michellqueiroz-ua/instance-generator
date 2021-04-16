@@ -222,7 +222,7 @@ class JsonConverter(object):
 
                 for row in travel_time_matrix_darp:
                     for element in row:
-                        file.write(str(element))
+                        file.write(str(int(element)))
                         file.write('\t')
                     file.write('\n')
 
@@ -314,13 +314,13 @@ class JsonConverter(object):
                 #latest departure time
                 if problem_type == "DARP":
                     file.write(' ')
-                    file.write(str(request.get('l_dep_time')))
+                    file.write(str(request.get('lat_dep_time')))
                     
                 file.write('\n')
 
                 #earliest arrival time
                 if problem_type == "DARP":
-                    file.write(str(request.get('e_arr_time')))
+                    file.write(str(request.get('ear_arr_time')))
                     file.write(' ')
 
                 # latest arrival time

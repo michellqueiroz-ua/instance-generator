@@ -145,8 +145,11 @@ class Network:
             for index_o, origin_stop in self.bus_stations.iterrows():
                 j=0
                 for index_d, destination_stop in self.bus_stations.iterrows(): 
-                    u = self.bus_stations.loc[index_o, 'osmid_drive']
-                    v = self.bus_stations.loc[index_d, 'osmid_drive']
+                    #u = self.bus_stations.loc[int(index_o), 'osmid_drive']
+                    #v = self.bus_stations.loc[int(index_d), 'osmid_drive']
+                    u = int(origin_stop['osmid_drive'])
+                    v = int(destination_stop['osmid_drive'])
+                    
                     od_travel_time = self._return_estimated_travel_time_drive(u, v)
 
                     #calculating travel time and storing in travel_time matrix
@@ -172,13 +175,18 @@ class Network:
 
             for u in range(0, len(node_list)):
                 for v in range(0, len(node_list)):
-                    od_travel_time = self._return_estimated_travel_time_drive(node_list[u], node_list[v])  
+
+                    #print(int(node_list[u]), int(node_list[v]))
+                    od_travel_time = self._return_estimated_travel_time_drive(int(node_list[u]), int(node_list[v]))  
 
                     if not math.isnan(od_travel_time):
                         if od_travel_time >= 0:
-                            travel_time[u][v] = od_travel_time
+                            travel_time[u][v] = int(od_travel_time)
                             #element = (str(u), str(v), str(od_travel_time))
                             #travel_time.append(element)
+                        else:
+                            travel_time[u][v] = int(-1)
+                            #print(od_travel_time)
 
         '''
         if nodes == "subway":

@@ -417,6 +417,9 @@ def _generate_requests_DARP(
             node_list.append(depot_node_drive)
             node_list_seq.append(i)
             inst.depot_nodes_seq.append(i)
+
+        inst.num_depots = len(inst.depot_nodes_drive)
+        
     else:
 
         for i in range(0, inst.num_depots):
@@ -494,6 +497,7 @@ def _generate_requests_DARP(
 
                 else:
 
+                    #print(sd.origin_zones)
                     random_zone = np.random.uniform(0, sd.num_origins, 1)
                     random_zone = int(random_zone)
                     random_zone_id = int(sd.origin_zones[random_zone])
@@ -522,6 +526,7 @@ def _generate_requests_DARP(
                 destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
                 origin_node_seq = 0
                 destination_node_seq = 0
+
 
                 if origin_node_drive not in node_list:
 
@@ -579,11 +584,11 @@ def _generate_requests_DARP(
                     request_data.update({'dep_time': int(dep_time)})
 
                     #latest departure time
-                    l_dep_time = random.randint(dep_time, dep_time + inst.g)
+                    l_dep_time = random.randint(int(dep_time), int(dep_time) + inst.g)
                     request_data.update({'lat_dep_time': int(l_dep_time)})
                     
                     #earliest arrival time
-                    e_arr_time = random.randint(arr_time - inst.g, arr_time)
+                    e_arr_time = random.randint(int(arr_time) - inst.g, int(arr_time))
                     request_data.update({'ear_arr_time': int(e_arr_time)})
 
                     #arrival time
@@ -595,6 +600,7 @@ def _generate_requests_DARP(
                     #2-> ambulatory
                     min_req = 0
                     max_req = 0
+                    vehicle_requirement = -1
                     if inst.wheelchair and inst.ambulatory:
                         max_req = 2
                         vehicle_requirement = random.randint(min_req, max_req)
@@ -607,6 +613,7 @@ def _generate_requests_DARP(
                             vehicle_requirement = random.randint(min_req, max_req)
                             if vehicle_requirement > 0:
                                 vehicle_requirement = 2
+
                     request_data.update({'vehicle_requirement': int(vehicle_requirement)})
 
                     # add request_data to instance_data container
@@ -633,11 +640,11 @@ def _generate_requests_DARP(
                         request_data_return.update({'time_stamp': int(request_time_stamp)})
                         
                         #departure time for the return
-                        dep_time_return = random.randint(arr_time, inst.max_early_departure)
+                        dep_time_return = random.randint(int(arr_time), inst.max_early_departure)
                         request_data_return.update({'dep_time': int(dep_time_return)})
 
                         #latest departure time
-                        l_dep_time_return = random.randint(dep_time_return, dep_time_return + inst.g)
+                        l_dep_time_return = random.randint(int(dep_time_return), int(dep_time_return) + inst.g)
                         request_data_return.update({'lat_dep_time': int(l_dep_time)})
                         
                         #arrival time
@@ -647,7 +654,7 @@ def _generate_requests_DARP(
                         arr_time_return = dep_time_return + estimated_travel_time + flex_time
 
                         #earliest arrival time
-                        e_arr_time_return = random.randint(arr_time_return - inst.g, arr_time_return)
+                        e_arr_time_return = random.randint(int(arr_time_return) - inst.g, int(arr_time_return))
                         request_data_return.update({'ear_arr_time': int(e_arr_time_return)})
 
                         request_data_return.update({'arr_time': int(arr_time_return)})
@@ -688,15 +695,19 @@ def _generate_requests_DARP(
 
         gtt.add_node(node, type="node")
 
-    for u in node_list:
-        for v in node_list:
+    for u in node_list_seq:
+        for v in node_list_seq:
 
             gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
 
+    #output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+    #output_name_graphml = output_name_graphml.replace(" ", "")
+
+    #nx.write_graphml_lxml(gtt, output_name_graphml)
 
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
-                          'num_depots': len(inst.num_depots),
+                          'num_depots': inst.num_depots,
                           'depots': inst.depot_nodes_seq,
                           'num_nodes': len(node_list),
                           'travel_time_matrix': travel_time_json
@@ -794,6 +805,7 @@ def _generate_requests_ODBRP(
 
                     sdlist = [0,1,2,3]
                     sdid = random.choices(sdlist, weights=weightssd, k=1)
+                    #print(sdid)
                     sd = inst.spatial_distribution[sdid[0]]
 
                     #generate coordinates for origin
@@ -804,6 +816,7 @@ def _generate_requests_ODBRP(
     
                     else:
 
+                        #print(sd.origin_zones)
                         random_zone = np.random.uniform(0, sd.num_origins, 1)
                         random_zone = int(random_zone)
 

@@ -8,8 +8,8 @@ if __name__ == '__main__':
     caching.clear_cache()
     
     inst1 = Instance(folder_to_network='Lisbon, Portugal')
-    inst1.set_problem_type(problem_type="ODBRP")
-    inst1.add_request_demand_uniform(min_time=8, max_time=10, number_of_requests=500, time_unit="h")
+    inst1.set_problem_type(problem_type="DARP")
+    inst1.add_request_demand_uniform(min_time=8, max_time=10, number_of_requests=100, time_unit="h")
     #inst1.add_request_demand_normal(mean=8, std=0.5, number_of_requests=100, time_unit="h")
     inst1.add_spatial_distribution(num_origins=1, num_destinations=1, prob=50, is_random_origin_zones=True, is_random_destination_zones=True)
     inst1.add_spatial_distribution(num_origins=4, num_destinations=4, prob=50, is_random_origin_zones=True, is_random_destination_zones=True)
@@ -24,6 +24,9 @@ if __name__ == '__main__':
     inst1.set_delay_vehicle_factor(delay_vehicle_factor=0.5)
     inst1.set_delay_walk_factor(delay_walk_factor=0.5)
     inst1.add_time_window_gap(10, "min")
+
+   # inst1.set_num_depots(2)
+    inst1.add_depot_from_address("rua sao domingos lisboa portugal")
     #inst1.add_vehicle_requirements("wheelchair")
     #inst1.add_vehicle_requirements("ambulatory")
     inst1.generate_requests()

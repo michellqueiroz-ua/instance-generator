@@ -114,9 +114,11 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="travel_time") for u in list_nodes])
 
         j=0
+        unreachable_nodes = []
         for u in list_nodes:
             d = {}
             d['osmid_origin'] = u
+            count = 0
             for v in G_drive.nodes():
                 
                 dist_uv = -1
@@ -127,7 +129,11 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 if dist_uv != -1:
                     sv = str(v)
                     d[sv] = dist_uv
+                    count += 1
             shortest_path_length_drive.append(d)
+
+            if count == 1:
+                unreachable_nodes.append(u)
 
             j+=1
             del d
@@ -140,4 +146,4 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         shortest_path_drive.to_csv(path_dist_csv_file_drive)
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
 
-    return shortest_path_walk, shortest_path_drive
+    return shortest_path_walk, shortest_path_drive, unreachable_nodes
