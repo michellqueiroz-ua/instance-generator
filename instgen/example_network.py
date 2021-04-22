@@ -6,8 +6,11 @@ import os
 if __name__ == '__main__':
 
     #retrieve the instance's network
-    place_name='Lisbon, Portugal'
+    
+    #place_name='Lisbon, Portugal'
     #get_fixed_lines = 'deconet'
+
+    place_name='Rennes, France'
     get_fixed_lines=None
     network = download_network_information(place_name=place_name, max_speed_factor=0.5, get_fixed_lines=get_fixed_lines)
 
@@ -18,4 +21,5 @@ if __name__ == '__main__':
 
     output_name_fr = place_name+'.frn'
 
-    output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)
+    if get_fixed_lines is not None:
+        output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)

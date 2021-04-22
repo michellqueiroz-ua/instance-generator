@@ -77,7 +77,7 @@ class Instance:
         #school id in case of SBRP
         self.num_schools = 1
         self.school_ids = []
-        self.can_set_random_shool = True
+        self.can_set_random_school = True
         self.can_set_address_school = True
         #self.school_station = None
 
@@ -327,21 +327,19 @@ class Instance:
     def add_school_from_name(self, school_name):
 
         if self.can_set_address_school:
-            school = network.schools[network.schools['school_name'] == school_name]
-
-            print(school)
+            school = self.network.schools[self.network.schools['school_name'] == school_name]
 
             if school is not None:
               
-                self.school_ids.append(school['school_id'])
+                self.school_ids.append(int(school.index.values))
 
-                self.num_schools = len(school_ids)
+                self.num_schools = len(self.school_ids)
                 self.can_set_random_school = False
 
         else: raise ValueError('this function can not be called after setting the number of schools with set_num_schools')
 
 
-    def add_school_from_address(self, address_school):
+    def add_school_from_address(self, address_school, school_name):
 
         #catch erro de não existir o lugar
 
@@ -350,23 +348,14 @@ class Instance:
             school_node_drive = ox.get_nearest_node(self.network.G_drive, school_point)
             school_node_walk = ox.get_nearest_node(self.network.G_walk, school_point)
 
-            lid = network.schools.last_valid_index()
+            lid = self.network.schools.last_valid_index()
             lid += 1
 
-            d = {
-                'school_id': lid,
-                'school_name': school_name,
-                'osmid_walk': school_node_walk,
-                'osmid_drive': school_node_drive,
-                'lat': school_point[0],
-                'lon': school_point[1],
-            }
-
-            network.schools = network.schools.append(d, ignore_index=True)
+            self.network.schools.loc[lid] = [school_name, school_node_walk, school_node_drive, school_point[0], school_point[1]]
             self.school_ids.append(lid)
 
             self.can_set_random_school = False
-            self.num_schools = len(school_ids)
+            self.num_schools = len(self.school_ids)
 
         else: raise ValueError('this function can not be called after setting the number of schools with set_num_schools')
 

@@ -92,6 +92,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         shortest_path_walk.to_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
     
+    unreachable_nodes = []
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
@@ -114,7 +115,6 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="travel_time") for u in list_nodes])
 
         j=0
-        unreachable_nodes = []
         for u in list_nodes:
             d = {}
             d['osmid_origin'] = u

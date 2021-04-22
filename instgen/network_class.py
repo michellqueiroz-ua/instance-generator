@@ -56,7 +56,7 @@ class Network:
             except KeyError:
                 
                 try:
-                    #print(u,v)
+                    print(u,v)
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
                 
                 except (nx.NetworkXNoPath, nx.NodeNotFound):
@@ -102,7 +102,17 @@ class Network:
         except KeyError:
             eta = -1
 
+        '''
+        if eta == -1:
+
+            try:
+                eta = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
+            except nx.NetworkXNoPath:
+                eta = -2
+        '''
+
         return int(eta)
+        
 
     def return_estimated_travel_time_bus(self, stops_origin, stops_destination):
         max_eta_bus = -1
@@ -180,13 +190,10 @@ class Network:
                     od_travel_time = self._return_estimated_travel_time_drive(int(node_list[u]), int(node_list[v]))  
 
                     if not math.isnan(od_travel_time):
-                        if od_travel_time >= 0:
-                            travel_time[u][v] = int(od_travel_time)
-                            #element = (str(u), str(v), str(od_travel_time))
-                            #travel_time.append(element)
-                        else:
-                            travel_time[u][v] = int(-1)
-                            #print(od_travel_time)
+                        travel_time[u][v] = int(od_travel_time)
+                        #element = (str(u), str(v), str(od_travel_time))
+                        #travel_time.append(element)
+                        
 
         '''
         if nodes == "subway":

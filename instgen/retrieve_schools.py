@@ -56,7 +56,7 @@ def retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base):
                 school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
             
                 d = {
-                    'school_id':index,
+                    #'school_id':index,
                     'school_name':poi['name'],
                     'osmid_walk':school_node_walk,
                     'osmid_drive':school_node_drive,
@@ -68,10 +68,11 @@ def retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base):
                     
             schools = pd.DataFrame(schools)
             schools.to_csv(path_schools_csv_file)
-    
+    '''
     if len(schools) > 0:
         schools.set_index(['school_id'], inplace=True)
-
+    '''
+    
     return schools
 
 

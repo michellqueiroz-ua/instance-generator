@@ -58,7 +58,7 @@ def get_bus_station(G_walk, G_drive, index, poi):
         bus_station_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
         
         d = {
-            'station_id': index,
+            #'station_id': index,
             'osmid_walk': bus_station_node_walk,
             'osmid_drive': bus_station_node_drive,
             'lat': poi.geometry.centroid.y,
@@ -98,6 +98,7 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
         #poi_bus_stations = ox.geometries_from_polygon(polygon_drive, tags=tags)
         poi_bus_stations = ox.geometries_from_place(place_name, tags=tags)
 
+        print('number pois: ', len(poi_bus_stations))
         G_walk_id = ray.put(G_walk)
         G_drive_id = ray.put(G_drive)
         bus_stations = ray.get([get_bus_station.remote(G_walk_id, G_drive_id, index, poi) for index, poi in poi_bus_stations.iterrows()]) 
@@ -113,14 +114,22 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
                 for index2, stop2 in bus_stations.iterrows():
                     if index2 not in drop_index_list:
                         if index1 != index2:
-                            if stop1['osmid_drive'] == stop2['osmid_drive'] and stop1['osmid_walk'] == stop2['osmid_walk']:
+                            if (stop1['osmid_drive'] == stop2['osmid_drive']) and (stop1['osmid_walk'] == stop2['osmid_walk']):
                                 drop_index_list.append(index2)
 
         for index_to_drop in drop_index_list:
             bus_stations = bus_stations.drop(index_to_drop)
 
+        '''
+
+        it = 0
+        for index, stop in bus_stations.iterrows():
+            bus_stations.loc[int(index), 'station_id'] = it
+            it += 1
+
         if len(bus_stations) > 0:
             bus_stations.set_index(['station_id'], inplace=True)
+        '''
 
     return bus_stations
 

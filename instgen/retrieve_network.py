@@ -146,6 +146,12 @@ def download_network_information(
     
     print('num walk nodes', len(G_walk.nodes()))
     print('num drive nodes', len(G_drive.nodes()))
+
+    G_walk = ox.utils_graph.get_largest_component(G_walk, strongly=True)
+    G_drive = ox.utils_graph.get_largest_component(G_drive, strongly=True)
+
+    print('scc num walk nodes', len(G_walk.nodes()))
+    print('scc num drive nodes', len(G_drive.nodes()))
     
     if vehicle_speed_data != "max" and vehicle_speed_data != "set":
         avg_uber_speed_data, speed_mean_overall = get_uber_speed_data_mean(G_drive, vehicle_speed_data, day_of_the_week)
@@ -204,6 +210,7 @@ def download_network_information(
 
     print('Downloading schools from location')
     schools = retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base)
+    schools = schools.reset_index(drop=True)
     #create graph to plot zones here           
     print('number of schools', len(schools))
 
@@ -241,12 +248,18 @@ def download_network_information(
                 #else:         
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
+
+
     #computes distance matrix for drivig and walking network
     shortest_path_walk, shortest_path_drive, unreachable_nodes = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
 
-    network.G_drive.remove_nodes_from(unreachable_nodes)
+    #print(unreachable_nodes)
+    #network.G_drive.remove_nodes_from(unreachable_nodes)
+    
     #removes unreacheable stops
     #filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
+
+    network.bus_stations = network.bus_stations.reset_index(drop=True)
 
     network.bus_stations_ids = []
     for index, stop_node in network.bus_stations.iterrows():

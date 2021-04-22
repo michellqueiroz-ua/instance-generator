@@ -362,6 +362,23 @@ def _generate_requests_ODBRPFL(
     travel_time_bus = inst.network._get_travel_time_matrix("bus")
 
     travel_time_bus_json = travel_time_bus.tolist()
+
+    gtt = nx.DiGraph() 
+
+    for index in inst.network.bus_stations.index:
+
+        gtt.add_node(index, type="busstation")
+
+    for u in inst.network.bus_stations.index:
+        for v in inst.network.bus_stations.index:
+
+            gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+
+    output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+    #output_name_graphml = output_name_graphml.replace(" ", "")
+
+    nx.write_graphml(gtt, output_name_graphml)
+
     #how the subway stations connect with each other
     #travel_time_subway_json = inst.network._get_travel_time_matrix("subway")
 
@@ -524,9 +541,20 @@ def _generate_requests_DARP(
     
                 origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
                 destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                
+
+                #compute estimated arrival time
+                estimated_travel_time = inst.network._return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
+                if estimated_travel_time >= 0:
+                    #arr_time = (dep_time) + (inst.delay_vehicle_factor * estimated_travel_time) 
+                    flex_time = inst.delay_vehicle_factor * estimated_travel_time
+                    arr_time = dep_time + estimated_travel_time + flex_time
+                else:
+                    unfeasible_request = True
+
+
                 origin_node_seq = 0
                 destination_node_seq = 0
-
 
                 if origin_node_drive not in node_list:
 
@@ -554,15 +582,6 @@ def _generate_requests_DARP(
                             destination_node_seq = si
                             break
                 
-                #compute estimated arrival time
-                estimated_travel_time = inst.network._return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
-                if estimated_travel_time >= 0:
-                    #arr_time = (dep_time) + (inst.delay_vehicle_factor * estimated_travel_time) 
-                    flex_time = inst.delay_vehicle_factor * estimated_travel_time
-                    arr_time = dep_time + estimated_travel_time + flex_time
-                else:
-                    unfeasible_request = True
-
                 if  not unfeasible_request:   
                     #prints in the json file if the request is 'viable'
                     
@@ -700,10 +719,10 @@ def _generate_requests_DARP(
 
             gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
 
-    #output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+    output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
     #output_name_graphml = output_name_graphml.replace(" ", "")
 
-    #nx.write_graphml_lxml(gtt, output_name_graphml)
+    nx.write_graphml(gtt, output_name_graphml)
 
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
@@ -996,6 +1015,22 @@ def _generate_requests_ODBRP(
 
     travel_time_json = travel_time.tolist()
 
+    gtt = nx.DiGraph() 
+
+    for index in inst.network.bus_stations.index:
+
+        gtt.add_node(index, type="busstation")
+
+    for u in inst.network.bus_stations.index:
+        for v in inst.network.bus_stations.index:
+
+            gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+
+    output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+    #output_name_graphml = output_name_graphml.replace(" ", "")
+
+    nx.write_graphml(gtt, output_name_graphml)
+
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
                           'num_stations': inst.network.num_stations,
@@ -1027,7 +1062,8 @@ def _generate_requests_SBRP(
     request_id = 0
 
     node_list = []
-    lid = network.bus_stations.last_valid_index() + 1
+    node_list_seq = []
+    lid = inst.network.bus_stations.last_valid_index() + 1
     inst.school_ids_seq = []
     inst.school_ids_osm = []
 
@@ -1041,13 +1077,24 @@ def _generate_requests_SBRP(
             if random_school_id not in inst.school_ids:
                 inst.school_ids.append(random_school_id)
 
-    for i in range(num_schools):
+    for i in range(inst.num_schools):
 
-        inst.school_ids_seq.append(lid)
+        inst.school_ids_seq.append(int(lid))
         inst.school_ids_osm.append(inst.network.schools.loc[inst.school_ids[i], 'osmid_drive'])
         lid += 1
 
     node_list = inst.network.bus_stations['osmid_drive'].tolist() + inst.school_ids_osm
+    node_list_seq = inst.network.bus_stations.index.values.tolist() + inst.school_ids_seq
+
+    gtt = nx.DiGraph() 
+
+    for index in inst.network.bus_stations.index:
+
+        gtt.add_node(index, type="busstation")
+
+    for school in inst.school_ids_seq:
+
+        gtt.add_node(school, type="school")
 
     #for each PDF
     for r in range(len(inst.request_demand)):
@@ -1106,14 +1153,18 @@ def _generate_requests_SBRP(
                         origin_point = (origin_point.y, origin_point.x)
 
                     #destination is the school (randomly chosen between the number of schools)
-                    random_school_id = np.random.uniform(0, inst.num_schools, 1)
+                    random_school_id = np.random.randint(0, inst.num_schools, 1)
+                    
                     random_school_id = int(random_school_id)
+                    #print(random_school_id)
                     destination_point = (inst.network.schools.loc[inst.school_ids[random_school_id], 'lat'], inst.network.schools.loc[inst.school_ids[random_school_id], 'lon'])
 
                     origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
                     destination_node_walk = inst.network.schools.loc[inst.school_ids[random_school_id], 'osmid_walk']
-                    time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, request_walk_speed)
+                    time_walking = inst.network.get_eta_walk(int(origin_node_walk), int(destination_node_walk), request_walk_speed)
 
+                    #if random_school_id == 2:
+                        #print(time_walking)
                     if time_walking > max_walking_user:
                         unfeasible_request = False
                     
@@ -1129,6 +1180,8 @@ def _generate_requests_SBRP(
 
                         node_list.append(origin_node_drive)
                         origin_node_seq = lid
+                        node_list_seq.append(origin_node_seq)
+                        gtt.add_node(origin_node_seq, type="home")
                         lid += 1
 
                     else:
@@ -1190,15 +1243,29 @@ def _generate_requests_SBRP(
         #plt.savefig('images/foo.png')
         #plt.close(fig) 
 
+
+    
+    inst.network.node_list_seq_school = node_list_seq
     travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
     #travel_time_to_school = inst.network._get_travel_time_from_stops_to_school(inst.school_id)
 
     travel_time_json = travel_time.tolist()
+
+    for u in node_list_seq:
+        for v in node_list_seq:
+
+            gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+
+    output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+    #output_name_graphml = output_name_graphml.replace(" ", "")
+
+    nx.write_graphml(gtt, output_name_graphml)
+
     instance_data.update({'num_requests:': len(all_requests),
                           'requests': all_requests,
-                          'num_schools': inst.num_schools,
+                          'num_schools': int(inst.num_schools),
                           'schools': inst.school_ids_seq,
-                          'num_stations': inst.network.num_stations,
+                          'num_nodes': int(len(node_list_seq)),
                           'travel_time_matrix': travel_time_json,
                           #'travel_time_to_school': travel_time_to_school
                          }
