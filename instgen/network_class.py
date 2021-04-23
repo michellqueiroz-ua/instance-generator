@@ -56,7 +56,7 @@ class Network:
             except KeyError:
                 
                 try:
-                    print(u,v)
+                    #print(u,v)
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
                 
                 except (nx.NetworkXNoPath, nx.NodeNotFound):
@@ -168,6 +168,10 @@ class Network:
                             #element = (str(index_o), str(index_d), str(od_travel_time))
                             #travel_time.append(element)
                             travel_time[index_o][index_d] = od_travel_time
+
+                            if (od_travel_time == 0):
+                                if (index_o != index_d):
+                                    print('here')
                             #print(od_travel_time)
                         '''
                         else:

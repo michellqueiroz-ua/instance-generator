@@ -256,8 +256,8 @@ def download_network_information(
     #print(unreachable_nodes)
     #network.G_drive.remove_nodes_from(unreachable_nodes)
     
-    #removes unreacheable stops
-    #filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
+    #removes unreacheable stops or useless duplicate stations
+    filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
     network.bus_stations = network.bus_stations.reset_index(drop=True)
 

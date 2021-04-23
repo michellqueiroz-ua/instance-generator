@@ -7,7 +7,7 @@ if __name__ == '__main__':
 
     caching.clear_cache()
     
-    inst1 = Instance(folder_to_network='Rennes, France')
+    inst1 = Instance(folder_to_network='Lisbon, Portugal')
     inst1.set_problem_type(problem_type="ODBRP")
     inst1.add_request_demand_uniform(min_time=8, max_time=10, number_of_requests=500, time_unit="h")
     #inst1.add_request_demand_normal(mean=8, std=0.5, number_of_requests=100, time_unit="h")

@@ -38,6 +38,28 @@ def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base
                 network.bus_stations = network.bus_stations.drop(index1)
                 useless_bus_station = True
             
+    indexes_to_drop = []
+    for index1, stop1 in network.bus_stations.iterrows():
+        for index2, stop2 in network.bus_stations.iterrows():
+            if ((index1 != index2) and (index2 > index1)):
+                osmid_origin_stop = int(stop1['osmid_drive'])
+                osmid_destination_stop = str(int(stop2['osmid_drive']))
+                if (stop1['type'] != stop2['type']):
+                    try:
+                        if (int(shortest_path_drive[osmid_origin_stop, osmid_destination_stop]) == 0):
+                            if stop1['type'] == 0:
+                                if (index1 not in indexes_to_drop):
+                                    indexes_to_drop.append(index1)
+                            elif stop2['type'] == 0:
+                                if (index2 not in indexes_to_drop):
+                                    indexes_to_drop.append(index2)
+                    except KeyError:
+                        pass
+                    
+
+    for index_to_drop in indexes_to_drop:
+        network.bus_stations = network.bus_stations.drop(index_to_drop)
+
     print('number of bus stops after removal: ', len(network.bus_stations))
 
     #stations_ids = range(0, len(network.bus_stations))
@@ -63,6 +85,7 @@ def get_bus_station(G_walk, G_drive, index, poi):
             'osmid_drive': bus_station_node_drive,
             'lat': poi.geometry.centroid.y,
             'lon': poi.geometry.centroid.x,
+            'type': 0,
         }
 
         return d
@@ -114,7 +137,8 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
                 for index2, stop2 in bus_stations.iterrows():
                     if index2 not in drop_index_list:
                         if index1 != index2:
-                            if (stop1['osmid_drive'] == stop2['osmid_drive']) and (stop1['osmid_walk'] == stop2['osmid_walk']):
+                            #if (stop1['osmid_drive'] == stop2['osmid_drive']) and (stop1['osmid_walk'] == stop2['osmid_walk']):
+                            if (stop1['osmid_drive'] == stop2['osmid_drive']):
                                 drop_index_list.append(index2)
 
         for index_to_drop in drop_index_list:

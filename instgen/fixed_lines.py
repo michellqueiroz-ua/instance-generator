@@ -578,11 +578,31 @@ def transform_fixed_routes_stations_in_bus_stations(network):
             'osmid_drive': network.deconet_network_nodes.loc[int(node), 'osmid_drive'],
             'lat': network.deconet_network_nodes.loc[int(node), 'lat'],
             'lon': network.deconet_network_nodes.loc[int(node), 'lon'],
+            'type': 1,
         }
 
         network.bus_stations = network.bus_stations.append(d, ignore_index=True)
         lid = network.bus_stations.last_valid_index()
         network.deconet_network_nodes.loc[int(node), 'bindex'] = lid
+
+
+    for node1 in network.nodes_covered_fixed_lines: 
+        for node2 in network.nodes_covered_fixed_lines: 
+            b1 = network.deconet_network_nodes.loc[int(node1), 'bindex']
+            b2 = network.deconet_network_nodes.loc[int(node2), 'bindex']
+            if (b1 != b2) and (b2 > b1):
+                osmid1 = network.deconet_network_nodes.loc[int(node1), 'osmid_drive']
+                osmid2 = network.deconet_network_nodes.loc[int(node2), 'osmid_drive']
+                if osmid1 == osmid2:
+                    to_drop = network.deconet_network_nodes.loc[int(node2), 'bindex']
+                    network.deconet_network_nodes.loc[int(node2), 'bindex'] = network.deconet_network_nodes.loc[int(node1), 'bindex']
+                    
+                    for node in network.nodes_covered_fixed_lines: 
+                        if network.deconet_network_nodes.loc[int(node), 'bindex'] > to_drop:
+                            network.deconet_network_nodes.loc[int(node), 'bindex'] -= 1
+                    
+                    network.bus_stations = network.bus_stations.drop(to_drop)
+                    network.bus_stations = network.bus_stations.reset_index(drop=True)
 
 def get_files_ID(place_name):
 
