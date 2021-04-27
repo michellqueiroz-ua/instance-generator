@@ -235,9 +235,6 @@ def download_network_information(
     #print(unreachable_nodes)
     #network.G_drive.remove_nodes_from(unreachable_nodes)
     
-    #removes unreacheable stops or useless duplicate stations
-    filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
-
     #get fixed lines
     if get_fixed_lines is not None:
         if get_fixed_lines == 'osm':
@@ -258,6 +255,8 @@ def download_network_information(
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
 
+    #removes unreacheable stops or useless duplicate stations
+    filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
     
 
