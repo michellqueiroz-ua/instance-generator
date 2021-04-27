@@ -44,17 +44,17 @@ def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base
             if ((index1 != index2) and (index2 > index1)):
                 osmid_origin_stop = int(stop1['osmid_drive'])
                 osmid_destination_stop = str(int(stop2['osmid_drive']))
-                if (stop1['type'] != stop2['type']):
-                    try:
-                        if (int(shortest_path_drive[osmid_origin_stop, osmid_destination_stop]) == 0):
-                            if stop1['type'] == 0:
-                                if (index1 not in indexes_to_drop):
-                                    indexes_to_drop.append(index1)
-                            elif stop2['type'] == 0:
-                                if (index2 not in indexes_to_drop):
-                                    indexes_to_drop.append(index2)
-                    except KeyError:
-                        pass
+                #if (stop1['type'] != stop2['type']):
+                try:
+                    if (int(shortest_path_drive.loc[osmid_origin_stop, osmid_destination_stop]) == 0):
+                        if (int(stop1['type']) == 0):
+                            if (index1 not in indexes_to_drop):
+                                indexes_to_drop.append(index1)
+                        elif (int(stop2['type']) == 0):
+                            if (index2 not in indexes_to_drop):
+                                indexes_to_drop.append(index2)
+                except KeyError:
+                    pass
                     
 
     for index_to_drop in indexes_to_drop:
