@@ -15,7 +15,8 @@ def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base
 
     save_dir_csv = os.path.join(save_dir, 'csv')
     path_bus_stations = os.path.join(save_dir_csv, output_file_base+'.stations.csv')
-    print('number of bus stops before cleaning: ', len(network.bus_stations))
+    before_removed = len(network.bus_stations)
+    print('number of bus stops before cleaning: ', before_removed)
 
     useless_bus_station = True
     while useless_bus_station:
@@ -61,12 +62,16 @@ def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base
     for index_to_drop in indexes_to_drop:
         network.bus_stations = network.bus_stations.drop(index_to_drop)
 
-    print('number of bus stops after removal: ', len(network.bus_stations))
+    after_removed = len(network.bus_stations)
+    print('number of bus stops after removal: ', after_removed)
 
     #stations_ids = range(0, len(network.bus_stations))
     #bus_stations.index = stations_ids
 
     network.bus_stations.to_csv(path_bus_stations)
+
+    num_removed = before_removed - after_removed
+    return num_removed
 
 @ray.remote
 def get_bus_station(G_walk, G_drive, index, poi):

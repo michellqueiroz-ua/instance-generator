@@ -15,7 +15,7 @@ if __name__ == '__main__':
     inst1.add_spatial_distribution(num_origins=-1, num_destinations=-1, prob=50, is_random_origin_zones=True, is_random_destination_zones=True)
     inst1.add_spatial_distribution(num_origins=-1, num_destinations=-1, prob=0)
     inst1.add_spatial_distribution(num_origins=-1, num_destinations=-1, prob=0)
-    inst1.set_time_window(min_early_departure=5, max_early_departure=11, time_unit="h") #planning horizon
+    inst1.set_time_window(min_early_departure=5, max_early_departure=11, time_unit="h") #planning horizon (planning period)
     inst1.set_interval_lead_time(min_lead_time=0, max_lead_time=5, time_unit="min")
     inst1.set_interval_walk_speed(min_walk_speed=5, max_walk_speed=5, speed_unit="kmh")
     inst1.set_interval_max_walking(lb_max_walking=600, ub_max_walking=600, time_unit="s")
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     inst1.set_number_replicas(number_replicas=1)
     inst1.set_delay_vehicle_factor(delay_vehicle_factor=0.5)
     inst1.set_delay_walk_factor(delay_walk_factor=0.5)
-    inst1.add_time_window_gap(10, "min")
+    inst1.add_time_window_gap(10, "min") #time window length
 
     #inst1.set_num_depots(2)
     #inst1.set_num_schools(2)

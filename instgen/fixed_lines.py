@@ -596,6 +596,8 @@ def transform_fixed_routes_stations_in_bus_stations(network):
                 if osmid1 == osmid2:
                     to_drop = network.deconet_network_nodes.loc[int(node2), 'bindex']
                     network.deconet_network_nodes.loc[int(node2), 'bindex'] = network.deconet_network_nodes.loc[int(node1), 'bindex']
+
+                    network.deconet_network_nodes.loc[int(node2), 'osmid_walk'] = network.deconet_network_nodes.loc[int(node2), 'osmid_walk']
                     
                     for node in network.nodes_covered_fixed_lines: 
                         if network.deconet_network_nodes.loc[int(node), 'bindex'] > to_drop:
