@@ -3,6 +3,8 @@ import osmapi as osm
 import osmnx as ox
 import networkx as nx
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 import random
 from shapely.geometry import Point
 from geopy.distance import geodesic
@@ -357,5 +359,50 @@ class Network:
             
         #updates the polygon. used to generate coordinates within the zone
         self.zones.loc[index, 'polygon'] = polygon
+
+    def divide_network_grid(self, polygon, rows, columns):
+
+        fig, ax = ox.plot_graph(self.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
+
+        blocks = []
+
+        minx, miny, maxx, maxy = polygon.bounds
+
+        dist_lat = (maxy-miny)/rows
+        dist_lng = (maxx-minx)/columns
+
+        lat = miny
+        lng = minx
+        for y in range(rows):
+
+            delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
+            for x in range(columns):
+
+                delta_lng = (dist_lon / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
+
+                north = lat + delta_lat
+                south = lat - delta_lat
+                east = lng + delta_lng
+                west = lng - delta_lng
+
+                polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+
+                d = {
+                    'polygon': polygon
+                }
+
+                blocks.append(d)
+                ax.scatter(lat, lng, c='red', s=8, marker=",")
+
+                lng += dist_lng
+            lat += dist_lat            
+
+        self.blocks = pd.DataFrame(blocks)
+        plt.show()
+        plt.close(fig)
+
+
+
+
 
 

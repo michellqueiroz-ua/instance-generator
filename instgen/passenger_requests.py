@@ -50,6 +50,9 @@ def _generate_requests_ODBRPFL(
     generate requests for the on demand bus routing problem with fixed lines
     '''
 
+    random.seed(inst.seed)
+    np.random.seed(inst.seed)
+
     inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  
 
@@ -410,6 +413,9 @@ def _generate_requests_DARP(
     generate requests for the dial-a-ride problem
     '''
 
+    random.seed(inst.seed)
+    np.random.seed(inst.seed)
+
     inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  
 
@@ -749,6 +755,9 @@ def _generate_requests_ODBRP(
     generate requests for the on demand bus routing problem
     '''
 
+    random.seed(inst.seed)
+    np.random.seed(inst.seed)
+
     inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  
 
@@ -1048,6 +1057,10 @@ def _generate_requests_SBRP(
     inst,
     replicate_num,
 ):
+
+    random.seed(inst.seed)
+    np.random.seed(inst.seed)
+    
     #file that will store the information of this instance in json format
     inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  

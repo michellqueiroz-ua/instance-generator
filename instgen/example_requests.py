@@ -25,6 +25,8 @@ if __name__ == '__main__':
     inst1.set_delay_walk_factor(delay_walk_factor=0.5)
     inst1.add_time_window_gap(10, "min") #time window length
 
+    inst1.seed_seed(100, 20)
+    
     #inst1.set_num_depots(2)
     #inst1.set_num_schools(2)
     #inst1.add_depot_from_address("rua sao domingos lisboa portugal")

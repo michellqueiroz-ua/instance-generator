@@ -91,6 +91,9 @@ class Instance:
         self.wheelchair = False
         self.ambulatory = False
 
+        self.seed = 0
+        self.increment_seed = 1
+
 
     def add_request_demand_uniform(self, 
         min_time, 
@@ -185,6 +188,10 @@ class Instance:
             self.destination_zones = np.random.randint(0, num_zones, self.num_destinations)
     '''
 
+    def set_seed(self, seed, increment_seed):
+
+        self.seed = seed
+        self.increment_seed = increment_seed
 
     def set_time_window(self, min_early_departure, max_early_departure, time_unit):
 
@@ -401,20 +408,21 @@ class Instance:
 
     def generate_requests(self):
 
-        if self.problem_type == "DARP":
-            for replicate_num in range(self.number_replicas):
+
+        for replicate_num in range(self.number_replicas):
+            
+            self.seed += self.increment_seed
+
+            if self.problem_type == "DARP":
                 _generate_requests_DARP(self, replicate_num)  
 
-        if self.problem_type == "ODBRP":
-            for replicate_num in range(self.number_replicas):
+            if self.problem_type == "ODBRP":
                 _generate_requests_ODBRP(self, replicate_num) 
 
-        if self.problem_type == "ODBRPFL":
-            for replicate_num in range(self.number_replicas):
+            if self.problem_type == "ODBRPFL":
                 _generate_requests_ODBRPFL(self, replicate_num) 
 
-        if self.problem_type == "SBRP":
-            for replicate_num in range(self.number_replicas):
+            if self.problem_type == "SBRP":
                 _generate_requests_SBRP(self, replicate_num)
 
           
