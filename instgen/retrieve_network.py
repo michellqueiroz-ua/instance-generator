@@ -68,7 +68,9 @@ def download_network_information(
     max_speed_factor=0.5, 
     get_fixed_lines=None,
     BBx=1000,
-    BBy=1000
+    BBy=1000,
+    rows=10,
+    columns=10
 ):
 
     warnings.filterwarnings(action="ignore")
@@ -217,7 +219,11 @@ def download_network_information(
 
 
     network = Network(place_name, G_drive, G_walk, polygon, bus_stations, zones, schools)
-    #network.update_travel_time_matrix(travel_time_matrix)
+    
+    network.divide_network_grid(rows, columns)
+    R = 1000
+    pt = polygon.centroid
+    network._get_random_coord_circle(R, pt.y, pt.x)
     
     plot_bus_stations(network, save_dir_images)
     network_stats(network)

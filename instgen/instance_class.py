@@ -39,6 +39,10 @@ class Instance:
 
         self.spatial_distribution = []
 
+        self.origin_weights = [0] * len(network.zones)
+
+        self.destination_weights = [0] * len(network.zones)
+
         '''
         self.num_origins = -1
         self.num_destinations = -1
@@ -425,7 +429,127 @@ class Instance:
             if self.problem_type == "SBRP":
                 _generate_requests_SBRP(self, replicate_num)
 
-          
+    def _assign_weights_coord(self, attribute, ):
+
+        if attribute == 'origin':
+            pass
+
+    def _assign_weights_subset_zones(self, attribute, num_zones, cum_weigth):
+
+        id_zones = np.random.randint(0, len(self.zones), num_zones)
+
+        sweights = np.random.uniform(0, 1, num_zones-1)
+        sweights.append(0)
+        sweights.append(1)
+        sweights.sort()
+
+        weights = []
+        for w in range(len(sweights-1)):
+
+            diff = sweights[w+1] - sweights[w]
+            diff *= cum_weigth
+            weights.append(diff)
+
+        random.shuffle(weights)
+
+        count = 0
+        for idz in id_zones:
+
+            if attribute == 'origin':
+                self.network.zones.loc[int(idz), 'origin_weigth'] = weights[count]
+
+            if attribute == 'destination':
+                self.network.zones.loc[int(idz), 'destination_weigth'] = weights[count]
+
+            count += 1
+
+    def _assignt_weights_grid(self, attribute):
+
+        tot_weigth = 0
+        left_zones = 0
+        for index, row in self.network.zones.iterrows():
+
+            if attribute == 'origin':
+                tot_weigth += row['origin_weigth']
+
+                if (int(row['origin_weigth']) == 0):
+                    left_zones += 1
+
+            if attribute == 'destination':
+                tot_weigth += row['destination_weigth']
+
+                if (int(row['destination_weigth']) == 0):
+                    left_zones += 1
+
+        cum_weigth = 100 - tot_weigth
+
+        num_zones = left_zones
+
+        if (cum_weigth > 0):
+
+            sweights = np.random.uniform(0, 1, num_zones-1)
+            sweights.append(0)
+            sweights.append(1)
+            sweights.sort()
+
+            weights = []
+            for w in range(len(sweights-1)):
+
+                diff = sweights[w+1] - sweights[w]
+                diff *= cum_weigth
+                weights.append(diff)
+
+            random.shuffle(weights)
+
+            count = 0
+            for index, row in self.network.zones.iterrows():
+
+                if attribute == 'origin':
+
+                    if (int(row['origin_weigth']) == 0):
+                       self.network.zones.loc[int(index), 'origin_weigth'] = weights[count]
+                       count += 1
+
+                if attribute == 'destination':
+
+                    if (int(row['destination_weigth']) == 0):
+                        self.network.zones.loc[int(index), 'destination_weigth'] = weights[count]
+                        count += 1
+
+
+        sumw = 0
+        for index, row in self.network.zones.iterrows():
+
+            if attribute == 'origin':
+
+                sumw += row['origin_weigth']
+
+            if attribute == 'destination':
+
+                sumw += row['destination_weigth']
+
+
+        print(sumw)
+        sumw2 = 0
+        if sumw > 100:
+
+            for index, row in self.network.zones.iterrows():
+
+                if attribute == 'origin':
+
+                    new_weigth = (self.network.zones.loc[int(index), 'origin_weigth']/sumw)*100
+                    self.network.zones.loc[int(index), 'origin_weigth'] = new_weigth
+                    sumw2 += new_weigth
+
+                if attribute == 'destination':
+
+                    new_weigth = (self.network.zones.loc[int(index), 'destination_weigth']/sumw)*100
+                    self.network.zones.loc[int(index), 'destination_weigth'] = new_weigth
+                    sumw2 += new_weigth
+
+            print(sumw2)
+
+
     '''
     sets the interval of walking time (in units of time), that the user is willing to walk to reach a pre defined location, such as bus stations
     value is randomized for each user

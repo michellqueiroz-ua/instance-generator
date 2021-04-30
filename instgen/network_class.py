@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 from shapely.geometry import Point
+from shapely.geometry import Polygon
 from geopy.distance import geodesic
 
             
@@ -332,6 +333,38 @@ class Network:
 
         return (-1, -1)
 
+    def _get_random_coord_circle(self, R, clat, clon):
+
+        '''
+        returns random coordinate within the circle bounds
+        '''
+
+        fig, ax = ox.plot_graph(self.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
+
+        counter = 0
+        number = 1
+        while counter < 1000:
+            r = R * math.sqrt(np.random.uniform(0, 1))  
+            theta = np.random.uniform(0, 1) * 2 * math.pi
+
+            lon = clon + r * math.cos(theta)
+            lat = clat + r * math.sin(theta)
+
+            ax.scatter(lon, lat, c='red', s=8, marker=",")
+
+            pnt = Point(lon, lat)
+
+            cdist = math.sqrt(((lon - clon) ** 2) + ((lat - clat) ** 2))
+
+            if cdist <= R:
+                count += 1
+                #return pnt
+
+        plt.show()
+        plt.close(fig)
+
+        return (-1, -1)
+
 
     def set_zone_bbox(self, zone_id, dist_lat, dist_lon):
 
@@ -360,13 +393,14 @@ class Network:
         #updates the polygon. used to generate coordinates within the zone
         self.zones.loc[index, 'polygon'] = polygon
 
-    def divide_network_grid(self, polygon, rows, columns):
+    def divide_network_grid(self, rows, columns):
 
         fig, ax = ox.plot_graph(self.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
+        earth_radius = 6371009  # meters
         blocks = []
 
-        minx, miny, maxx, maxy = polygon.bounds
+        minx, miny, maxx, maxy = self.polygon.bounds
 
         dist_lat = (maxy-miny)/rows
         dist_lng = (maxx-minx)/columns
@@ -376,31 +410,103 @@ class Network:
         for y in range(rows):
 
             delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
+            delta_lat *= 2
             for x in range(columns):
 
-                delta_lng = (dist_lon / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
+                delta_lng = (dist_lng / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
+                delta_lng *= 2
 
                 north = lat + delta_lat
-                south = lat - delta_lat
+                south = lat
                 east = lng + delta_lng
-                west = lng - delta_lng
+                west = lng
 
                 polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
 
                 d = {
-                    'polygon': polygon
+                    'type': 1,
+                    'polygon': polygon,
+                    'radius': np.nan,
+                    'center_y': np.nan,
+                    'center_x': np.nan,
+                    'origin_weigth': 0,
+                    'destination_weigth': 0
                 }
 
                 blocks.append(d)
-                ax.scatter(lat, lng, c='red', s=8, marker=",")
+                ax.scatter(lng, lat, c='red', s=8, marker=",")
 
-                lng += dist_lng
-            lat += dist_lat            
+                lng += delta_lng
+            lat += delta_lat            
 
         self.blocks = pd.DataFrame(blocks)
         plt.show()
         plt.close(fig)
 
+    def add_new_zone(self, center_x, center_y, length_x=0, length_y=0, radius=0, origin_weigth=0, destination_weigth=0):
+
+
+        for index, row in self.zones.iterrows():
+
+            if (row['center_y'] == center_y) and (row['center_x'] == center_x):
+                raise ValueError('another zone with same center coordinates was already added.')
+
+        if (radius > 0) and (length_x > 0):
+            raise ValueError('radius and length can not be specified at the same time for a zone')
+
+        if not ((origin_weigth >= 0) and (origin_weigth <= 100)):
+            raise ValueError('origin_weigth must be in the interval [0,100]')
+
+        if not ((destination_weigth >= 0) and (destination_weigth <= 100)):
+            raise ValueError('destination_weigth must be in the interval [0,100]')
+
+        if (length_x > 0) or (length_y > 0):
+
+            if (length_x == 0) or (length_y == 0):
+                raise ValueError('please set both length in x and y coordinates (length_x and length_y)')
+
+            earth_radius = 6371009  # meters
+        
+            lat = center_y
+            lng = center_x
+
+            delta_lat = (length_y / earth_radius) * (180 / math.pi)
+            delta_lng = (length_x / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
+            
+            north = lat + delta_lat
+            south = lat - delta_lat
+            east = lng + delta_lng
+            west = lng - delta_lng
+            
+            polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+
+            d = {
+                'type': 0,
+                'polygon': np.nan,
+                'radius': radius,
+                'center_y': center_y,
+                'center_x': center_x,
+                'origin_weigth': origin_weigth,
+                'destination_weigth': destination_weigth
+            }
+
+        else:
+
+            polygon = np.nan
+
+            d = {
+                'type': 1,
+                'polygon': np.nan,
+                'radius': radius,
+                'center_y': center_y,
+                'center_x': center_x,
+                'origin_weigth': origin_weigth,
+                'destination_weigth': destination_weigth
+            }   
+
+        
+
+        
 
 
 
