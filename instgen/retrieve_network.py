@@ -217,13 +217,12 @@ def download_network_information(
     #create graph to plot zones here           
     print('number of schools', len(schools))
 
-
     network = Network(place_name, G_drive, G_walk, polygon, bus_stations, zones, schools)
     
     network.divide_network_grid(rows, columns)
-    R = 1000
-    pt = polygon.centroid
-    network._get_random_coord_circle(R, pt.y, pt.x)
+    #R = 1000
+    #pt = polygon.centroid
+    #network._get_random_coord_circle(R, pt.y, pt.x)
     
     plot_bus_stations(network, save_dir_images)
     network_stats(network)

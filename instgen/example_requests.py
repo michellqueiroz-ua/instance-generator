@@ -7,8 +7,8 @@ if __name__ == '__main__':
 
     caching.clear_cache()
     
-    inst1 = Instance(folder_to_network='Lisbon, Portugal')
-    inst1.set_problem_type(problem_type="ODBRP")
+    inst1 = Instance(folder_to_network='Rennes, France')
+    inst1.set_problem_type(problem_type="DARP")
     inst1.add_request_demand_uniform(min_time=8, max_time=10, number_of_requests=500, time_unit="h")
     #inst1.add_request_demand_normal(mean=8, std=0.5, number_of_requests=100, time_unit="h")
     inst1.add_spatial_distribution(num_origins=-1, num_destinations=-1, prob=50, is_random_origin_zones=True, is_random_destination_zones=True)
@@ -23,9 +23,8 @@ if __name__ == '__main__':
     inst1.set_number_replicas(number_replicas=1)
     inst1.set_delay_vehicle_factor(delay_vehicle_factor=0.5)
     inst1.set_delay_walk_factor(delay_walk_factor=0.5)
-    inst1.add_time_window_gap(10, "min") #time window length
-
-    inst1.seed_seed(100, 20)
+    inst1.add_time_window_gap(g=10, time_unit="min") #time window length
+    inst1.set_seed(seed=100, increment_seed=20)
     
     #inst1.set_num_depots(2)
     #inst1.set_num_schools(2)

@@ -9,6 +9,7 @@ import random
 from request_distribution_class import RequestDistributionTime
 from spatial_distribution_class import SpatialDistribution
 from shapely.geometry import Point
+from passenger_requests import _generate_requests
 from passenger_requests import _generate_requests_DARP
 from passenger_requests import _generate_requests_ODBRP
 from passenger_requests import _generate_requests_ODBRPFL
@@ -39,9 +40,9 @@ class Instance:
 
         self.spatial_distribution = []
 
-        self.origin_weights = [0] * len(network.zones)
+        self.origin_weights = [0] * len(self.network.zones)
 
-        self.destination_weights = [0] * len(network.zones)
+        self.destination_weights = [0] * len(self.network.zones)
 
         '''
         self.num_origins = -1
@@ -418,7 +419,7 @@ class Instance:
             self.seed += self.increment_seed
 
             if self.problem_type == "DARP":
-                _generate_requests_DARP(self, replicate_num)  
+                _generate_requests(self, replicate_num)  
 
             if self.problem_type == "ODBRP":
                 _generate_requests_ODBRP(self, replicate_num) 

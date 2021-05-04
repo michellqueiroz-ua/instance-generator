@@ -615,6 +615,10 @@ def get_files_ID(place_name):
         file_id_nn = '1RXmVrGbajAtMXzpXx2sud-t0Nec2el7q'
         file_id_sn = '1PtDSAW4zZwm6EzqmUq7nq_kkC21klgIk'
 
+    if (place_name == 'Rennes, France'):
+        file_id_nn = '1Eim23S9dz8Ncyh-jOCGaAFTj5UsWloPB'
+        file_id_sn = '1DAutvrWNUdNKOclV8t3FTwWGFSV6xK9h'
+
 
     return file_id_nn, file_id_sn
 

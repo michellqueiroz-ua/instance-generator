@@ -9,6 +9,7 @@ import random
 from shapely.geometry import Point
 from shapely.geometry import Polygon
 from geopy.distance import geodesic
+import geopy.distance
 
             
 class Network:
@@ -339,6 +340,10 @@ class Network:
         returns random coordinate within the circle bounds
         '''
 
+        earth_radius = 6371009  # meters
+        print('circle centroid')
+        print(clat, clon)
+        print('points')
         fig, ax = ox.plot_graph(self.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
         counter = 0
@@ -347,17 +352,28 @@ class Network:
             r = R * math.sqrt(np.random.uniform(0, 1))  
             theta = np.random.uniform(0, 1) * 2 * math.pi
 
-            lon = clon + r * math.cos(theta)
-            lat = clat + r * math.sin(theta)
+            dist_lng = r * math.cos(theta)
+            dist_lat = r * math.sin(theta)
+
+            delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
+            delta_lng = (dist_lng / earth_radius) * (180 / math.pi) / math.cos(clat * math.pi / 180)
+            
+            lon = clon + delta_lng
+            lat = clat + delta_lat
 
             ax.scatter(lon, lat, c='red', s=8, marker=",")
+            #print(lon, lat)
 
             pnt = Point(lon, lat)
 
-            cdist = math.sqrt(((lon - clon) ** 2) + ((lat - clat) ** 2))
+            #cdist = math.sqrt(((lon - clon) ** 2) + ((lat - clat) ** 2))
+
+            c1 = (clat, clon)
+            c2 = (lat, lon)
+            cdist = (geopy.distance.distance(c1, c2).km)*1000
 
             if cdist <= R:
-                count += 1
+                counter += 1
                 #return pnt
 
         plt.show()
@@ -400,26 +416,87 @@ class Network:
         earth_radius = 6371009  # meters
         blocks = []
 
-        minx, miny, maxx, maxy = self.polygon.bounds
+        #minx, miny, maxx, maxy = self.polygon.bounds
 
-        dist_lat = (maxy-miny)/rows
-        dist_lng = (maxx-minx)/columns
+        minx = 90
+        miny = 90
+        maxx = -90
+        maxy = -90
+
+        for node in self.G_drive.nodes(): 
+
+            lat = self.G_drive.nodes[node]['y']
+            lng = self.G_drive.nodes[node]['x']
+
+            if (lng < minx):
+                minx = lng
+
+            if (lng > maxx):
+                maxx = lng
+
+            if (lat < miny):
+                miny = lat
+
+            if (lat > maxy):
+                maxy = lat
+
+
+        lats = np.linspace(miny, maxy, num=rows+1)
+        lngs = np.linspace(minx, maxx, num=columns+1)
+
+        print(minx, maxx)
+        print(miny, maxy)
+
+        for lat in lats:
+            for lng in lngs:
+
+                ax.scatter(lng, lat, c='red', s=8, marker=",")
+                print(lng, lat)
+
+        '''         
+        #dist_lat = abs((maxy-miny)/rows)
+        #dist_lng = abs((maxx-minx)/columns)
+
+        print(minx, maxx)
+        print(miny, maxy)
+        
+        c1 = (minx, miny)
+        c2 = (maxx, miny)
+        dist_lng = (geopy.distance.distance(c1, c2).km)*1000
+
+
+        c1 = (minx, miny)
+        c2 = (minx, maxy)
+        dist_lat = (geopy.distance.distance(c1, c2).km)*1000
+
+        print(dist_lat)
+        print(dist_lng)
+
+        dist_lat = dist_lat/rows
+        dist_lng = dist_lng/columns
 
         lat = miny
-        lng = minx
+        #lng = minx
         for y in range(rows):
 
             delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
-            delta_lat *= 2
+            #delta_lat *= 2
+            lng = minx
             for x in range(columns):
 
+                midlat = lat + delta_lat/2
                 delta_lng = (dist_lng / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
-                delta_lng *= 2
+                #delta_lng *= 2
 
                 north = lat + delta_lat
                 south = lat
                 east = lng + delta_lng
                 west = lng
+
+                c1 = (south, west)
+                c2 = (south, east)
+                dist = (geopy.distance.distance(c1, c2).km)*1000
+                print(dist)
 
                 polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
 
@@ -435,12 +512,14 @@ class Network:
 
                 blocks.append(d)
                 ax.scatter(lng, lat, c='red', s=8, marker=",")
+                print(lng, lat)
 
                 lng += delta_lng
-            lat += delta_lat            
+            lat += delta_lat 
+        '''           
 
-        self.blocks = pd.DataFrame(blocks)
-        plt.show()
+        #self.blocks = pd.DataFrame(blocks)
+        #plt.show()
         plt.close(fig)
 
     def add_new_zone(self, center_x, center_y, length_x=0, length_y=0, radius=0, origin_weigth=0, destination_weigth=0):

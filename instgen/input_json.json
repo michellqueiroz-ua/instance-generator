@@ -1,0 +1,149 @@
+{
+	"seed": [
+		{
+			"value": 100,
+			"increment": 20
+		}
+	],
+	"network": "Rennes, France",
+	"problem": "DARP",
+	"get_fixed_lines": "deconet",
+	"request_demand_uniform": [
+		{
+			"min_time": 8,
+			"max_time": 10,
+			"number_of_requests": 500,
+			"time_unit": "h"
+		}
+	],
+	"spatial_distribution1": [
+		{
+			"num_origins": -1,
+			"num_destinations": -1,
+			"prob": 50,
+			"is_random_origin_zones": true,
+			"is_random_destination_zones": true
+		}
+	],
+	"spatial_distribution2": [
+		{
+			"num_origins": -1,
+			"num_destinations": -1,
+			"prob": 50,
+			"is_random_origin_zones": true,
+			"is_random_destination_zones": true
+		}
+	],
+	"spatial_distribution3": [
+		{
+			"num_origins": -1,
+			"num_destinations": -1,
+			"prob": 0
+		}
+	],
+	"spatial_distribution4": [
+		{
+			"num_origins": -1,
+			"num_destinations": -1,
+			"prob": 0
+		}
+	],
+	"planning_horizon": [
+		{
+			"min_early_departure": 5,
+			"max_early_departure": 11,
+			"time_unit": "h"
+		}
+	],
+	"lead_time": [
+		{
+			"min_lead_time": 0,
+			"max_lead_time": 5,
+			"time_unit": "min"
+		}
+	],
+	"walk_speed": [
+		{
+			"min_walk_speed": 5,
+			"max_walk_speed": 5,
+			"speed_unit": "kmh"
+		}
+	],
+	"max_walking": [
+		{
+			"lb_max_walking": 600,
+			"ub_max_walking": 600,
+			"time_unit": "s"
+		}
+	],
+	"number_replicas": 1,
+	"delay_vehicle_factor": 0.5,
+	"delay_walk_factor": 0.5,
+	"time_window_length": [
+		{
+			"length": 10,
+			"time_unit": "min"
+
+		}
+	],
+	"request_demand_uniform": [
+		{
+			"type:": "uniform",
+			"min_time": 8,
+			"max_time": 10,
+			"number_of_requests": 1,
+			"time_unit": "h"
+		}
+	],
+	"attributes": [
+		{
+			"name": "earliest_departure",
+			"type": "time",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"min": 8,
+						"max": 10,
+						"time_unit": "h"
+					} ]
+		},
+		{
+			"name": "latest_arrival",
+			"type": "time",
+			"time_unit": "s",
+			"expression": "earliest_departure + direct_travel_time + (direct_travel_time * 0.5)"
+		},
+		{
+			"name": "lead_time",
+			"type": "time",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"min": 0,
+						"max": 5,
+						"time_unit": "min"
+					} ],
+			"static_probability": 0.5
+		},
+		{  
+			"name": "time_stamp",
+			"type": "time",
+			"time_unit": "s",
+			"expression": "earliest_departure - lead_time" 
+		},
+		{  
+			"name": "origin",
+			"type": "coordinate",
+			"subset_zones": false
+		},
+		{  
+			"name": "destination",
+			"type": "coordinate",
+			"subset_zones": false
+		},
+		{
+			"name": "direct_travel_time",
+			"type": "time",
+			"time_unit": "s",
+			"expression": "dtt(origin,destination)"
+		}
+	]
+}

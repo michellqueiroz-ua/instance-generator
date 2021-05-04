@@ -9,6 +9,7 @@ import networkx as nx
 import numpy as np
 import random
 import ray
+import re
 from shapely.geometry import Point
 
 def plot_requests(network, save_dir_images, origin_points, destination_points):
@@ -70,7 +71,6 @@ def _generate_requests_ODBRPFL(
         
         #randomly generates the earliest departure times or latest arrival times
         inst.request_demand[r].sample_times()
-
 
         weightssd = (inst.spatial_distribution[0].prob, inst.spatial_distribution[1].prob, inst.spatial_distribution[2].prob, inst.spatial_distribution[3].prob)
         
@@ -404,6 +404,406 @@ def _generate_requests_ODBRPFL(
         json.dump(instance_data, file, indent=4)
         file.close()
 
+def _generate_requests( 
+    inst,
+    replicate_num,
+):
+    
+    print("Now generating " + " request_data")
+
+
+    inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
+    instance_data = {}  
+
+    origin_points=[]
+    destination_points=[]
+    lines = []
+    all_requests = {} 
+    h = 0
+    num_requests = 0
+    request_id = 0
+
+    node_list = []
+    node_list_seq = []
+    inst.depot_nodes_seq = []
+
+    if (len(inst.depot_nodes_drive) > 0):
+
+        for i in range(0, len(inst.depot_nodes_drive)):
+
+            depot_node_drive = inst.depot_nodes_drive[i]
+            node_list.append(depot_node_drive)
+            node_list_seq.append(i)
+            inst.depot_nodes_seq.append(i)
+
+        inst.num_depots = len(inst.depot_nodes_drive)
+        
+    else:
+
+        for i in range(0, inst.num_depots):
+
+            depot_point = inst.network._get_random_coord(inst.network.polygon)
+            depot_point = (depot_point.y, depot_point.x)
+            depot_node_drive = ox.get_nearest_node(inst.network.G_drive, depot_point)
+            inst.depot_nodes_drive.append(depot_node_drive)
+
+            node_list.append(depot_node_drive)
+            node_list_seq.append(i)
+            inst.depot_nodes_seq.append(i)
+
+    #for each PDF
+    for r in range(len(inst.request_demand)):
+        
+        #fig, ax = ox.plot_graph(inst.network.G_walk, show=False, close=False)
+
+        #randomly generates times
+        inst.request_demand[r].sample_times()
+
+        weightssd = (inst.spatial_distribution[0].prob, inst.spatial_distribution[1].prob, inst.spatial_distribution[2].prob, inst.spatial_distribution[3].prob)
+
+        #randomly generates the zones 
+        for sd in inst.spatial_distribution:
+
+            #randomly generates the zones 
+            if sd.is_random_origin_zones:
+                sd.randomly_sample_origin_zones(len(inst.network.zones))
+
+            if sd.is_random_destination_zones:
+                sd.randomly_sample_destination_zones(len(inst.network.zones))      
+
+        num_requests = inst.request_demand[r].num_requests
+        print(num_requests)
+        i=0
+        while i < num_requests:
+
+            attributes = {}
+            for att in inst.sorted_attributes:
+                
+                if 'pdf' in inst.GA.nodes[att]:
+
+                    if inst.GA.nodes[att]['pdf'][0]['type'] == 'normal':
+
+                        attributes[att] = np.random.normal(inst.GA.nodes[att]['pdf'][0]['mean'], inst.GA.nodes[att]['pdf'][0]['std'])
+
+                    if inst.GA.nodes[att]['pdf'][0]['type'] == 'uniform':
+
+                        attributes[att] = np.random.uniform(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
+
+                elif 'expression' in inst.GA.nodes[att]:
+
+                    #expression = inst.GA.nodes[att]['expression']
+                    #expression = re.split(r"[(,) ]", GA.nodes[node]['expression'].split())
+                    expression = inst.GA.nodes[att]['expression'].split() 
+
+                    for i in range(len(expression)):
+
+                        if expression[i] in attributes:
+                            
+                            expression[i] = str(attributes[expression[i]])
+                        
+                        try:
+                            
+                            
+                            print(expression)
+
+                            expression = ' '.join(expression)
+                            attributes[att] = eval(expression)
+                        
+                        except (SyntaxError, NameError, ValueError):
+
+                            print(inst.GA.nodes[att]['expression'])
+                            '''
+                            expression = re.split(r"[(,) ]", inst.GA.nodes[att]['expression'].split())
+                            
+                            if expression[0] == 'dtt':
+
+                                node_drive1 = attributes[expression[1]+'node_drive']
+                                node_drive2 = attributes[expression[2]+'node_drive']
+
+                                attributes[att] = inst.network._return_estimated_travel_time_drive(node_drive1, node_drive2)
+                            '''
+
+                if inst.GA.nodes[att]['type'] == 'coordinate':
+
+                    if inst.GA.nodes[att]['subset_zones'] is False:
+
+                        point = inst.network._get_random_coord(inst.network.polygon)
+                        point = (point.y, point.x)
+                    
+                    attributes[att+'point'] = point
+
+                    node_drive = ox.get_nearest_node(inst.network.G_drive, point)
+                    node_walk = ox.get_nearest_node(inst.network.G_walk, point)
+
+                    attributes[att+'node_drive'] = node_drive
+                    attributes[att+'node_walk'] = node_walk
+
+            print(attributes)
+
+            dep_time = inst.request_demand[r].demand[i]
+            
+            request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
+
+            request_time_stamp = int(dep_time - request_lead_time)
+
+            if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
+                nok = True
+            else:
+                nok = False
+            
+            arr_time = None
+
+            request_data = {}  #holds information about this request
+
+            #randomly choosing coordinates and repeated for a passenger until he can go to at least 1 stop (for both origin and destination)
+            
+            num_attempts = 0 #limit the number of attempts to generate a request and avoid infinite loop
+            while nok:
+                num_attempts += 1
+                nok = False
+                
+                origin_point = []
+                destination_point = []
+                unfeasible_request = False
+
+                sdlist = [0,1,2,3]
+                sdid = random.choices(sdlist, weights=weightssd, k=1)
+                sd = inst.spatial_distribution[sdid[0]]
+                
+                #generate coordinates for origin
+                if sd.num_origins == -1:
+
+                    origin_point = inst.network._get_random_coord(inst.network.polygon)
+                    origin_point = (origin_point.y, origin_point.x)
+
+                else:
+
+                    #print(sd.origin_zones)
+                    random_zone = np.random.uniform(0, sd.num_origins, 1)
+                    random_zone = int(random_zone)
+                    random_zone_id = int(sd.origin_zones[random_zone])
+                    polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
+        
+                    origin_point = inst.network._get_random_coord(polygon_zone)
+                    origin_point = (origin_point.y, origin_point.x)
+
+                #generate coordinates for destination
+                if sd.num_destinations == -1:
+                    
+                    destination_point = inst.network._get_random_coord(inst.network.polygon)
+                    destination_point = (destination_point.y, destination_point.x)
+
+                else:
+
+                    random_zone = np.random.uniform(0, sd.num_destinations, 1)
+                    random_zone = int(random_zone)
+                    random_zone_id = int(sd.destination_zones[random_zone])
+                    polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
+
+                    destination_point = inst.network._get_random_coord(polygon_zone)
+                    destination_point = (destination_point.y, destination_point.x)
+    
+                origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                
+
+                #compute estimated arrival time
+                estimated_travel_time = inst.network._return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
+                if estimated_travel_time >= 0:
+                    #arr_time = (dep_time) + (inst.delay_vehicle_factor * estimated_travel_time) 
+                    flex_time = inst.delay_vehicle_factor * estimated_travel_time
+                    arr_time = dep_time + estimated_travel_time + flex_time
+                else:
+                    unfeasible_request = True
+
+
+                origin_node_seq = 0
+                destination_node_seq = 0
+
+                if origin_node_drive not in node_list:
+
+                    node_list.append(origin_node_drive)
+                    node_list_seq.append(len(node_list)-1)
+                    origin_node_seq = len(node_list)-1
+
+                else:
+
+                    for si in range(len(node_list)):
+                        if origin_node_drive == node_list[si]:
+                            origin_node_seq = si
+                            break
+
+                if destination_node_drive not in node_list:
+
+                    node_list.append(destination_node_drive)
+                    node_list_seq.append(len(node_list)-1)
+                    destination_node_seq = len(node_list)-1
+
+                else:
+
+                    for si in range(len(node_list)):
+                        if destination_node_drive == node_list[si]:
+                            destination_node_seq = si
+                            break
+                
+                if  not unfeasible_request:   
+                    #prints in the json file if the request is 'viable'
+                    
+                    request_data.update({'originx': origin_point[1]})
+                    request_data.update({'originy': origin_point[0]})
+                    request_data.update({'origin_node': int(origin_node_seq)})
+
+                    origin_points.append(origin_point)
+
+                    request_data.update({'destinationx': destination_point[1]})
+                    request_data.update({'destinationy': destination_point[0]})
+                    request_data.update({'destination_node': int(destination_node_seq)})
+
+                    destination_points.append(destination_point)
+
+                    request_data.update({'time_stamp': int(request_time_stamp)})
+                    
+                    #earliest departure time
+                    request_data.update({'dep_time': int(dep_time)})
+
+                    #latest departure time
+                    l_dep_time = random.randint(int(dep_time), int(dep_time) + inst.g)
+                    request_data.update({'lat_dep_time': int(l_dep_time)})
+                    
+                    #earliest arrival time
+                    e_arr_time = random.randint(int(arr_time) - inst.g, int(arr_time))
+                    request_data.update({'ear_arr_time': int(e_arr_time)})
+
+                    #arrival time
+                    request_data.update({'arr_time': int(arr_time)})
+
+                    #compute if request need some vehicle requirement, e.g., wheelchair, ambulatory passenger
+                    #0-> no requirement
+                    #1-> wheelchair
+                    #2-> ambulatory
+                    min_req = 0
+                    max_req = 0
+                    vehicle_requirement = -1
+                    if inst.wheelchair and inst.ambulatory:
+                        max_req = 2
+                        vehicle_requirement = random.randint(min_req, max_req)
+                    else:
+                        if inst.wheelchair:
+                            max_req = 1
+                            vehicle_requirement = random.randint(min_req, max_req)
+                        elif inst.ambulatory:
+                            max_req = 1
+                            vehicle_requirement = random.randint(min_req, max_req)
+                            if vehicle_requirement > 0:
+                                vehicle_requirement = 2
+
+                    request_data.update({'vehicle_requirement': int(vehicle_requirement)})
+
+                    # add request_data to instance_data container
+                    all_requests.update({request_id: request_data})
+                    request_id+=1
+
+                    create_return_request = random.randint(0, 100)
+
+                    if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests-1:
+
+                        request_data_return = {}
+
+                        #coordinate origin
+                        request_data_return.update({'originx': destination_point[1]})
+                        request_data_return.update({'originy': destination_point[0]})
+                        request_data_return.update({'origin_node': int(destination_node_seq)})
+
+                        #coordinate destination
+                        request_data_return.update({'destinationx': origin_point[1]})
+                        request_data_return.update({'destinationy': origin_point[0]})
+                        request_data_return.update({'destination_node': int(origin_node_seq)})
+
+                        #timestamp -> time the request was made
+                        request_data_return.update({'time_stamp': int(request_time_stamp)})
+                        
+                        #departure time for the return
+                        dep_time_return = random.randint(int(arr_time), inst.max_early_departure)
+                        request_data_return.update({'dep_time': int(dep_time_return)})
+
+                        #latest departure time
+                        l_dep_time_return = random.randint(int(dep_time_return), int(dep_time_return) + inst.g)
+                        request_data_return.update({'lat_dep_time': int(l_dep_time)})
+                        
+                        #arrival time
+                        estimated_travel_time = inst.network._return_estimated_travel_time_drive(destination_node_drive, origin_node_drive)
+                        #arr_time_return = (dep_time_return) + (inst.delay_vehicle_factor * estimated_travel_time)
+                        flex_time = inst.delay_vehicle_factor * estimated_travel_time
+                        arr_time_return = dep_time_return + estimated_travel_time + flex_time
+
+                        #earliest arrival time
+                        e_arr_time_return = random.randint(int(arr_time_return) - inst.g, int(arr_time_return))
+                        request_data_return.update({'ear_arr_time': int(e_arr_time_return)})
+
+                        request_data_return.update({'arr_time': int(arr_time_return)})
+                        request_data_return.update({'vehicle_requirement': int(vehicle_requirement)})
+
+                        all_requests.update({request_id: request_data_return})
+                        request_id+=1
+
+                        #increases the number of requests
+                        i += 1
+                        
+                else:
+                    nok = True
+                    if num_attempts > 20:
+                        nok = False
+            
+            #increases the number of requests
+            i += 1
+
+        #plt.show()
+        #plt.savefig('images/foo.png')
+        #plt.close(fig) 
+
+    inst.network.node_list_darp = node_list
+    inst.network.node_list_darp_seq = node_list_seq
+
+    travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
+
+    travel_time_json = travel_time.tolist()
+    #creates a graph that will serve as the travel time matrix for the given set of requests
+    gtt = nx.DiGraph() 
+
+    for depot in inst.depot_nodes_seq:
+
+        gtt.add_node(depot, type="depot")
+
+    for node in range(len(inst.depot_nodes_seq), len(node_list)):
+
+        gtt.add_node(node, type="node")
+
+    for u in node_list_seq:
+        for v in node_list_seq:
+
+            gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+
+    output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+    #output_name_graphml = output_name_graphml.replace(" ", "")
+
+    nx.write_graphml(gtt, output_name_graphml)
+
+    instance_data.update({'num_requests:': len(all_requests),
+                          'requests': all_requests,
+                          'num_depots': inst.num_depots,
+                          'depots': inst.depot_nodes_seq,
+                          'num_nodes': len(node_list),
+                          'travel_time_matrix': travel_time_json
+                          })
+
+    save_dir = os.getcwd()+'/'+inst.output_folder_base
+    save_dir_images = os.path.join(save_dir, 'images')
+    plot_requests(inst.network, save_dir_images, origin_points, destination_points)
+
+    with open(inst.output_file_json, 'w') as file:
+        json.dump(instance_data, file, indent=4)
+        file.close()     
+
 def _generate_requests_DARP( 
     inst,
     replicate_num,
@@ -413,8 +813,8 @@ def _generate_requests_DARP(
     generate requests for the dial-a-ride problem
     '''
 
-    random.seed(inst.seed)
-    np.random.seed(inst.seed)
+    #random.seed(inst.seed)
+    #np.random.seed(inst.seed)
 
     inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
     instance_data = {}  
