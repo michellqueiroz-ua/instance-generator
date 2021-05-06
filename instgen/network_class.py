@@ -341,10 +341,10 @@ class Network:
         '''
 
         earth_radius = 6371009  # meters
-        print('circle centroid')
-        print(clat, clon)
-        print('points')
-        fig, ax = ox.plot_graph(self.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
+        #print('circle centroid')
+        #print(clat, clon)
+        #print('points')
+        #fig, ax = ox.plot_graph(self.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
         counter = 0
         number = 1
@@ -361,7 +361,7 @@ class Network:
             lon = clon + delta_lng
             lat = clat + delta_lat
 
-            ax.scatter(lon, lat, c='red', s=8, marker=",")
+            #ax.scatter(lon, lat, c='red', s=8, marker=",")
             #print(lon, lat)
 
             pnt = Point(lon, lat)
@@ -373,11 +373,11 @@ class Network:
             cdist = (geopy.distance.distance(c1, c2).km)*1000
 
             if cdist <= R:
-                counter += 1
-                #return pnt
+                #counter += 1
+                return pnt
 
-        plt.show()
-        plt.close(fig)
+        #plt.show()
+        #plt.close(fig)
 
         return (-1, -1)
 
@@ -522,13 +522,13 @@ class Network:
         #plt.show()
         plt.close(fig)
 
-    def add_new_zone(self, center_x, center_y, length_x=0, length_y=0, radius=0, origin_weigth=0, destination_weigth=0):
+    def add_new_zone(self, name, center_x, center_y, length_x=0, length_y=0, radius=0, origin_weigth=0, destination_weigth=0):
 
 
-        for index, row in self.zones.iterrows():
+        #for index, row in self.zones.iterrows():
 
-            if (row['center_y'] == center_y) and (row['center_x'] == center_x):
-                raise ValueError('another zone with same center coordinates was already added.')
+        #    if (row['center_y'] == center_y) and (row['center_x'] == center_x):
+        #       raise ValueError('another zone with same center coordinates was already added.')
 
         if (radius > 0) and (length_x > 0):
             raise ValueError('radius and length can not be specified at the same time for a zone')
@@ -549,6 +549,8 @@ class Network:
             lat = center_y
             lng = center_x
 
+            length_y = length_y/2
+            length_x = length_x/2
             delta_lat = (length_y / earth_radius) * (180 / math.pi)
             delta_lng = (length_x / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
             
@@ -556,11 +558,34 @@ class Network:
             south = lat - delta_lat
             east = lng + delta_lng
             west = lng - delta_lng
+
+            #c1 = (south, west)
+            #c2 = (south, east)
+            #dist = (geopy.distance.distance(c1, c2).km)*1000
+            #print(dist)
             
             polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
 
             d = {
+                'name': name,
                 'type': 0,
+                'polygon': polygon,
+                'radius': radius,
+                'center_y': center_y,
+                'center_x': center_x,
+                'origin_weigth': origin_weigth,
+                'destination_weigth': destination_weigth
+            }
+
+            self.zones = self.zones.append(d, ignore_index=True)
+
+        else:
+
+            polygon = np.nan
+
+            d = {
+                'name': name,
+                'type': 1,
                 'polygon': np.nan,
                 'radius': radius,
                 'center_y': center_y,
@@ -569,23 +594,32 @@ class Network:
                 'destination_weigth': destination_weigth
             }
 
-        else:
-
-            polygon = np.nan
-
-            d = {
-                'type': 1,
-                'polygon': np.nan,
-                'radius': radius,
-                'center_y': center_y,
-                'center_x': center_x,
-                'origin_weigth': origin_weigth,
-                'destination_weigth': destination_weigth
-            }   
+            self.zones = self.zones.append(d, ignore_index=True)   
 
         
+    def add_new_school(self, name, x, y):
 
-        
+        idxs = self.schools.index[self.schools['school_name'] == name].tolist()
+
+        if (len(idxs) > 1):
+            raise ValueError('school name must be unique')
+
+        u, v, key = ox.get_nearest_edge(self.G_walk, (y,x))
+        school_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
+    
+        u, v, key = ox.get_nearest_edge(self.G_drive, (y,x))
+        school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
+
+        d = {
+            'school_name':name,
+            'osmid_walk':school_node_walk,
+            'osmid_drive':school_node_drive,
+            'lat':y,
+            'lon':x,
+        }
+
+        #print(d)
+        self.schools = self.schools.append(d, ignore_index=True)
 
 
 

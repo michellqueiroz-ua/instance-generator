@@ -4,12 +4,15 @@ import numpy as np
 import random
 import re
 import os
+import osmnx as ox
 
 from instance_class import Instance
 from output_files import JsonConverter
 from output_files import output_fixed_route_network
 from pathlib import Path
 from retrieve_network import download_network_information
+from shapely.geometry import Point
+from shapely.geometry import Polygon
 from streamlit import caching
 
 def get_multiplier_time_unit(time_unit):
@@ -21,6 +24,28 @@ def get_multiplier_time_unit(time_unit):
     elif time_unit == 'h':
         mult = 3600
     
+    return mult
+
+def get_multiplier_length_unit(length_unit):
+
+    mult = 1
+    if length_unit == 'km':
+        mult = 1000
+
+    elif length_unit == 'mi':
+        mult = 1609.34
+    
+    return mult
+
+def get_multiplier_speed_unit(speed_unit):
+
+    mult = 1
+    if speed_unit == "kmh":
+        mult = float(1/3.6)
+
+    elif speed_unit == "mph":
+        mult = float(1/2.237)
+
     return mult
 
 def input_json(filename_json):
@@ -173,17 +198,17 @@ def input_json(filename_json):
 
             if 'min_early_departure' in j:
                 min_early_departure = j['min_early_departure']
-                inst.parameters['min_early_departure'] = j['min_early_departure']*3600
+                #inst.parameters['min_early_departure'] = j['min_early_departure']*3600
             else: raise ValueError('min_early_departure parameter for planning_horizon is mandatory')
 
             if 'max_early_departure' in j:
                 max_early_departure = j['max_early_departure']
-                inst.parameters['max_early_departure'] = j['max_early_departure']*3600
+                #inst.parameters['max_early_departure'] = j['max_early_departure']*3600
             else: raise ValueError('max_early_departure parameter for planning_horizon is mandatory')
 
             if 'time_unit' in j:
                 time_unit = j['time_unit']
-                inst.parameters['time_unit'] = j['time_unit']
+                #inst.parameters['time_unit'] = j['time_unit']
             else: raise ValueError('time_unit parameter for planning_horizon is mandatory')
 
             inst.set_time_window(min_early_departure=min_early_departure, max_early_departure=max_early_departure, time_unit=time_unit)
@@ -199,10 +224,32 @@ def input_json(filename_json):
                     mult = 1
                     if 'time_unit' in j:
                         mult = get_multiplier_time_unit(j['time_unit'])
+
+                    elif 'speed_unit' in j:
+                        mult = get_multiplier_speed_unit(j['speed_unit'])
+
+                    elif 'length_unit' in j:
+                        mult = get_multiplier_length_unit(j['length_unit'])
                     
                     inst.parameters[j['name']] = j['value']*mult
 
-                else: raise ValueError('value for a parameter is mandatory')
+                if 'type' in j:
+
+                    inst.parameters[j['name']]['type'] = j['type']
+
+                    if 'type' == 'list_coordinate':
+                        if 'size' in j:
+                            inst.parameters[j['name']]['size'] = j['size']
+
+                        if 'list' in j:
+                            inst.parameters[j['name']]['list'] = j['list']
+
+                        for x in data['locations']:
+                            point = (x['lat'], x['lon'])
+                            print(point)
+                            node_drive = ox.get_nearest_node(inst.network.G_drive, point)
+                            inst.parameters[param]['list_node_drive'].append(node_drive)
+                            print(node_drive)
 
             else: raise ValueError('name for a parameter is mandatory')
 
@@ -293,6 +340,82 @@ def input_json(filename_json):
 
     GA = nx.DiGraph()
 
+    if 'schools' in data:
+
+        for j in data['schools']:
+
+            if 'name' in j:
+                nameschool = j['name']
+            else: raise ValueError('name parameter for school is mandatory')
+
+            if 'lon' in j:
+                lon = j['lon']
+            else: raise ValueError('lon parameter for school is mandatory')
+
+            if 'lat' in j:
+                lat = j['lat']
+            else: raise ValueError('lat parameter for school is mandatory')
+
+            if not inst.network.polygon.contains(Point(lon,lat)):
+
+                raise ValueError('location for '+nameschool+' is not within the boundaries of network')
+
+            inst.network.add_new_school(name=nameschool, x=lon, y=lat)
+
+    if 'zones' in data:
+
+        for j in data['zones']:
+
+            if 'name' in j:
+                nameszone  = j['name']
+            else: raise ValueError('name parameter for zone is mandatory')
+
+            if 'lon' in j:
+                lon = j['lon']
+            
+                if 'lat' in j:
+                    lat = j['lat']
+                else: raise ValueError('lat parameter for zone is mandatory when lon is set')
+
+            else:
+                if 'centroid' in j:
+                    if j['centroid'] is True:
+                        pt = inst.network.polygon.centroid
+                        lon = pt.x
+                        lat = pt.y
+
+                    else: raise ValueError('either lon/lat must be given or centroid must be set to true')
+
+                else: raise ValueError('either lon/lat or centroid parameters must be set')
+
+            if not inst.network.polygon.contains(Point(lon,lat)):
+
+                raise ValueError('location for '+nameszone+' is not within the boundaries of network')
+
+            if 'length_unit' in j:
+                length_unit  = j['length_unit']
+            else:
+                length_unit = "m"
+
+            mult = get_multiplier_length_unit(length_unit)
+
+            if 'length_lon' in j:
+                length_lon  = j['length_lon']*mult
+            else:
+                length_lon = 0
+
+            if 'length_lat' in j:
+                length_lat  = j['length_lat']*mult
+            else:
+                length_lat = 0
+
+            if 'radius' in j:
+                radius  = j['radius']
+            else:
+                radius = 0
+
+            inst.network.add_new_zone(name=nameszone, center_x=lon, center_y=lat, length_x=length_lon, length_y=length_lat, radius=radius)
+
     if 'attributes' in data:
 
         index=0
@@ -314,7 +437,7 @@ def input_json(filename_json):
                     if 'time_unit' in attribute:
 
                         GA.nodes[name]['time_unit'] = attribute['time_unit']
-
+                        
                     else: 
 
                         GA.nodes[name]['time_unit'] = 's'
@@ -325,31 +448,56 @@ def input_json(filename_json):
 
                 GA.nodes[name]['subset_zones'] = attribute['subset_zones']
                 GA.nodes[name]['zones'] = []
-                #pegar aqui specific zones
+                
+                if 'set_zones' in attribute:
+
+                    for z in attribute['set_zones']:
+
+                        idxs = inst.network.zones.index[inst.network.zones['name'] == z].tolist()
+
+                        if len(idxs) > 0:
+                            index_zone = idxs[0]
+                            GA.nodes[name]['zones'].append(index_zone)
+                        else:
+                            raise ValueError('no zone named after '+z)
 
             if 'subset_schools' in attribute:
 
                 GA.nodes[name]['subset_schools'] = attribute['subset_schools']
-                inst.GA.nodes[att]['schools'] = []
-                #pegar aqui specific schools
+                GA.nodes[name]['schools'] = []
+                
+                if 'set_schools' in attribute:
+
+                    for s in attribute['set_schools']:
+
+                        idxs = inst.network.schools.index[inst.network.schools['school_name'] == s].tolist()
+
+                        if len(idxs) > 0:
+                            index_school = idxs[0]
+                            GA.nodes[name]['schools'].append(index_school)
+                        else:
+                            raise ValueError('no school named after '+s)
 
             if 'pdf' in attribute:
 
                 GA.nodes[name]['pdf'] = attribute['pdf']
 
                 mult = 1
-                if GA.nodes[name]['pdf'][0]['time_unit'] == 'min':
-                    mult = 60
+                if 'time_unit' in GA.nodes[name]['pdf'][0]:
+                    mult = get_multiplier_time_unit(GA.nodes[name]['pdf'][0]['time_unit'])
 
-                elif GA.nodes[name]['pdf'][0]['time_unit'] == 'h':
-                    mult = 3600
+                elif 'speed_unit' in GA.nodes[name]['pdf'][0]:
+                    mult = get_multiplier_speed_unit(GA.nodes[name]['pdf'][0]['speed_unit'])
+
+                elif 'length_unit' in GA.nodes[name]['pdf'][0]:
+                    mult = get_multiplier_length_unit(GA.nodes[name]['pdf'][0]['length_unit'])
 
                 if GA.nodes[name]['pdf'][0]['type'] == 'normal':
 
                     GA.nodes[name]['pdf'][0]['mean'] = GA.nodes[name]['pdf'][0]['mean']*mult
                     GA.nodes[name]['pdf'][0]['std'] = GA.nodes[name]['pdf'][0]['std']*mult
 
-                elif GA.nodes[name]['pdf'][0]['type'] == "uniform":
+                elif GA.nodes[name]['pdf'][0]['type'] == 'uniform':
 
                     GA.nodes[name]['pdf'][0]['max'] = GA.nodes[name]['pdf'][0]['max']*mult
                     GA.nodes[name]['pdf'][0]['min'] = GA.nodes[name]['pdf'][0]['min']*mult
@@ -375,6 +523,14 @@ def input_json(filename_json):
                 for exp in expression:
                     if exp in GA:
                         GA.add_edge(exp, node)
+
+                    #adds an specific dependency between max_walking_user and an attribute
+                    if exp == 'stops':
+                        GA.add_edge('max_walking', node)
+                        GA.add_edge('walk_speed', node)
+
+                    if exp == 'walk':
+                        GA.add_edge('walk_speed', node)
 
             if 'constraints' in GA.nodes[node]:
 
@@ -421,22 +577,6 @@ def input_json(filename_json):
             converter = JsonConverter(file_name=input_name)
             converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst.network, problem_type=inst.problem_type)
             #converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                
-
 
 
 

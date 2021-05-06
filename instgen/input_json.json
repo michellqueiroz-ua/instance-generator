@@ -88,12 +88,79 @@
 	],
 	"request_demand_uniform": [
 		{
-			"type:": "uniform",
+			"type": "uniform",
 			"min_time": 8,
 			"max_time": 10,
-			"number_of_requests": 2,
+			"number_of_requests": 100,
 			"time_unit": "h"
 		}
+	],
+	"schools": [
+		{
+			"name": "school1",
+			"lon": -1.742000418660542,
+			"lat": 48.09010529664507
+		}
+	],
+	"zones": [
+		{
+			"name": "zone1",
+			"lon": -1.6902891077472344,
+			"lat": 48.09282962664396,
+			"length_lon": 1000,
+			"length_lat": 1000,
+			"length_unit": "m" 
+		},
+		{
+			"name": "zonecenter",
+			"centroid": true,
+			"radius": 1000
+		},
+		{
+			"name": "zone2",
+			"lon": -1.6945037524387636,
+			"lat": 48.105993349477394,
+			"radius": 1000,
+			"length_unit": "m"
+		}
+	],
+	"locations": [
+		{
+			"name": "depot1",
+			"type": "coordinate",
+			"lon": -1.6457340723441525,
+			"lat": 48.100199454954804
+		}
+	],
+	"parameters":[
+		{
+			"name": "min_early_departure",
+			"type": "time",
+			"value": 5,
+			"time_unit": "h"
+		},
+		{
+			"name": "max_early_departure",
+			"type": "time",
+			"value": 11,
+			"time_unit": "h"
+		},
+		{
+			"name": "travel_time_matrix",
+			"type": "list",
+			"value": ["bus_stops"]
+		},
+		{
+			"name": "depot",
+			"type": "list_coordinates", 
+			"size": 1,
+			"list": ["depot1"],
+			"locs": "anywhere"
+		},
+		{
+			"name": "bus_stops",
+			"type": "bus_stops"
+		},
 	],
 	"attributes": [
 		{
@@ -133,6 +200,26 @@
 			"time_unit": "s",
 			"expression": "earliest_departure - lead_time" 
 		},
+		{
+			"name": "max_walking",
+			"type": "time",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"min": 550,
+						"max": 600,
+						"time_unit": "s"
+					} ]
+		},
+		{
+			"name": "walk_speed",
+			"type": "speed",
+			"speed_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"min": 5,
+						"max": 5,
+						"speed_unit": "kmh"
+					} ]
+		},
 		{  
 			"name": "origin",
 			"type": "coordinate",
@@ -147,7 +234,8 @@
 		{  
 			"name": "destination",
 			"type": "coordinate",
-			"subset_zones": false
+			"subset_zones": 2,
+			"set_zones": ["zonecenter", "zone1"]
 		},
 		{ 
 			"name": "stops_destination",
@@ -156,9 +244,10 @@
 			"constraints": ["len(stops_destination) > 0", "not (set(stops_origin) & set(stops_destination))"]
 		},
 		{
-			"name": "school_location",
+			"name": "school",
 			"type": "coordinate", 
-			"subset_schools": 2
+			"subset_schools": 1,
+			"set_schools": ["school1"]
 		},
 		{
 			"name": "direct_travel_time",
@@ -166,6 +255,13 @@
 			"time_unit": "s",
 			"expression": "dtt(origin,destination)",
 			"constraints": ["direct_travel_time >= 0"]
+		},
+		{
+			"name": "time_walking",
+			"type": "time",
+			"time_unit": "s",
+			"expression": "walk(origin,destination)",
+			"constraints": ["time_walking > max_walking"]
 		}
 	]
 }
