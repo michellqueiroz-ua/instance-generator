@@ -91,7 +91,7 @@
 			"type:": "uniform",
 			"min_time": 8,
 			"max_time": 10,
-			"number_of_requests": 1,
+			"number_of_requests": 2,
 			"time_unit": "h"
 		}
 	],
@@ -104,7 +104,11 @@
 						"min": 8,
 						"max": 10,
 						"time_unit": "h"
-					} ]
+					} ],
+			"constraints": [ "earliest_departure >= 0", 
+							"earliest_departure >= min_early_departure",
+							 "earliest_departure <= max_early_departure"
+						   ]
 		},
 		{
 			"name": "latest_arrival",
@@ -132,18 +136,36 @@
 		{  
 			"name": "origin",
 			"type": "coordinate",
-			"subset_zones": false
+			"subset_zones": 3
 		},
+		{ 
+			"name": "stops_origin",
+			"type": "list",
+			"expression": "stops(origin)",
+			"constraints": ["len(stops_origin) > 0"]
+		}, 
 		{  
 			"name": "destination",
 			"type": "coordinate",
 			"subset_zones": false
 		},
+		{ 
+			"name": "stops_destination",
+			"type": "list",
+			"expression": "stops(destination)",
+			"constraints": ["len(stops_destination) > 0", "not (set(stops_origin) & set(stops_destination))"]
+		},
+		{
+			"name": "school_location",
+			"type": "coordinate", 
+			"subset_schools": 2
+		},
 		{
 			"name": "direct_travel_time",
 			"type": "time",
 			"time_unit": "s",
-			"expression": "dtt(origin,destination)"
+			"expression": "dtt(origin,destination)",
+			"constraints": ["direct_travel_time >= 0"]
 		}
 	]
 }

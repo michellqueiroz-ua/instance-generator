@@ -451,6 +451,35 @@ def _generate_requests(
             node_list_seq.append(i)
             inst.depot_nodes_seq.append(i)
 
+    for att in inst.sorted_attributes:
+
+        if inst.GA.nodes[att]['type'] == 'coordinate':
+
+            if 'subset_zones' in inst.GA.nodes[att]:
+
+                if inst.GA.nodes[att]['subset_zones'] is not False:
+
+                    #inst.GA.nodes[att]['zones'] = np.random.randint(0, len(inst.network.zones), inst.GA.nodes[att]['subset_zones'])
+                    while len(inst.GA.nodes[att]['zones']) < inst.GA.nodes[att]['subset_zones']:
+
+                        random_zone_id = np.random.randint(0, len(inst.network.zones))
+                        random_zone_id = int(random_zone_id)
+
+                        if random_zone_id not in inst.GA.nodes[att]['zones']:
+                            inst.GA.nodes[att]['zones'].append(random_zone_id)
+
+            if 'subset_schools' in inst.GA.nodes[att]:
+
+                if inst.GA.nodes[att]['subset_schools'] is not False:
+
+                    while len(inst.GA.nodes[att]['schools']) < inst.GA.nodes[att]['subset_schools']:
+
+                        random_school_id = np.random.randint(0, len(inst.network.schools))
+                        random_school_id = int(random_school_id)
+
+                        if random_school_id not in inst.GA.nodes[att]['schools']:
+                            inst.GA.nodes[att]['schools'].append(random_school_id)
+
     #for each PDF
     for r in range(len(inst.request_demand)):
         
@@ -476,44 +505,112 @@ def _generate_requests(
         i=0
         while i < num_requests:
 
+            max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
+            request_walk_speed = random.randint(int(inst.min_walk_speed), int(inst.max_walk_speed))
+
             attributes = {}
+            request_data = {}  #holds information about this request
+            feasible_data = True
             for att in inst.sorted_attributes:
-                
-                if 'pdf' in inst.GA.nodes[att]:
 
-                    if inst.GA.nodes[att]['pdf'][0]['type'] == 'normal':
+                not_feasible_attribute = True
+                exhaustion_iterations = 0
 
-                        attributes[att] = np.random.normal(inst.GA.nodes[att]['pdf'][0]['mean'], inst.GA.nodes[att]['pdf'][0]['std'])
+                while (not_feasible_attribute) and (exhaustion_iterations < 100):
 
-                    if inst.GA.nodes[att]['pdf'][0]['type'] == 'uniform':
+                    if inst.GA.nodes[att]['type'] == 'coordinate':
 
-                        attributes[att] = np.random.uniform(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
+                        if 'subset_zones' in inst.GA.nodes[att]:
 
-                elif 'expression' in inst.GA.nodes[att]:
+                            if inst.GA.nodes[att]['subset_zones'] is False:
 
-                    #expression = inst.GA.nodes[att]['expression']
-                    #expression = re.split(r"[(,) ]", GA.nodes[node]['expression'].split())
-                    expression = inst.GA.nodes[att]['expression'].split() 
+                                point = inst.network._get_random_coord(inst.network.polygon)
+                                point = (point.y, point.x)
 
-                    for i in range(len(expression)):
+                            else:
 
-                        if expression[i] in attributes:
-                            
-                            expression[i] = str(attributes[expression[i]])
+                                random_zone = np.random.randint(0, inst.GA.nodes[att]['subset_zones'])
+                                random_zone = int(random_zone)
+                                random_zone_id = int(inst.GA.nodes[att]['zones'][random_zone])
+                                polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
+                    
+                                point = inst.network._get_random_coord(polygon_zone)
+                                point = (point.y, point.x)
+                        else:
+
+                            if 'subset_schools' in inst.GA.nodes[att]:
+
+                                random_school_id = np.random.randint(0, inst.GA.nodes[att]['subset_schools'])
+                                random_school_id = int(random_school_id)
+                                
+                                point = (inst.network.schools.loc[inst.GA.nodes[att]['schools'][random_school_id], 'lat'], inst.network.schools.loc[inst.GA.nodes[att]['schools'][random_school_id], 'lon'])
+
+
+                        #attributes[att+'point'] = point
+                        attributes[att+'x'] = point[1]
+                        attributes[att+'y'] = point[0]
                         
+                        node_drive = ox.get_nearest_node(inst.network.G_drive, point)
+                        node_walk = ox.get_nearest_node(inst.network.G_walk, point)
+
+                        attributes[att+'node_drive'] = node_drive
+                        attributes[att+'node_walk'] = node_walk
+
+                    
+                        if att == 'origin':
+
+                            origin_points.append(point)
+
+                        else:
+
+                            destination_points.append(point)
+                    
+                    if 'pdf' in inst.GA.nodes[att]:
+
+                        if inst.GA.nodes[att]['pdf'][0]['type'] == 'normal':
+
+                            attributes[att] = np.random.normal(inst.GA.nodes[att]['pdf'][0]['mean'], inst.GA.nodes[att]['pdf'][0]['std'])
+
+                        if inst.GA.nodes[att]['pdf'][0]['type'] == 'uniform':
+
+                            attributes[att] = np.random.uniform(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
+
+                            #print(attributes[att])
+
+                    elif 'expression' in inst.GA.nodes[att]:
+
+                        #expression = inst.GA.nodes[att]['expression']
+                        #expression = re.split(r"[(,) ]", GA.nodes[node]['expression'].split())
+                    
+                        #expression = inst.GA.nodes[att]['expression'].split() 
+                        #expression = re.split(r"[(,) ]", inst.GA.nodes[att]['expression'])
+                        
+                        #for ix in range(len(expression)):
+
+                        #    if expression[ix] in attributes:
+                                
+                        #        expression[ix] = str(attributes[expression[ix]])
+
+                        expression = inst.GA.nodes[att]['expression']
+                        #print(expression)
+
+                        for attx in inst.sorted_attributes:
+
+                            if attx in attributes:
+                                expression = re.sub(attx, str(attributes[attx]), expression)                        
+                        
+                        #print(expression)
+  
                         try:
                             
-                            
-                            print(expression)
-
-                            expression = ' '.join(expression)
                             attributes[att] = eval(expression)
+                            #print(attributes[att])
                         
                         except (SyntaxError, NameError, ValueError):
 
-                            print(inst.GA.nodes[att]['expression'])
-                            '''
-                            expression = re.split(r"[(,) ]", inst.GA.nodes[att]['expression'].split())
+                            #print(inst.GA.nodes[att]['expression'])
+                            
+                            expression = re.split(r"[(,) ]", inst.GA.nodes[att]['expression'])
                             
                             if expression[0] == 'dtt':
 
@@ -521,56 +618,105 @@ def _generate_requests(
                                 node_drive2 = attributes[expression[2]+'node_drive']
 
                                 attributes[att] = inst.network._return_estimated_travel_time_drive(node_drive1, node_drive2)
-                            '''
 
-                if inst.GA.nodes[att]['type'] == 'coordinate':
+                            if expression[0] == 'stops':
 
-                    if inst.GA.nodes[att]['subset_zones'] is False:
+                                stops = []
+                                stops_walking_distance = []
 
-                        point = inst.network._get_random_coord(inst.network.polygon)
-                        point = (point.y, point.x)
-                    
-                    attributes[att+'point'] = point
+                                node_walk = attributes[expression[1]+'node_walk']
 
-                    node_drive = ox.get_nearest_node(inst.network.G_drive, point)
-                    node_walk = ox.get_nearest_node(inst.network.G_walk, point)
+                                for index in inst.network.bus_stations_ids:
+                        
+                                    osmid_possible_stop = int(inst.network.bus_stations.loc[index, 'osmid_walk'])
 
-                    attributes[att+'node_drive'] = node_drive
-                    attributes[att+'node_walk'] = node_walk
+                                    eta_walk = inst.network.get_eta_walk(node_walk, osmid_possible_stop, request_walk_speed)
+                                    if eta_walk >= 0 and eta_walk <= max_walking_user:
+                                        stops.append(index)
+                                        stops_walking_distance.append(eta_walk)
 
-            print(attributes)
+                                attributes[att] = stops
+                                attributes[att+'_walking_distance'] = stops_walking_distance
 
-            dep_time = inst.request_demand[r].demand[i]
+                    #check constraints
+
+                    if 'constraints' in inst.GA.nodes[att]:
+
+                        not_feasible_attribute = False
+
+                        for constraint in inst.GA.nodes[att]['constraints']:
+
+                            #print(constraint)
+
+                            for attx in inst.sorted_attributes:
+                                if attx in attributes:
+                                    constraint = re.sub(attx, str(attributes[attx]), constraint) 
+
+                            for paramx in inst.parameters:
+                                constraint = re.sub(paramx, str(inst.parameters[paramx]), constraint)                       
+                            
+                            #print(constraint)
+
+                            check_constraint = eval(constraint)
+                            #print(check_constraint)
+                            
+                            if not check_constraint:
+                                not_feasible_attribute = True
+                                exhaustion_iterations += 1
+                                if 'expression' in inst.GA.nodes[att]:
+                                    #this means that another attribute should be remaked because of this, therefore everything is discarded
+                                    exhaustion_iterations = 9999
+
+                    else:
+
+                        not_feasible_attribute = False
+               
+                if not_feasible_attribute:
+                
+                    feasible_data = False
+                    break
+
+            #print(attributes)
+            if feasible_data:
+                print(attributes)
+                i += 1
+
+                for att in attributes:
+
+                    request_data.update({att: attributes[att]})         
+                            
             
-            request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
-
-            request_time_stamp = int(dep_time - request_lead_time)
-
-            if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
-                nok = True
-            else:
-                nok = False
+            #dep_time = inst.request_demand[r].demand[i]
             
-            arr_time = None
+            #request_lead_time = random.randint(inst.min_lead_time, inst.max_lead_time)
 
-            request_data = {}  #holds information about this request
+            #request_time_stamp = int(dep_time - request_lead_time)
 
+            #if (dep_time >= 0) and (dep_time >= inst.min_early_departure) and (dep_time <= inst.max_early_departure):
+            #    nok = True
+            #else:
+            #    nok = False
+            
+            #arr_time = None
+
+            
             #randomly choosing coordinates and repeated for a passenger until he can go to at least 1 stop (for both origin and destination)
-            
+            nok = False
             num_attempts = 0 #limit the number of attempts to generate a request and avoid infinite loop
             while nok:
                 num_attempts += 1
-                nok = False
+                #nok = False
                 
-                origin_point = []
-                destination_point = []
-                unfeasible_request = False
+                #origin_point = []
+                #destination_point = []
+                #unfeasible_request = False
 
-                sdlist = [0,1,2,3]
-                sdid = random.choices(sdlist, weights=weightssd, k=1)
-                sd = inst.spatial_distribution[sdid[0]]
+                #sdlist = [0,1,2,3]
+                #sdid = random.choices(sdlist, weights=weightssd, k=1)
+                #sd = inst.spatial_distribution[sdid[0]]
                 
                 #generate coordinates for origin
+                '''
                 if sd.num_origins == -1:
 
                     origin_point = inst.network._get_random_coord(inst.network.polygon)
@@ -602,20 +748,19 @@ def _generate_requests(
 
                     destination_point = inst.network._get_random_coord(polygon_zone)
                     destination_point = (destination_point.y, destination_point.x)
-    
-                origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
-                destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                '''
+
+                #origin_node_drive = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                #destination_node_drive = ox.get_nearest_node(inst.network.G_drive, destination_point)
                 
-
                 #compute estimated arrival time
-                estimated_travel_time = inst.network._return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
-                if estimated_travel_time >= 0:
+                #estimated_travel_time = inst.network._return_estimated_travel_time_drive(origin_node_drive, destination_node_drive)
+                #if estimated_travel_time >= 0:
                     #arr_time = (dep_time) + (inst.delay_vehicle_factor * estimated_travel_time) 
-                    flex_time = inst.delay_vehicle_factor * estimated_travel_time
-                    arr_time = dep_time + estimated_travel_time + flex_time
-                else:
-                    unfeasible_request = True
-
+                #    flex_time = inst.delay_vehicle_factor * estimated_travel_time
+                #    arr_time = dep_time + estimated_travel_time + flex_time
+                #else:
+                #    unfeasible_request = True
 
                 origin_node_seq = 0
                 destination_node_seq = 0
@@ -647,19 +792,21 @@ def _generate_requests(
                             break
                 
                 if  not unfeasible_request:   
-                    #prints in the json file if the request is 'viable'
                     
+                    pass
+                    #prints in the json file if the request is 'viable'
+                    '''
                     request_data.update({'originx': origin_point[1]})
                     request_data.update({'originy': origin_point[0]})
                     request_data.update({'origin_node': int(origin_node_seq)})
 
-                    origin_points.append(origin_point)
+                    #origin_points.append(origin_point)
 
                     request_data.update({'destinationx': destination_point[1]})
                     request_data.update({'destinationy': destination_point[0]})
                     request_data.update({'destination_node': int(destination_node_seq)})
 
-                    destination_points.append(destination_point)
+                    #destination_points.append(destination_point)
 
                     request_data.update({'time_stamp': int(request_time_stamp)})
                     
@@ -703,6 +850,7 @@ def _generate_requests(
                     all_requests.update({request_id: request_data})
                     request_id+=1
 
+                    
                     create_return_request = random.randint(0, 100)
 
                     if create_return_request <= inst.return_factor*100 and arr_time <= inst.max_early_departure and i < num_requests-1:
@@ -748,15 +896,13 @@ def _generate_requests(
 
                         #increases the number of requests
                         i += 1
-                        
+                    '''
+
                 else:
                     nok = True
                     if num_attempts > 20:
                         nok = False
             
-            #increases the number of requests
-            i += 1
-
         #plt.show()
         #plt.savefig('images/foo.png')
         #plt.close(fig) 

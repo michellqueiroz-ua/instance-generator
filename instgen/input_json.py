@@ -12,6 +12,17 @@ from pathlib import Path
 from retrieve_network import download_network_information
 from streamlit import caching
 
+def get_multiplier_time_unit(time_unit):
+
+    mult = 1
+    if time_unit == 'min':
+        mult = 60
+
+    elif time_unit == 'h':
+        mult = 3600
+    
+    return mult
+
 def input_json(filename_json):
 
     f = open(filename_json,)
@@ -162,17 +173,38 @@ def input_json(filename_json):
 
             if 'min_early_departure' in j:
                 min_early_departure = j['min_early_departure']
+                inst.parameters['min_early_departure'] = j['min_early_departure']*3600
             else: raise ValueError('min_early_departure parameter for planning_horizon is mandatory')
 
             if 'max_early_departure' in j:
                 max_early_departure = j['max_early_departure']
+                inst.parameters['max_early_departure'] = j['max_early_departure']*3600
             else: raise ValueError('max_early_departure parameter for planning_horizon is mandatory')
 
             if 'time_unit' in j:
                 time_unit = j['time_unit']
+                inst.parameters['time_unit'] = j['time_unit']
             else: raise ValueError('time_unit parameter for planning_horizon is mandatory')
 
             inst.set_time_window(min_early_departure=min_early_departure, max_early_departure=max_early_departure, time_unit=time_unit)
+
+    if 'parameters' in data:
+
+         for j in data['parameters']:
+
+            if 'name' in j:
+
+                if 'value' in j:
+                    
+                    mult = 1
+                    if 'time_unit' in j:
+                        mult = get_multiplier_time_unit(j['time_unit'])
+                    
+                    inst.parameters[j['name']] = j['value']*mult
+
+                else: raise ValueError('value for a parameter is mandatory')
+
+            else: raise ValueError('name for a parameter is mandatory')
 
     if 'lead_time' in data:
 
@@ -292,6 +324,14 @@ def input_json(filename_json):
             if 'subset_zones' in attribute:
 
                 GA.nodes[name]['subset_zones'] = attribute['subset_zones']
+                GA.nodes[name]['zones'] = []
+                #pegar aqui specific zones
+
+            if 'subset_schools' in attribute:
+
+                GA.nodes[name]['subset_schools'] = attribute['subset_schools']
+                inst.GA.nodes[att]['schools'] = []
+                #pegar aqui specific schools
 
             if 'pdf' in attribute:
 
@@ -309,7 +349,7 @@ def input_json(filename_json):
                     GA.nodes[name]['pdf'][0]['mean'] = GA.nodes[name]['pdf'][0]['mean']*mult
                     GA.nodes[name]['pdf'][0]['std'] = GA.nodes[name]['pdf'][0]['std']*mult
 
-                elif GA.nodes[name]['pdf'] == "uniform":
+                elif GA.nodes[name]['pdf'][0]['type'] == "uniform":
 
                     GA.nodes[name]['pdf'][0]['max'] = GA.nodes[name]['pdf'][0]['max']*mult
                     GA.nodes[name]['pdf'][0]['min'] = GA.nodes[name]['pdf'][0]['min']*mult
@@ -317,6 +357,10 @@ def input_json(filename_json):
             elif 'expression' in attribute:
 
                 GA.nodes[name]['expression'] = attribute['expression']
+
+            if 'constraints' in attribute:
+
+                GA.nodes[name]['constraints'] = attribute['constraints']
 
             if 'static_probability' in attribute:
 
@@ -329,11 +373,20 @@ def input_json(filename_json):
                 expression = re.split(r"[(,) ]", GA.nodes[node]['expression'])
 
                 for exp in expression:
-
-                    #print(exp)
                     if exp in GA:
-
                         GA.add_edge(exp, node)
+
+            if 'constraints' in GA.nodes[node]:
+
+                for constraint in GA.nodes[node]['constraints']:
+                    constraint = re.split(r"[(,)><= ]", constraint)
+
+                    for exp in constraint:
+                        if exp in GA:
+                            if exp != node:
+                                GA.add_edge(exp, node)
+
+
 
         inst.sorted_attributes = list(nx.topological_sort(GA))
         inst.GA = GA

@@ -99,6 +99,8 @@ class Instance:
         self.seed = 0
         self.increment_seed = 1
 
+        self.parameters = {}
+
 
     def add_request_demand_uniform(self, 
         min_time, 
