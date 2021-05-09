@@ -1,6 +1,7 @@
 import json
 import math
 import networkx as nx
+import pandas as pd
 
 def output_fixed_route_network(output_file_name, network):
 
@@ -102,8 +103,32 @@ class JsonConverter(object):
             self.json_data = json.load(file)
             file.close()
 
-    def convert_normal(self, output_file_name, network, problem_type):
+    def convert_normal(self, output_file_name, inst, problem_type, path_instance_csv_file):
 
+        instance = []
+        requests = self.json_data.get('data')
+        for request in requests.values():
+
+            d = {}
+            for att in inst.sorted_attributes:
+
+                if request.get(att) is not None:
+                    
+                    if inst.GA.nodes[att]['output_csv'] is True:
+                        d[att] = request.get(att)
+                    
+                    #if inst.GA.nodes[att]['type'] == 'coordinate':
+
+                        #d[att+'x'] = request.get(att+'x')
+                        #d[att+'y'] = request.get(att+'y')
+                        
+                    #else:
+
+                       
+            instance.append(d)
+
+        instance = pd.DataFrame(instance)
+        instance.to_csv(path_instance_csv_file)
         
         with open(output_file_name, 'w') as file:
 
@@ -122,12 +147,12 @@ class JsonConverter(object):
             
             if problem_type == "ODBRP" or problem_type == "ODBRPFL":
                 #number of bus stations
-                file.write(str(len(network.bus_stations_ids)))
+                file.write(str(len(inst.network.bus_stations_ids)))
                 file.write('\n')
                 
                 #id for each bus station
-                for station in network.bus_stations_ids:
-                    #osmid_station = network.bus_stations.loc[station, 'osmid_drive']
+                for station in inst.network.bus_stations_ids:
+                    #osmid_station = inst.network.bus_stations.loc[station, 'osmid_drive']
                     file.write(str(station))
                     file.write('\t')
                 
@@ -168,7 +193,7 @@ class JsonConverter(object):
                 file.write(str(self.json_data.get('num_nodes')))
                 file.write('\n')
 
-                for node in network.node_list_seq_school:
+                for node in inst.network.node_list_seq_school:
                     file.write(str(node))
                     file.write('\t')
                 file.write('\n')
@@ -186,11 +211,11 @@ class JsonConverter(object):
             '''
             if problem_type == "ODBRPFL":
                 #number of fixed line stations
-                file.write(str(len(network.nodes_covered_fixed_lines)))
+                file.write(str(len(inst.network.nodes_covered_fixed_lines)))
                 file.write('\n')
 
                 #ids for stations fixed line
-                for station in network.nodes_covered_fixed_lines:
+                for station in inst.network.nodes_covered_fixed_lines:
                     file.write(str(station))
                     file.write('\t')
                 file.write('\n')
@@ -222,6 +247,7 @@ class JsonConverter(object):
 
             if problem_type == "DARP":
 
+                '''
                 #number of depots
                 file.write(str(self.json_data.get('num_depots')))
                 file.write('\n')
@@ -237,10 +263,11 @@ class JsonConverter(object):
                 file.write(str(self.json_data.get('num_nodes')))
                 file.write('\n')
 
-                for node in network.node_list_darp_seq:
+                for node in inst.network.node_list_darp_seq:
                     file.write(str(node))
                     file.write('\t')
                 file.write('\n')
+                '''
 
                 travel_time_matrix_darp = self.json_data.get('travel_time_matrix')
 
@@ -263,7 +290,7 @@ class JsonConverter(object):
 
 
             #request information
-            requests = self.json_data.get('requests')
+            requests = self.json_data.get('data')
             num_requests = len(requests)
 
             #first line: number of requests
@@ -273,13 +300,14 @@ class JsonConverter(object):
             #foreach request
             for request in requests.values():
 
+                #print(request)
                 # origin coordinates
                 if request.get('originx') is not None:
                     file.write(str(request.get('originx')) + '\t' + str(request.get('originy')))
                     file.write('\n')
 
-                if request.get('origin_node') is not None:
-                    file.write(str(request.get('origin_node')))
+                if request.get('originid') is not None:
+                    file.write(str(request.get('originid')))
                     file.write('\n')
 
                 # destination coordinates
@@ -287,88 +315,84 @@ class JsonConverter(object):
                     file.write(str(request.get('destinationx')) + '\t' + str(request.get('destinationy')))
                     file.write('\n')
 
-                if request.get('destination_node') is not None:
-                    file.write(str(request.get('destination_node')))
+                if request.get('destinationid') is not None:
+                    file.write(str(request.get('destinationid')))
                     file.write('\n')
 
                 # num bus stations origin + bus stations origin
-                if request.get('num_stops_origin') is not None:
+                if request.get('stops_orgn') is not None:
 
-                    file.write(str(request.get('num_stops_origin')) + '\n')
+                    file.write(str(len(request.get('stops_orgn'))) + '\n')
                     
-                    if request.get('num_stops_origin') > 0:
-                        for stop in request.get('stops_origin'):
-                            #osmid_station = network.bus_stations.loc[stop, 'osmid_drive']
+                    if len(request.get('stops_orgn')) > 0:
+                        for stop in request.get('stops_orgn'):
                             file.write(str(int(stop)) + '\t')
                         file.write('\n')
-                        for walking_distance in request.get('walking_time_origin_to_stops'):
+                        for walking_distance in request.get('stops_orgn_walking_distance'):
                             file.write(str(walking_distance) + '\t')
 
                         file.write('\n')
 
                 # num bus stations destination + bus stations destination
-                if request.get('num_stops_destination') is not None:
+                if request.get('stops_dest') is not None:
                     
-                    file.write(str(request.get('num_stops_destination')) + '\n')
+                    file.write(str(len(request.get('stops_dest'))) + '\n')
 
-                    if request.get('num_stops_destination') > 0:
-                        for stop in request.get('stops_destination'):
-                            #osmid_station = network.bus_stations.loc[stop, 'osmid_drive']
+                    if len(request.get('stops_dest')) > 0:
+                        for stop in request.get('stops_dest'):
                             file.write(str(int(stop)) + '\t')
                         file.write('\n')
-                        for walking_distance in request.get('walking_time_stops_to_destination'):
+                        for walking_distance in request.get('stops_dest_walking_distance'):
                             file.write(str(walking_distance) + '\t')
 
                         file.write('\n')
-
-                '''
-                # num fixed line origin + stations fixed line origin
-                if request.get('num_stations_fl_origin') is not None:
-                    file.write(str(request.get('num_stations_fl_origin')) + '\n')
-                    
-                    if int(request.get('num_stations_fl_origin')) > 0:
-                        for stop in request.get('stations_fl_origin'):
-                            file.write(str(stop) + '\t')
-                        file.write('\n')
-                        for walking_distance in request.get('walking_time_origin_to_stations_fl'):
-                            file.write(str(walking_distance) + '\t')
-
-                        file.write('\n')
-
-                # num fixed line destination + stations fixed line destination
-                if request.get('num_stations_fl_destination') is not None:
-                    file.write(str(request.get('num_stations_fl_destination')) + '\n')
-
-                    if int(request.get('num_stations_fl_destination')) > 0:
-                        for stop in request.get('stations_fl_destination'):
-                            file.write(str(stop) + '\t')
-                        file.write('\n')
-                        for walking_distance in request.get('walking_time_stations_fl_to_destination'):
-                            file.write(str(walking_distance) + '\t')
-
-                        file.write('\n')
-                '''
 
                 # earliest departure time
-                if request.get('dep_time') is not None:
-                    file.write(str(request.get('dep_time')))
+                if request.get('earliest_departure') is not None:
+                    file.write(str(request.get('earliest_departure')))
                 
                     #latest departure time
-                    if problem_type == "DARP":
-                        file.write(' ')
-                        file.write(str(request.get('lat_dep_time')))
+                    #if problem_type == "DARP":
+                    #    file.write(' ')
+                    #    file.write(str(request.get('lat_dep_time')))
                         
                     file.write('\n')
 
                 #earliest arrival time
-                if problem_type == "DARP":
-                    file.write(str(request.get('ear_arr_time')))
-                    file.write(' ')
+                #if problem_type == "DARP":
+                #    file.write(str(request.get('ear_arr_time')))
+                #    file.write(' ')
 
                 # latest arrival time
-                if request.get('arr_time') is not None:
-                    file.write(str(request.get('arr_time')))
+                if request.get('latest_arrival') is not None:
+                    file.write(str(request.get('latest_arrival')))
                     file.write('\n')
+
+            '''
+            for request in requests.values():
+
+                for att in inst.sorted_attributes:
+
+                    if request.get(att) is not None:
+                        
+                        if inst.GA[att]['type'] == 'list':
+
+                            for elem in request.get(att):
+                                file.write(str(elem) + '\t')
+                            file.write('\n')
+
+                        elif: inst.GA[att]['type'] == 'coordinate':
+
+                            file.write(str(request.get(att+'x')) + '\t' + str(request.get(att+'y')))
+                            file.write('\n')
+
+                        else:
+
+                            file.write(str(request.get(att)))
+            '''
+
+
+
 
     def convert_localsolver(self, output_file_name):
 

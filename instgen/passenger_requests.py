@@ -413,15 +413,11 @@ def _generate_requests(
 
 
     inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
-    instance_data = {}  
-
+    
     origin_points=[]
     destination_points=[]
-    lines = []
-    all_requests = {} 
     h = 0
     num_requests = 0
-    request_id = 0
 
     node_list = []
     node_list_seq = []
@@ -459,16 +455,62 @@ def _generate_requests(
 
             if inst.parameters[param]['locs'] == 'anywhere':
 
-                while len(inst.parameters[param]['list']) < inst.parameters[param]['size']:
+                inst.parameters[param]['list'+str(replicate_num)] = []
+                for elem in inst.parameters[param]['list']:
+                    inst.parameters[param]['list'+str(replicate_num)].append(elem)
+
+                inst.parameters[param]['list_node_drive'+str(replicate_num)] = []    
+                for elem in inst.parameters[param]['list_node_drive']:
+                    inst.parameters[param]['list_node_drive'+str(replicate_num)].append(elem)
+
+                while len(inst.parameters[param]['list'+str(replicate_num)]) < inst.parameters[param]['size']:
 
                     point = inst.network._get_random_coord(inst.network.polygon)
                     point = (point.y, point.x)
                     node_drive = ox.get_nearest_node(inst.network.G_drive, point)
-                    inst.parameters[param]['list'].append("random_loc"+len(inst.parameters[param]['list']))
-                    inst.parameters[param]['list_node_drive'].append(node_drive)
+                    inst.parameters[param]['list'+str(replicate_num)].append("random_loc"+len(inst.parameters[param]['list'+str(replicate_num)]))
+                    inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
 
-            print(inst.parameters[param]['list_node_drive'])
+                #print(inst.parameters[param]['list_node_drive'+str(replicate_num)])
 
+            if inst.parameters[param]['locs'] == 'schools':
+
+                inst.parameters[param]['list_ids'+str(replicate_num)] = []
+                for elem in inst.parameters[param]['list_ids']:
+                    inst.parameters[param]['list_ids'+str(replicate_num)].append(elem)
+
+                inst.parameters[param]['list_node_drive'+str(replicate_num)] = []    
+                for elem in inst.parameters[param]['list_node_drive']:
+                    inst.parameters[param]['list_node_drive'+str(replicate_num)].append(elem)
+
+                while len(inst.parameters[param]['list_ids'+str(replicate_num)]) < inst.parameters[param]['size']:
+
+                    random_school_id = np.random.randint(0, len(inst.network.schools))
+                    random_school_id = int(random_school_id)
+
+                    if random_school_id not in inst.parameters[param]['list_ids'+str(replicate_num)]:
+                        inst.parameters[param]['list_ids'+str(replicate_num)].append(random_school_id)
+                        node_drive = inst.network.schools.loc[int(random_school_id), 'osmid_drive']
+                        inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
+
+                print(inst.parameters[param]['list_ids'+str(replicate_num)])
+
+        if inst.parameters[param]['type'] == 'list_zones':
+
+            inst.parameters[param]['zones'+str(replicate_num)] = []
+            for elem in inst.parameters[param]['zones']:
+                inst.parameters[param]['zones'+str(replicate_num)].append(elem)
+
+            while len(inst.parameters[param]['zones'+str(replicate_num)]) < inst.parameters[param]['size']: 
+            
+                random_zone_id = np.random.randint(0, len(inst.network.zones))
+                random_zone_id = int(random_zone_id)
+
+                if random_zone_id not in inst.parameters[param]['zones'+str(replicate_num)]:
+                    inst.parameters[param]['zones'+str(replicate_num)].append(random_zone_id)
+
+            print(inst.parameters[param]['zones'+str(replicate_num)])               
+    '''
     for att in inst.sorted_attributes:
 
         if inst.GA.nodes[att]['type'] == 'coordinate':
@@ -487,31 +529,17 @@ def _generate_requests(
                             inst.GA.nodes[att]['zones'].append(random_zone_id)
 
                 print(inst.GA.nodes[att]['zones'])
+    '''
 
-            if 'subset_schools' in inst.GA.nodes[att]:
-
-                if inst.GA.nodes[att]['subset_schools'] is not False:
-
-                    while len(inst.GA.nodes[att]['schools']) < inst.GA.nodes[att]['subset_schools']:
-
-                        random_school_id = np.random.randint(0, len(inst.network.schools))
-                        random_school_id = int(random_school_id)
-
-                        if random_school_id not in inst.GA.nodes[att]['schools']:
-                            inst.GA.nodes[att]['schools'].append(random_school_id)
-
-            else: inst.GA.nodes[att]['subset_schools'] = 1
-    
-    num_requests = inst.request_demand[r].num_requests
+    num_requests = inst.request_demand[0].num_requests
     print(num_requests)
+    instance_data = {}
+    all_instance_data = {}  
     i=0
     while i < num_requests:
 
-        #max_walking_user = random.randint(int(inst.lb_max_walking), int(inst.ub_max_walking))
-        #request_walk_speed = random.randint(int(inst.min_walk_speed), int(inst.max_walk_speed))
-
         attributes = {}
-        instance_data = {}  #holds information about this request
+       
         feasible_data = True
         for att in inst.sorted_attributes:
 
@@ -524,17 +552,26 @@ def _generate_requests(
 
                     if 'subset_zones' in inst.GA.nodes[att]:
 
-                        if inst.GA.nodes[att]['subset_zones'] is False:
+                        zone = inst.GA.nodes[att]['subset_zones']
+
+                        if zone is False:
 
                             point = inst.network._get_random_coord(inst.network.polygon)
                             point = (point.y, point.x)
 
                         else:
 
-                            random_zone = np.random.randint(0, inst.GA.nodes[att]['subset_zones'])
-                            random_zone = int(random_zone)
-                            random_zone_id = int(inst.GA.nodes[att]['zones'][random_zone])
-                            polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
+                            zones = inst.parameters[zone]['zones'+str(replicate_num)]
+
+                            if 'weights' in inst.GA.nodes[att]:
+
+                                random_zone_id = random.choices(zones, weights=inst.GA.nodes[att]['weights'], k=1)
+                                polygon_zone = inst.network.zones.loc[random_zone_id[0]]['polygon']
+
+                            else:
+
+                                random_zone_id = random.choice(zones)
+                                polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
                             
                             try:
 
@@ -546,30 +583,36 @@ def _generate_requests(
                                     
                             except TypeError:
                             
-                                point = inst.network._get_random_coord(polygon_zone)
-                                #print("here2")
-                                
+                                point = inst.network._get_random_coord(polygon_zone)                                
 
                             point = (point.y, point.x)
                     else:
 
-                        if 'subset_schools' in inst.GA.nodes[att]:
+                        if 'subset_locations' in inst.GA.nodes[att]:
 
-                            random_school_id = np.random.randint(0, inst.GA.nodes[att]['subset_schools'])
-                            random_school_id = int(random_school_id)
+                            loc = inst.GA.nodes[att]['subset_locations']
                             
-                            point = (inst.network.schools.loc[inst.GA.nodes[att]['schools'][random_school_id], 'lat'], inst.network.schools.loc[inst.GA.nodes[att]['schools'][random_school_id], 'lon'])
+                            if 'weights' in inst.GA.nodes[att]:
+
+                                if inst.parameters[loc]['locs'] == 'schools':
+                                    idxs = random.choices(inst.parameters[loc]['list_ids'+str(replicate_num)], weights=inst.GA.nodes[att]['weights'], k=1)
+                                    point = (inst.network.schools.loc[idxs[0], 'lat'], inst.network.schools.loc[idxs[0], 'lon'])
+                            else:
+
+                                if inst.parameters[loc]['locs'] == 'schools':
+                                    idxs = random.choice(inst.parameters[loc]['list_ids'+str(replicate_num)])
+                                    point = (inst.network.schools.loc[idxs, 'lat'], inst.network.schools.loc[idxs, 'lon'])
 
 
-                    #attributes[att+'point'] = point
+                    attributes[att] = point
                     attributes[att+'x'] = point[1]
                     attributes[att+'y'] = point[0]
                     
                     node_drive = ox.get_nearest_node(inst.network.G_drive, point)
                     node_walk = ox.get_nearest_node(inst.network.G_walk, point)
 
-                    attributes[att+'node_drive'] = node_drive
-                    attributes[att+'node_walk'] = node_walk
+                    attributes[att+'node_drive'] = int(node_drive)
+                    attributes[att+'node_walk'] = int(node_walk)
 
                 
                 if 'pdf' in inst.GA.nodes[att]:
@@ -577,13 +620,27 @@ def _generate_requests(
                     if inst.GA.nodes[att]['pdf'][0]['type'] == 'normal':
 
                         attributes[att] = np.random.normal(inst.GA.nodes[att]['pdf'][0]['mean'], inst.GA.nodes[att]['pdf'][0]['std'])
+                        
+                        if (inst.GA.nodes[att]['type'] == 'time'):
+                            attributes[att] = int(attributes[att])
+
 
                     if inst.GA.nodes[att]['pdf'][0]['type'] == 'uniform':
 
-                        attributes[att] = np.random.uniform(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
+                        if 'weights' in inst.GA.nodes[att]:
 
-                        #if att == 'walk_speed':
-                        #    print(attributes[att])
+                            attributes[att] = random.choices(inst.GA.nodes[att]['all_values'], weights=inst.GA.nodes[att]['weights'], k=1)
+                            attributes[att] = attributes[att][0]
+                            print(attributes[att])
+
+                        else:
+                            if (inst.GA.nodes[att]['type'] == 'time') or (inst.GA.nodes[att]['type'] == 'integer'):
+                                attributes[att] = np.random.randint(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
+                            else:
+                                attributes[att] = np.random.uniform(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
+
+                            if att == 'ambulatory':
+                                print(attributes[att])
 
 
                 elif 'expression' in inst.GA.nodes[att]:
@@ -603,7 +660,7 @@ def _generate_requests(
                         attributes[att] = eval(expression)
                         #print(attributes[att])
                     
-                    except (SyntaxError, NameError, ValueError):
+                    except (SyntaxError, NameError, ValueError, TypeError):
 
                         #print(inst.GA.nodes[att]['expression'])
                         
@@ -650,16 +707,17 @@ def _generate_requests(
 
                     for constraint in inst.GA.nodes[att]['constraints']:
 
-                        print(constraint)
+                        #print(constraint)
 
                         for attx in inst.sorted_attributes:
                             if attx in attributes:
                                 constraint = re.sub(attx, str(attributes[attx]), constraint) 
 
                         for paramx in inst.parameters:
-                            constraint = re.sub(paramx, str(inst.parameters[paramx]), constraint)                       
+                            if 'value' in inst.parameters[paramx]:
+                                constraint = re.sub(paramx, str(inst.parameters[paramx]['value']), constraint)                       
                         
-                        print(constraint)
+                        #print(constraint)
 
                         check_constraint = eval(constraint)
                         #print(check_constraint)
@@ -684,9 +742,9 @@ def _generate_requests(
         if feasible_data:
             #print(attributes)
             
-            for att in attributes:
+            instance_data.update({i: attributes})
 
-                instance_data.update({i: attributes[att]})
+            for att in attributes:
 
                 if att == 'originx':
 
@@ -699,92 +757,93 @@ def _generate_requests(
                         destination_points.append((attributes['destinationy'], attributes[att]))  
 
             i += 1     
-                    
+                  
+    all_instance_data.update({'num_data:': len(instance_data),
+                          'data': instance_data
+                          })
+
     if 'travel_time_matrix' in inst.parameters:
+        if inst.parameters['travel_time_matrix']['value'] is True:
+            node_list = []
+            node_list_seq = []
+            lvid = 0
 
-        node_list = []
-        node_list_seq = []
-        lvid = 0
+            for location in inst.parameters['travel_time_matrix']['locations']:
 
-        for location in inst.parameters['travel_time_matrix']:
+                if location == 'bus_stations':
 
-            if location == 'bus_stops':
+                    for index, row in inst.network.bus_stations.iterrows():
 
-                for index, row in inst.network.bus_stops.iterrows():
+                        node_list.append(row['osmid_drive'])
+                        node_list_seq.append(index)
+                        lvid = index
 
-                    node_list.append(row['osmid_drive'])
-                    node_list_seq.append(index)
-                    lvid = index
+                if location in inst.parameters:
 
-            if location in inst.parameters:
+                    inst.parameters[location]['list_seq_id'+str(replicate_num)] = []
+                    print(inst.parameters[location]['list_node_drive'+str(replicate_num)])
+                    for d in inst.parameters[location]['list_node_drive'+str(replicate_num)]:
 
-                inst.parameters[location]['list_node_id'] = []
-                for d in inst.parameters[location]['list_node_drive']:
+                        node_list.append(d)
+                        node_list_seq.append(lvid)
+                        inst.parameters[location]['list_seq_id'+str(replicate_num)].append(lvid)
+                        lvid += 1
 
-                    node_list.append(d)
-                    node_list_seq.append(lvid)
-                    inst.parameters[location]['list_node_id'].append(lvid)
-                    lvid += 1
-
-            if location == 'school':
-
-                for s in inst.GA.nodes['school']['schools']:
-
-                    node_school = inst.network.schools.loc[int(s), 'osmid_drive']
-                    node_list.append(node_school)
-                    node_list_seq.append(lvid)
-                    lvid += 1
-
-            if location in inst.sorted_attributes:
-
-                for d in instance_data:
-
-                    node_list.append(instance_data[d][location+'node_drive'])
-                    instance_data[d][location+'id'] = lvid
-                    node_list_seq.append(lvid)
-                    lvid += 1
-
-        travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
-        travel_time_json = travel_time.tolist()
-                        
-        if 'graphml' in inst.parameters:
-            #creates a graph that will serve as the travel time matrix for the given set of requests
-            gtt = nx.DiGraph() 
-
-            for param in inst.parameters:
-
-                if param in inst.parameters['travel_time_matrix']:
-
-                    for d in inst.parameters['list_node_id']:
-
-                        node = instance_data[att+'id']
-                        gtt.add_node(node, type=param)
-
-            for att in inst.sorted_attributes:
-                
-                if att in inst.parameters['travel_time_matrix']:
+                if location in inst.sorted_attributes:
 
                     for d in instance_data:
 
-                        node = instance_data[att+'id']
-                        gtt.add_node(node, type=att)
+                        node_list.append(instance_data[d][location+'node_drive'])
+                        instance_data[d][location+'id'] = lvid
+                        node_list_seq.append(lvid)
+                        lvid += 1
 
-            for u in node_list_seq:
-                for v in node_list_seq:
+            travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
+            travel_time_json = travel_time.tolist()
 
-                    gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+            all_instance_data.update({'travel_time_matrix': travel_time_json
+                            })
+                        
+        if 'graphml' in inst.parameters:
+            if inst.parameters['graphml']['value'] is True:
+                #creates a graph that will serve as the travel time matrix for the given set of requests
+                gtt = nx.DiGraph() 
 
-        output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+                if 'bus_stations' in inst.parameters['travel_time_matrix']['locations']:
 
-        nx.write_graphml(gtt, output_name_graphml)
+                    for index, row in inst.network.bus_stations.iterrows():
 
-    all_instance_data.update({'num_requests:': len(instance_data),
-                          'requests': instance_data,
-                          'num_depots': inst.num_depots,
-                          'depots': inst.depot_nodes_seq,
-                          'num_nodes': len(node_list),
-                          'travel_time_matrix': travel_time_json
-                          })
+                        gtt.add_node(index, type='bus_stations')
+
+                for param in inst.parameters:
+
+                    if param in inst.parameters['travel_time_matrix']['locations']:
+
+                        for d in inst.parameters[param]['list_seq_id'+str(replicate_num)]:
+
+                            node = d
+                            gtt.add_node(node, type=param)
+
+                for att in inst.sorted_attributes:
+                    
+                    if att in inst.parameters['travel_time_matrix']['locations']:
+
+                        for d in instance_data:
+
+                            node = instance_data[att+'id']
+                            gtt.add_node(node, type=att)
+
+                for u in node_list_seq:
+                    for v in node_list_seq:
+
+                        gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+
+                output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+
+                nx.write_graphml(gtt, output_name_graphml)
+
+    
+        
 
     save_dir = os.getcwd()+'/'+inst.output_folder_base
     save_dir_images = os.path.join(save_dir, 'images')
@@ -1336,21 +1395,21 @@ def _generate_requests_ODBRP(
                     destination_points.append(destination_point)
 
                     request_data.update({'num_stops_origin': len(stops_origin)})
-                    request_data.update({'stops_origin': stops_origin})
-                    request_data.update({'walking_time_origin_to_stops': stops_origin_walking_distance})
+                    request_data.update({'stops_orgn': stops_origin})
+                    request_data.update({'stops_orgn_walking_distance': stops_origin_walking_distance})
 
                     request_data.update({'num_stops_destination': len(stops_destination)})
-                    request_data.update({'stops_destination': stops_destination})
-                    request_data.update({'walking_time_stops_to_destination': stops_destination_walking_distance})
+                    request_data.update({'stops_dest': stops_destination})
+                    request_data.update({'stops_dest_walking_distance': stops_destination_walking_distance})
 
                     #timestamp -> time the request was made
                     request_data.update({'time_stamp': int(request_time_stamp)})
                     
                     #departure time
-                    request_data.update({'dep_time': int(dep_time)})
+                    request_data.update({'earliest_departure': int(dep_time)})
 
                     #arrival time
-                    request_data.update({'arr_time': int(arr_time)})
+                    request_data.update({'latest_arrival': int(arr_time)})
 
                     #increases the number of requests\
 
@@ -1373,12 +1432,12 @@ def _generate_requests_ODBRP(
                         request_data_return.update({'destinationy': origin_point[0]})
                         
                         request_data_return.update({'num_stops_origin': len(stops_destination)})
-                        request_data_return.update({'stops_origin': stops_destination})
-                        request_data_return.update({'walking_time_origin_to_stops': stops_destination_walking_distance})
+                        request_data_return.update({'stops_orgn': stops_destination})
+                        request_data_return.update({'stops_orgn_walking_distance': stops_destination_walking_distance})
 
                         request_data_return.update({'num_stops_destination': len(stops_origin)})
-                        request_data_return.update({'stops_destination': stops_origin})
-                        request_data_return.update({'walking_time_stops_to_destination': stops_origin_walking_distance})
+                        request_data_return.update({'stops_dest': stops_origin})
+                        request_data_return.update({'stops_dest_walking_distance': stops_origin_walking_distance})
 
                         request_data_return.update({'time_stamp': int(request_time_stamp)})
                     

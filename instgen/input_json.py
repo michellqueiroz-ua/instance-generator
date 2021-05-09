@@ -1,4 +1,5 @@
 import json
+import math
 import networkx as nx
 import numpy as np
 import random
@@ -213,45 +214,193 @@ def input_json(filename_json):
 
             inst.set_time_window(min_early_departure=min_early_departure, max_early_departure=max_early_departure, time_unit=time_unit)
 
+    if 'locations' in data:
+
+        for j in data['locations']:
+
+            if 'name' in j:
+                namelocation = j['name']
+            else: raise ValueError('name parameter for locations is mandatory')
+
+            if 'lon' in j:
+                lon = j['lon']
+            else: raise ValueError('lon parameter for locations is mandatory')
+
+            if 'lat' in j:
+                lat = j['lat']
+            else: raise ValueError('lat parameter for locations is mandatory')
+
+            if not inst.network.polygon.contains(Point(lon,lat)):
+                raise ValueError('location for '+namelocation+' is not within the boundaries of network')
+
+            if 'type' in j: 
+                if j['type'] == 'school':
+                    inst.network.add_new_school(name=namelocation, x=lon, y=lat)
+
+        for x in data['locations']:
+
+            point = (x['lat'], x['lon'])
+            x['node_drive'] = ox.get_nearest_node(inst.network.G_drive, point)
+            x['node_walk'] = ox.get_nearest_node(inst.network.G_walk, point)
+
+    if 'zones' in data:
+
+        for j in data['zones']:
+
+            if 'name' in j:
+                nameszone  = j['name']
+            else: raise ValueError('name parameter for zone is mandatory')
+
+            if 'lon' in j:
+                lon = j['lon']
+            
+                if 'lat' in j:
+                    lat = j['lat']
+                else: raise ValueError('lat parameter for zone is mandatory when lon is set')
+
+            else:
+                if 'centroid' in j:
+                    if j['centroid'] is True:
+                        pt = inst.network.polygon.centroid
+                        lon = pt.x
+                        lat = pt.y
+
+                    else: raise ValueError('either lon/lat must be given or centroid must be set to true')
+
+                else: raise ValueError('either lon/lat or centroid parameters must be set')
+
+            if not inst.network.polygon.contains(Point(lon,lat)):
+
+                raise ValueError('location for '+nameszone+' is not within the boundaries of network')
+
+            if 'length_unit' in j:
+                length_unit  = j['length_unit']
+            else:
+                length_unit = "m"
+
+            mult = get_multiplier_length_unit(length_unit)
+
+            if 'length_lon' in j:
+                length_lon  = j['length_lon']*mult
+            else:
+                length_lon = 0
+
+            if 'length_lat' in j:
+                length_lat  = j['length_lat']*mult
+            else:
+                length_lat = 0
+
+            if 'radius' in j:
+                radius  = j['radius']
+            else:
+                radius = 0
+
+            inst.network.add_new_zone(name=nameszone, center_x=lon, center_y=lat, length_x=length_lon, length_y=length_lat, radius=radius)
+
     if 'parameters' in data:
 
          for j in data['parameters']:
 
             if 'name' in j:
 
+                inst.parameters[j['name']] = {}
                 if 'value' in j:
                     
                     mult = 1
                     if 'time_unit' in j:
                         mult = get_multiplier_time_unit(j['time_unit'])
 
+                        inst.parameters[j['name']]['value'] = j['value']*mult
+
                     elif 'speed_unit' in j:
                         mult = get_multiplier_speed_unit(j['speed_unit'])
+
+                        inst.parameters[j['name']]['value'] = j['value']*mult
 
                     elif 'length_unit' in j:
                         mult = get_multiplier_length_unit(j['length_unit'])
                     
-                    inst.parameters[j['name']] = j['value']*mult
+                        inst.parameters[j['name']]['value'] = j['value']*mult
+
+                    else:
+
+                        inst.parameters[j['name']]['value'] = j['value']
+
+                if j['name'] == 'travel_time_matrix':
+
+                    if 'locations' in j:
+                        inst.parameters[j['name']]['locations'] = j['locations']
+                    else: raise ValueError('locations for travel_time_matrix is mandatory')
 
                 if 'type' in j:
 
                     inst.parameters[j['name']]['type'] = j['type']
 
-                    if 'type' == 'list_coordinate':
+                    if j['type'] == 'list_coordinates':
+                        if 'size' in j:
+                            inst.parameters[j['name']]['size'] = j['size']
+
+                        if 'list' in j:
+                            inst.parameters[j['name']]['list'] = j['list']
+                        else:
+                            inst.parameters[j['name']]['list'] = []
+
+                        inst.parameters[j['name']]['list_node_drive'] = []
+                        inst.parameters[j['name']]['list_node_walk'] = []
+
+                        if 'locs' in j:
+                            inst.parameters[j['name']]['locs'] = j['locs']
+
+                            if j['locs'] == 'schools':
+
+                                inst.parameters[j['name']]['list_ids'] = []
+                                for s in inst.parameters[j['name']]['list']:
+                                    idxs = inst.network.schools.index[inst.network.schools['school_name'] == s].tolist()
+
+                                    if len(idxs) > 0:
+                                        index_school = idxs[0]
+                                        inst.parameters[j['name']]['list_ids'].append(index_school)
+                                        inst.parameters[j['name']]['list_node_drive'].append(inst.network.schools.loc[index_school, 'osmid_drive'])
+                                        inst.parameters[j['name']]['list_node_walk'].append(inst.network.schools.loc[index_school, 'osmid_walk'])
+                                    else:
+                                        raise ValueError('no school named after '+s)
+                                    print(index_school)
+                            else:
+
+                                for x in data['locations']:
+
+                                    if x['name'] in inst.parameters[j['name']]['list']:
+                                        inst.parameters[j['name']]['list_node_drive'].append(x['node_drive'])
+                                        inst.parameters[j['name']]['list_node_walk'].append(x['node_walk'])
+
+                        else: raise ValueError('locs for a list_coordinates parameter is mandatory')
+
+                    if j['type'] == 'list_zones':
+
+                        inst.parameters[j['name']]['zones'] = []
                         if 'size' in j:
                             inst.parameters[j['name']]['size'] = j['size']
 
                         if 'list' in j:
                             inst.parameters[j['name']]['list'] = j['list']
 
-                        for x in data['locations']:
-                            point = (x['lat'], x['lon'])
-                            print(point)
-                            node_drive = ox.get_nearest_node(inst.network.G_drive, point)
-                            inst.parameters[param]['list_node_drive'].append(node_drive)
-                            print(node_drive)
+                            for z in j['list']:
+
+                                idxs = inst.network.zones.index[inst.network.zones['name'] == z].tolist()
+
+                                if len(idxs) > 0:
+                                    index_zone = idxs[0]
+                                    inst.parameters[j['name']]['zones'].append(index_zone)
+                                else:
+                                    raise ValueError('no zone named after '+z)
+
+                        else:
+                            inst.parameters[j['name']]['list'] = []
+                            
+                        
 
             else: raise ValueError('name for a parameter is mandatory')
+
 
     if 'lead_time' in data:
 
@@ -340,82 +489,6 @@ def input_json(filename_json):
 
     GA = nx.DiGraph()
 
-    if 'schools' in data:
-
-        for j in data['schools']:
-
-            if 'name' in j:
-                nameschool = j['name']
-            else: raise ValueError('name parameter for school is mandatory')
-
-            if 'lon' in j:
-                lon = j['lon']
-            else: raise ValueError('lon parameter for school is mandatory')
-
-            if 'lat' in j:
-                lat = j['lat']
-            else: raise ValueError('lat parameter for school is mandatory')
-
-            if not inst.network.polygon.contains(Point(lon,lat)):
-
-                raise ValueError('location for '+nameschool+' is not within the boundaries of network')
-
-            inst.network.add_new_school(name=nameschool, x=lon, y=lat)
-
-    if 'zones' in data:
-
-        for j in data['zones']:
-
-            if 'name' in j:
-                nameszone  = j['name']
-            else: raise ValueError('name parameter for zone is mandatory')
-
-            if 'lon' in j:
-                lon = j['lon']
-            
-                if 'lat' in j:
-                    lat = j['lat']
-                else: raise ValueError('lat parameter for zone is mandatory when lon is set')
-
-            else:
-                if 'centroid' in j:
-                    if j['centroid'] is True:
-                        pt = inst.network.polygon.centroid
-                        lon = pt.x
-                        lat = pt.y
-
-                    else: raise ValueError('either lon/lat must be given or centroid must be set to true')
-
-                else: raise ValueError('either lon/lat or centroid parameters must be set')
-
-            if not inst.network.polygon.contains(Point(lon,lat)):
-
-                raise ValueError('location for '+nameszone+' is not within the boundaries of network')
-
-            if 'length_unit' in j:
-                length_unit  = j['length_unit']
-            else:
-                length_unit = "m"
-
-            mult = get_multiplier_length_unit(length_unit)
-
-            if 'length_lon' in j:
-                length_lon  = j['length_lon']*mult
-            else:
-                length_lon = 0
-
-            if 'length_lat' in j:
-                length_lat  = j['length_lat']*mult
-            else:
-                length_lat = 0
-
-            if 'radius' in j:
-                radius  = j['radius']
-            else:
-                radius = 0
-
-            inst.network.add_new_zone(name=nameszone, center_x=lon, center_y=lat, length_x=length_lon, length_y=length_lat, radius=radius)
-
     if 'attributes' in data:
 
         index=0
@@ -447,6 +520,7 @@ def input_json(filename_json):
             if 'subset_zones' in attribute:
 
                 GA.nodes[name]['subset_zones'] = attribute['subset_zones']
+                '''
                 GA.nodes[name]['zones'] = []
                 
                 if 'set_zones' in attribute:
@@ -460,24 +534,19 @@ def input_json(filename_json):
                             GA.nodes[name]['zones'].append(index_zone)
                         else:
                             raise ValueError('no zone named after '+z)
+            '''
 
-            if 'subset_schools' in attribute:
+            if 'subset_locations' in attribute:
 
-                GA.nodes[name]['subset_schools'] = attribute['subset_schools']
-                GA.nodes[name]['schools'] = []
-                
-                if 'set_schools' in attribute:
+                GA.nodes[name]['subset_locations'] = attribute['subset_locations']
 
-                    for s in attribute['set_schools']:
 
-                        idxs = inst.network.schools.index[inst.network.schools['school_name'] == s].tolist()
+            if 'output_csv' in attribute:
 
-                        if len(idxs) > 0:
-                            index_school = idxs[0]
-                            GA.nodes[name]['schools'].append(index_school)
-                        else:
-                            raise ValueError('no school named after '+s)
+                GA.nodes[name]['output_csv'] = attribute['output_csv']
 
+            else: GA.nodes[name]['output_csv'] = True
+            
             if 'pdf' in attribute:
 
                 GA.nodes[name]['pdf'] = attribute['pdf']
@@ -502,6 +571,9 @@ def input_json(filename_json):
                     GA.nodes[name]['pdf'][0]['max'] = GA.nodes[name]['pdf'][0]['max']*mult
                     GA.nodes[name]['pdf'][0]['min'] = GA.nodes[name]['pdf'][0]['min']*mult
 
+                    if (GA.nodes[name]['type'] == 'time') or (GA.nodes[name]['type'] == 'integer'):
+                        GA.nodes[name]['pdf'][0]['max'] += 1
+
             elif 'expression' in attribute:
 
                 GA.nodes[name]['expression'] = attribute['expression']
@@ -509,6 +581,17 @@ def input_json(filename_json):
             if 'constraints' in attribute:
 
                 GA.nodes[name]['constraints'] = attribute['constraints']
+
+            if 'weights' in attribute:
+
+                GA.nodes[name]['weights'] = attribute['weights']
+
+                if 'pdf' in attribute:
+                    
+                    if GA.nodes[name]['pdf'][0]['type'] == 'uniform':
+                        GA.nodes[name]['all_values'] = list(range(math.ceil(GA.nodes[name]['pdf'][0]['min']), math.floor(GA.nodes[name]['pdf'][0]['max'])))
+                        print(GA.nodes[name]['all_values'])
+                    else: raise ValueError('normal distribution and weights is not allowed')
 
             if 'static_probability' in attribute:
 
@@ -560,10 +643,15 @@ def input_json(filename_json):
     if not os.path.isdir(save_dir_cpp):
         os.mkdir(save_dir_cpp)
 
+    save_dir_csv = os.path.join(inst.save_dir, 'csv_format')
+    if not os.path.isdir(save_dir_csv):
+        os.mkdir(save_dir_csv)
+
     save_dir_localsolver = os.path.join(inst.save_dir, 'localsolver_format')
     if not os.path.isdir(save_dir_localsolver):
         os.mkdir(save_dir_localsolver)
 
+    
     for instance in os.listdir(os.path.join(inst.save_dir, 'json_format')):
         
         if instance != ".DS_Store":
@@ -571,13 +659,16 @@ def input_json(filename_json):
             
             output_name_cpp = instance.split('.')[0] + '_cpp.pass'
             output_name_cpp = output_name_cpp.replace(" ", "")
+
+            output_name_csv = instance.split('.')[0] + '.csv'
+            output_name_csv = output_name_csv.replace(" ", "")
             
             output_name_ls = instance.split('.')[0] + '_ls.pass'
 
             converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst.network, problem_type=inst.problem_type)
+            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), inst=inst, problem_type=inst.problem_type, path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
             #converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
-
+    
 
 
     f.close()
