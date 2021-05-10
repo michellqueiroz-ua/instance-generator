@@ -133,6 +133,21 @@
 	],
 	"parameters":[
 		{
+			"name": "network",
+			"type": "string",
+			"value": "Rennes, France"
+		},
+		{
+			"name": "problem",
+			"type": "string",
+			"value": "DARP"
+		},
+		{
+			"name": "number_data",
+			"type": "integer",
+			"value": 500
+		},
+		{
 			"name": "min_early_departure",
 			"type": "time",
 			"value": 5,
@@ -143,6 +158,24 @@
 			"type": "time",
 			"value": 11,
 			"time_unit": "h"
+		},
+		{
+			"name": "time_window_length",
+			"type": "time",
+			"value": 10,
+			"time_unit": "min"
+		},
+		{
+			"name": "min_distance",
+			"type": "length",
+			"value": 2,
+			"length_unit": "km"
+		},
+		{
+			"name": "max_distance",
+			"type": "length",
+			"value": 5,
+			"length_unit": "km"
 		},
 		{
 			"name": "depots",
@@ -181,6 +214,7 @@
 			"value": true
 		}
 	],
+	"instance_filename": ["network", "problem", "number_data", "min_early_departure", "max_early_departure"],
 	"attributes": [
 		{
 			"name": "earliest_departure",
@@ -197,6 +231,31 @@
 						   ]
 		},
 		{
+			"name": "latest_departure",
+			"type": "time",
+			"time_unit": "s",
+			"expression": ["earliest_departure + time_window_length"]
+		},
+		{
+			"name": "earliest_departureP",
+			"type": "time",
+			"time_unit": "s",
+			"pdf": [ {	"type": "poisson",
+						"lam": 7,
+						"time_unit": "h"
+					} ],
+			"constraints": [ "earliest_departureP >= 0", 
+							"earliest_departureP >= min_early_departure",
+							 "earliest_departureP <= max_early_departure"
+						   ]
+		},
+		{
+			"name": "earliest_arrival",
+			"type": "time",
+			"time_unit": "s",
+			"expression": "latest_arrival - time_window_length"
+		},
+		{
 			"name": "latest_arrival",
 			"type": "time",
 			"time_unit": "s",
@@ -210,14 +269,14 @@
 						"min": 0,
 						"max": 5,
 						"time_unit": "min"
-					} ],
-			"static_probability": 0.5
+					} ]
 		},
 		{  
 			"name": "time_stamp",
 			"type": "time",
 			"time_unit": "s",
-			"expression": "earliest_departure - lead_time" 
+			"expression": "earliest_departure - lead_time",
+			"static_probability": 0.5
 		},
 		{
 			"name": "max_walking",
@@ -278,6 +337,14 @@
 			"output_csv": false
 		},
 		{
+			"name": "direct_distance",
+			"type": "length",
+			"length_unit": "m",
+			"expression": "dist_drive(origin,destination)",
+			"constraints": ["direct_distance >= min_distance"],
+			"output_csv": false
+		},
+		{
 			"name": "time_walking",
 			"type": "time",
 			"time_unit": "s",
@@ -293,6 +360,23 @@
 						"max": 1
 					} ],
 			"weights": [90, 10]
+		},
+		{
+			"name": "accompanying",
+			"type": "integer",
+			"pdf": [ {	"type": "uniform",
+						"min": 0,
+						"max": 2
+					} ],
+			"weights": [70, 20, 10]
+		},
+		{
+			"name": "inbound_outbound",
+			"type": "integer",
+			"pdf": [ {	"type": "uniform",
+						"min": 0,
+						"max": 1
+					} ]
 		}
 	]
 }

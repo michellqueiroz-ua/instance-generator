@@ -48,6 +48,7 @@ from retrieve_bus_stations import plot_bus_stations
 from retrieve_zones import retrieve_zones
 from retrieve_schools import retrieve_schools
 from compute_distance_matrix import _get_distance_matrix
+from compute_distance_matrix import _update_distance_matrix_walk
 from speed_info import _calc_mean_max_speed
 from speed_info import _get_max_speed_road
 
@@ -206,9 +207,12 @@ def download_network_information(
         else: raise ValueError('attribute vehicle_speed_data must be either "set" or "max"')
 
     
+    network = Network(place_name, G_drive, G_walk, polygon, bus_stations)
+
     print('Downloading zones from location')
-    zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BBx, BBy)
-    #create graph to plot zones here           
+    #zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BBx, BBy)
+    #create graph to plot zones here
+    zones = network.divide_network_grid(rows, columns, save_dir, output_folder_base)           
     print('number of zones', len(zones))
 
     print('Downloading schools from location')
@@ -217,15 +221,19 @@ def download_network_information(
     #create graph to plot zones here           
     print('number of schools', len(schools))
 
-    network = Network(place_name, G_drive, G_walk, polygon, bus_stations, zones, schools)
+    network.zones = zones
+    network.schools = schools
     
-    network.divide_network_grid(rows, columns)
+    
     #R = 1000
     #pt = polygon.centroid
     #network._get_random_coord_circle(R, pt.y, pt.x)
     
     plot_bus_stations(network, save_dir_images)
     network_stats(network)
+
+
+
 
     '''
     list_bus_stations = []
@@ -254,7 +262,8 @@ def download_network_information(
 
                 print('getting fixed lines DECONET')
                 get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base, place_name)
-
+                extra_stops = network.deconet_network_nodes['osmid_walk'].tolist()
+                shortest_path_walk = _update_distance_matrix_walk(G_walk, extra_stops, save_dir, output_folder_base)
                 #if not os.path.isdir(folder_path_deconet):
                 #    raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
                 #else:         
@@ -304,7 +313,7 @@ def download_network_information(
                 #print('ok')
                 count += 1
 
-    print(count)
+    #print(count)
     print(len(network.nodes_covered_fixed_lines))
 
     network.bus_stations_ids = []

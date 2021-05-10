@@ -18,7 +18,6 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BB
     save_dir_images = os.path.join(save_dir, 'images')
     zones_folder = os.path.join(save_dir_images, 'zones')
     
-
     if not os.path.isdir(zones_folder):
         os.mkdir(zones_folder)
 

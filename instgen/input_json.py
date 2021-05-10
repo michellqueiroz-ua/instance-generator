@@ -222,13 +222,21 @@ def input_json(filename_json):
                 namelocation = j['name']
             else: raise ValueError('name parameter for locations is mandatory')
 
-            if 'lon' in j:
-                lon = j['lon']
-            else: raise ValueError('lon parameter for locations is mandatory')
+            if ('centroid' in j) or (('lat' in j) and ('lon' in j)):
+                   
+                if ('lon' in j) and ('lat' in j):
+                    lon = j['lon']
+                    lat = j['lat']
+                else:
+                    if j['centroid'] is True:
 
-            if 'lat' in j:
-                lat = j['lat']
-            else: raise ValueError('lat parameter for locations is mandatory')
+                        pt = inst.network.polygon.centroid
+                        lon = pt.x
+                        lat = pt.y
+
+                    else: raise ValueError('lon/lat or centroid parameter for locations is mandatory')
+
+            else: raise ValueError('lon/lat or centroid parameter for locations is mandatory')
 
             if not inst.network.polygon.contains(Point(lon,lat)):
                 raise ValueError('location for '+namelocation+' is not within the boundaries of network')
@@ -401,6 +409,10 @@ def input_json(filename_json):
 
             else: raise ValueError('name for a parameter is mandatory')
 
+    if 'instance_filename' in data:
+
+        inst.instance_filename = data['instance_filename']
+        print(inst.instance_filename)
 
     if 'lead_time' in data:
 
@@ -574,6 +586,11 @@ def input_json(filename_json):
                     if (GA.nodes[name]['type'] == 'time') or (GA.nodes[name]['type'] == 'integer'):
                         GA.nodes[name]['pdf'][0]['max'] += 1
 
+                elif GA.nodes[name]['pdf'][0]['type'] == 'poisson':
+
+                    GA.nodes[name]['pdf'][0]['lam'] = GA.nodes[name]['pdf'][0]['lam']*mult
+
+
             elif 'expression' in attribute:
 
                 GA.nodes[name]['expression'] = attribute['expression']
@@ -586,16 +603,46 @@ def input_json(filename_json):
 
                 GA.nodes[name]['weights'] = attribute['weights']
 
+                size_all_values = 0
+
                 if 'pdf' in attribute:
                     
                     if GA.nodes[name]['pdf'][0]['type'] == 'uniform':
                         GA.nodes[name]['all_values'] = list(range(math.ceil(GA.nodes[name]['pdf'][0]['min']), math.floor(GA.nodes[name]['pdf'][0]['max'])))
-                        print(GA.nodes[name]['all_values'])
+                        #print(GA.nodes[name]['all_values'])
+                        size_all_values = len(GA.nodes[name]['all_values'])
                     else: raise ValueError('normal distribution and weights is not allowed')
 
-            if 'static_probability' in attribute:
+                if 'subset_zones' in attribute:
 
-                GA.nodes[name]['static_probability'] = attribute['static_probability']
+                    size_all_values = inst.parameters[attribute['subset_zones']]['size']
+
+                if attribute[weights][0] == 'randomized_weights':
+
+                    GA.nodes[name]['weights'] = np.random.randint(0, 101, size_all_values)
+
+                    sumall = 0
+                    for w in GA.nodes[name]['weights']:
+                        sumall += w
+
+                    for w in range(len(GA.nodes[name]['weights'])):
+                        GA.nodes[name]['weights'][w] = int(GA.nodes[name]['weights'][w]/sumall)
+                        
+                    print(GA.nodes[name]['weights'])
+
+                else:
+                    if len(attribute['weights']) < size_all_values:  
+                        raise ValueError('size of weights for '+att+' do not match')
+
+            if name == 'time_stamp':
+                
+                if 'static_probability' in attribute:
+                    GA.nodes[name]['static_probability'] = attribute['static_probability']
+                
+                else:    
+                    GA.nodes[name]['static_probability'] = 0
+
+
 
 
         for node in GA.nodes():

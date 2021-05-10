@@ -23,6 +23,62 @@ def shortest_path_nx_ss(G, u, weight):
     shortest_path_length_u = nx.single_source_dijkstra_path_length(G, u, weight=weight)
     return shortest_path_length_u
 
+def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_base):
+    
+    ray.shutdown()
+    ray.init(num_cpus=cpu_count())
+
+    save_dir_csv = os.path.join(save_dir, 'csv')
+    path_dist_csv_file_walk = os.path.join(save_dir_csv, output_file_base+'.dist.walk.csv')
+
+    if os.path.isfile(path_dist_csv_file_walk):
+        print('is file dist walk')
+        shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
+
+        #test_bus_stops_ids = bus_stops['osmid_walk'].tolist()
+        test_bus_stops_ids = bus_stops_fr
+
+        #remove duplicates from list
+        bus_stops_ids = [] 
+        [bus_stops_ids.append(x) for x in test_bus_stops_ids if x not in bus_stops_ids] 
+
+        
+        G_walk_id = ray.put(G_walk)
+
+        #calculate shortest path between nodes in the walking network to the bus stops
+        #shortest_path_length_walk = []
+        results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u, weight="length") for u in bus_stops_ids])
+
+        j=0
+        for u in bus_stops_ids:
+            d = {}
+            d['osmid_origin'] = u
+            for v in G_walk.nodes():
+                
+                dist_uv = -1
+                try:
+                    dist_uv = int(results[j][v])
+                except KeyError:
+                    pass
+                if dist_uv != -1:
+                    sv = str(v)
+                    d[sv] = dist_uv
+            shortest_path_walk.append(d, ignore_index=True)
+
+            j+=1
+            del d
+
+        #shortest_path_walk = pd.DataFrame(shortest_path_length_walk)
+        #del shortest_path_length_walk
+        del results
+        gc.collect()
+
+        shortest_path_walk.to_csv(path_dist_csv_file_walk)
+        shortest_path_walk.set_index(['osmid_origin'], inplace=True)
+
+        return shortest_path_walk
+
+
 def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base):
     shortest_path_walk = []
     shortest_path_drive = []

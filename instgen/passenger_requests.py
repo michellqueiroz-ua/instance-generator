@@ -412,8 +412,6 @@ def _generate_requests(
     print("Now generating " + " request_data")
 
 
-    inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
-    
     origin_points=[]
     destination_points=[]
     h = 0
@@ -422,32 +420,6 @@ def _generate_requests(
     node_list = []
     node_list_seq = []
     inst.depot_nodes_seq = []
-
-    '''
-    if (len(inst.depot_nodes_drive) > 0):
-
-        for i in range(0, len(inst.depot_nodes_drive)):
-
-            depot_node_drive = inst.depot_nodes_drive[i]
-            node_list.append(depot_node_drive)
-            node_list_seq.append(i)
-            inst.depot_nodes_seq.append(i)
-
-        inst.num_depots = len(inst.depot_nodes_drive)
-        
-    else:
-
-        for i in range(0, inst.num_depots):
-
-            depot_point = inst.network._get_random_coord(inst.network.polygon)
-            depot_point = (depot_point.y, depot_point.x)
-            depot_node_drive = ox.get_nearest_node(inst.network.G_drive, depot_point)
-            inst.depot_nodes_drive.append(depot_node_drive)
-
-            node_list.append(depot_node_drive)
-            node_list_seq.append(i)
-            inst.depot_nodes_seq.append(i)
-    '''
 
     for param in inst.parameters:
 
@@ -468,8 +440,9 @@ def _generate_requests(
                     point = inst.network._get_random_coord(inst.network.polygon)
                     point = (point.y, point.x)
                     node_drive = ox.get_nearest_node(inst.network.G_drive, point)
-                    inst.parameters[param]['list'+str(replicate_num)].append("random_loc"+len(inst.parameters[param]['list'+str(replicate_num)]))
-                    inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
+                    if node_drive not in inst.parameters[param]['list_node_drive'+str(replicate_num)]:
+                        inst.parameters[param]['list'+str(replicate_num)].append("random_loc"+len(inst.parameters[param]['list'+str(replicate_num)]))
+                        inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
 
                 #print(inst.parameters[param]['list_node_drive'+str(replicate_num)])
 
@@ -510,26 +483,6 @@ def _generate_requests(
                     inst.parameters[param]['zones'+str(replicate_num)].append(random_zone_id)
 
             print(inst.parameters[param]['zones'+str(replicate_num)])               
-    '''
-    for att in inst.sorted_attributes:
-
-        if inst.GA.nodes[att]['type'] == 'coordinate':
-
-            if 'subset_zones' in inst.GA.nodes[att]:
-
-                if inst.GA.nodes[att]['subset_zones'] is not False:
-
-                    #inst.GA.nodes[att]['zones'] = np.random.randint(0, len(inst.network.zones), inst.GA.nodes[att]['subset_zones'])
-                    while len(inst.GA.nodes[att]['zones']) < inst.GA.nodes[att]['subset_zones']:
-
-                        random_zone_id = np.random.randint(0, len(inst.network.zones))
-                        random_zone_id = int(random_zone_id)
-
-                        if random_zone_id not in inst.GA.nodes[att]['zones']:
-                            inst.GA.nodes[att]['zones'].append(random_zone_id)
-
-                print(inst.GA.nodes[att]['zones'])
-    '''
 
     num_requests = inst.request_demand[0].num_requests
     print(num_requests)
@@ -625,13 +578,23 @@ def _generate_requests(
                             attributes[att] = int(attributes[att])
 
 
+                    if inst.GA.nodes[att]['pdf'][0]['type'] == 'poisson':
+
+                        attributes[att] = np.random.poisson(inst.GA.nodes[att]['pdf'][0]['lam'])
+                        
+                        if (inst.GA.nodes[att]['type'] == 'time'):
+                            attributes[att] = int(attributes[att])
+
+                        print(attributes[att])
+
                     if inst.GA.nodes[att]['pdf'][0]['type'] == 'uniform':
+
 
                         if 'weights' in inst.GA.nodes[att]:
 
                             attributes[att] = random.choices(inst.GA.nodes[att]['all_values'], weights=inst.GA.nodes[att]['weights'], k=1)
                             attributes[att] = attributes[att][0]
-                            print(attributes[att])
+                            #print(attributes[att])
 
                         else:
                             if (inst.GA.nodes[att]['type'] == 'time') or (inst.GA.nodes[att]['type'] == 'integer'):
@@ -639,15 +602,19 @@ def _generate_requests(
                             else:
                                 attributes[att] = np.random.uniform(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
 
-                            if att == 'ambulatory':
-                                print(attributes[att])
+                            #if att == 'ambulatory':
+                                #print(attributes[att])
 
 
                 elif 'expression' in inst.GA.nodes[att]:
 
                     expression = inst.GA.nodes[att]['expression']
-                    #print(expression)
 
+                    if att == 'time_stamp':
+                        static = np.random.uniform(0, 1)
+                        if static < inst.GA.nodes[att]['static_probability']:
+                            expression = '0'
+                    
                     for attx in inst.sorted_attributes:
 
                         if attx in attributes:
@@ -699,6 +666,16 @@ def _generate_requests(
 
                             attributes[att] = inst.network.get_eta_walk(node_walk1, node_walk2, attributes['walk_speed'])
 
+                        if expression[0] == 'dist_drive':
+
+                            node_walk1 = attributes[expression[1]+'node_drive']
+                            node_walk2 = attributes[expression[2]+'node_drive']
+
+                            attributes[att] = inst.network._return_estimated_distance_drive(node_walk1, node_walk2, attributes['walk_speed'])
+
+                            print(att)
+                            print(attributes[att])
+                            
                 #check constraints
 
                 if 'constraints' in inst.GA.nodes[att]:
@@ -759,7 +736,7 @@ def _generate_requests(
             i += 1     
                   
     all_instance_data.update({'num_data:': len(instance_data),
-                          'data': instance_data
+                          'requests': instance_data
                           })
 
     if 'travel_time_matrix' in inst.parameters:
@@ -781,7 +758,7 @@ def _generate_requests(
                 if location in inst.parameters:
 
                     inst.parameters[location]['list_seq_id'+str(replicate_num)] = []
-                    print(inst.parameters[location]['list_node_drive'+str(replicate_num)])
+                    #print(inst.parameters[location]['list_node_drive'+str(replicate_num)])
                     for d in inst.parameters[location]['list_node_drive'+str(replicate_num)]:
 
                         node_list.append(d)
@@ -842,12 +819,22 @@ def _generate_requests(
 
                 nx.write_graphml(gtt, output_name_graphml)
 
-    
-        
-
     save_dir = os.getcwd()+'/'+inst.output_folder_base
     save_dir_images = os.path.join(save_dir, 'images')
     plot_requests(inst.network, save_dir_images, origin_points, destination_points)
+
+    
+    final_filename = ''
+    print(inst.instance_filename)
+    for p in inst.instance_filename:
+
+        if p in inst.parameters:
+            if 'value' in p:
+                final_filename = final_filename + str(inst.parameters[p]['value'])
+
+    print(final_filename)
+
+    inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
 
     with open(inst.output_file_json, 'w') as file:
         json.dump(all_instance_data, file, indent=4)
@@ -1367,6 +1354,7 @@ def _generate_requests_ODBRP(
                         
                         #compute arrival time
                         max_eta_bus, min_eta_bus = inst.network.return_estimated_travel_time_bus(stops_origin, stops_destination)
+                        #print(max_eta_bus)
                         if min_eta_bus >= 0:
                             #arr_time = (dep_time) + (inst.delay_vehicle_factor * max_eta_bus) + (max_walking_user * inst.delay_walk_factor)
                             flex_time = inst.delay_vehicle_factor * max_eta_bus

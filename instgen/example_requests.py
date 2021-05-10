@@ -7,8 +7,8 @@ if __name__ == '__main__':
 
     caching.clear_cache()
     
-    inst1 = Instance(folder_to_network='Rennes, France')
-    inst1.set_problem_type(problem_type="DARP")
+    inst1 = Instance(folder_to_network='Lisbon, Portugal')
+    inst1.set_problem_type(problem_type="ODBRP")
     inst1.add_request_demand_uniform(min_time=8, max_time=10, number_of_requests=500, time_unit="h")
     #inst1.add_request_demand_normal(mean=8, std=0.5, number_of_requests=100, time_unit="h")
     inst1.add_spatial_distribution(num_origins=-1, num_destinations=-1, prob=50, is_random_origin_zones=True, is_random_destination_zones=True)
@@ -47,6 +47,10 @@ if __name__ == '__main__':
     if not os.path.isdir(save_dir_cpp):
         os.mkdir(save_dir_cpp)
 
+    save_dir_csv = os.path.join(inst1.save_dir, 'csv_format')
+    if not os.path.isdir(save_dir_csv):
+        os.mkdir(save_dir_csv)
+
     save_dir_localsolver = os.path.join(inst1.save_dir, 'localsolver_format')
     if not os.path.isdir(save_dir_localsolver):
         os.mkdir(save_dir_localsolver)
@@ -58,11 +62,14 @@ if __name__ == '__main__':
             
             output_name_cpp = instance.split('.')[0] + '_cpp.pass'
             output_name_cpp = output_name_cpp.replace(" ", "")
+
+            output_name_csv = instance.split('.')[0] + '.csv'
+            output_name_csv = output_name_csv.replace(" ", "")
             
             output_name_ls = instance.split('.')[0] + '_ls.pass'
 
             converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), network=inst1.network, problem_type=inst1.problem_type)
+            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), inst=inst1, problem_type=inst1.problem_type, path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
             #converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
              
     #print('placement of stops - testing')

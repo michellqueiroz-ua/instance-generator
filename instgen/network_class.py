@@ -1,4 +1,5 @@
 import math
+import os
 import osmapi as osm
 import osmnx as ox
 import networkx as nx
@@ -14,7 +15,7 @@ import geopy.distance
             
 class Network:
 
-    def __init__(self, place_name, G_drive, G_walk, polygon, bus_stations, zones, schools):
+    def __init__(self, place_name, G_drive, G_walk, polygon, bus_stations):
         
         self.place_name = place_name
 
@@ -35,9 +36,9 @@ class Network:
 
         self.node_list_darp = []
        
-        self.zones = zones
+        #self.zones = zones
 
-        self.schools = schools
+        #self.schools = schools
 
         #self.shortest_path_drive = shortest_path_drive
         #self.shortest_path_walk = shortest_path_walk
@@ -45,7 +46,8 @@ class Network:
     def get_eta_walk(self, u, v, walk_speed):
         
         osm_api = osm.OsmApi()
-        
+        u = int(u)
+        v = int(v)
         #returns estimated time walking in seconds from origin_node to destination_node
         #in the case of walking, there is no difference between origin/destination
         try:
@@ -89,6 +91,16 @@ class Network:
 
         return eta_walk
 
+    def _return_estimated_distance_drive(self, origin_node, destination_node):
+
+        try:
+            distance_drive = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
+    
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            distance_drive = np.nan
+
+        return distance_drive
+
     def _return_estimated_travel_time_drive(self, origin_node, destination_node):
 
         '''
@@ -126,11 +138,12 @@ class Network:
         for origin in stops_origin:
             for destination in stops_destination:
 
+
                 u = self.bus_stations.loc[origin, 'osmid_drive']
                 v = self.bus_stations.loc[destination, 'osmid_drive']
 
-                travel_time = self._return_estimated_travel_time_drive(u, v)
-                
+                travel_time = self._return_estimated_travel_time_drive(int(u), int(v))
+
                 eta_bus = travel_time
                 
                 if not math.isnan(eta_bus):
@@ -409,10 +422,23 @@ class Network:
         #updates the polygon. used to generate coordinates within the zone
         self.zones.loc[index, 'polygon'] = polygon
 
-    def divide_network_grid(self, rows, columns):
+    def divide_network_grid(self, rows, columns, save_dir, output_folder_base):
+
+        save_dir_csv = os.path.join(save_dir, 'csv')
+        if not os.path.isdir(save_dir_csv):
+            os.mkdir(save_dir_csv)
+
+        save_dir_images = os.path.join(save_dir, 'images')
+        zones_folder = os.path.join(save_dir_images, 'zones')
+        
+        if not os.path.isdir(zones_folder):
+            os.mkdir(zones_folder)
+
+        path_zones_csv_file = os.path.join(save_dir_csv, output_folder_base+'.zones.csv')
 
         fig, ax = ox.plot_graph(self.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
+        zones = []
         earth_radius = 6371009  # meters
         blocks = []
 
@@ -447,11 +473,72 @@ class Network:
         print(minx, maxx)
         print(miny, maxy)
 
-        for lat in lats:
-            for lng in lngs:
+        zone_id = 0
+        for lat in range(len(lats)-1):
+            for lng in range(len(lngs)-1):
 
-                ax.scatter(lng, lat, c='red', s=8, marker=",")
-                print(lng, lat)
+                ##ax.scatter(lng, lat, c='red', s=8, marker=",")
+                #print(lng, lat)
+
+                north = lats[lat+1]
+                south = lats[lat]
+                east = lngs[lng+1]
+                west = lngs[lng]
+
+                ax.scatter(west, south, c='red', s=8, marker=",")
+                ax.scatter(east, south, c='red', s=8, marker=",")
+                ax.scatter(east, north, c='red', s=8, marker=",")
+                ax.scatter(west, north, c='red', s=8, marker=",")
+                #print(lng, lat)
+                
+                polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+
+                strname = 'zone'+str(zone_id)
+
+                zone_center_point = (polygon.centroid.y, polygon.centroid.x)
+                            
+                #osmid nearest node walk
+                osmid_walk = ox.get_nearest_node(self.G_walk, zone_center_point) 
+
+                #osmid nearest node drive
+                osmid_drive = ox.get_nearest_node(self.G_drive, zone_center_point)
+
+                #plot here the center point zone in the walk network
+                nc = ['r' if (node == osmid_walk) else '#336699' for node in self.G_walk.nodes()]
+                ns = [16 if (node == osmid_walk) else 1 for node in self.G_walk.nodes()]
+                zone_filename = str(zone_id)+'_'+strname+'_walk.png'
+                fig2, ax2 = ox.plot_graph(self.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
+                plt.close(fig2)
+
+                #plot here the center point zone in the drive network
+                nc = ['r' if (node == osmid_drive) else '#336699' for node in self.G_drive.nodes()]
+                ns = [16 if (node == osmid_drive) else 1 for node in self.G_drive.nodes()]
+                zone_filename = str(zone_id)+'_'+strname+'_drive.png'
+                fig3, ax3 = ox.plot_graph(self.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
+                plt.close(fig3)
+
+                d = {
+                    "name": strname,
+                    'id': zone_id,
+                    'polygon': polygon,
+                    'center_y': polygon.centroid.y,
+                    'center_x': polygon.centroid.x,
+                    'origin_weigth': 0,
+                    'destination_weigth': 0
+                } 
+                zone_id = 1
+
+                zones.append(d)
+
+        zones = pd.DataFrame(zones)
+        zones.to_csv(path_zones_csv_file)
+
+        if len(zones) > 0:
+            zones.set_index(['id'], inplace=True)
+
+        plt.show()
+        plt.close(fig)
+        return zones
 
         '''         
         #dist_lat = abs((maxy-miny)/rows)
@@ -517,10 +604,8 @@ class Network:
                 lng += delta_lng
             lat += delta_lat 
         '''           
-
         #self.blocks = pd.DataFrame(blocks)
-        #plt.show()
-        plt.close(fig)
+
 
     def add_new_zone(self, name, center_x, center_y, length_x=0, length_y=0, radius=0, origin_weigth=0, destination_weigth=0):
 
