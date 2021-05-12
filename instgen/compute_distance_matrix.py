@@ -38,9 +38,15 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
         #test_bus_stops_ids = bus_stops['osmid_walk'].tolist()
         test_bus_stops_ids = bus_stops_fr
 
+        osmid_origins = shortest_path_walk['osmid_origin'].tolist()
+
+
         #remove duplicates from list
+        bus_stops_ids2 = [] 
+        [bus_stops_ids2.append(int(x)) for x in test_bus_stops_ids if x not in bus_stops_ids2] 
+
         bus_stops_ids = [] 
-        [bus_stops_ids.append(int(x)) for x in test_bus_stops_ids if x not in bus_stops_ids] 
+        [bus_stops_ids.append(int(x)) for x in bus_stops_ids2 if x not in osmid_origins] 
 
         
         G_walk_id = ray.put(G_walk)
@@ -63,6 +69,7 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
                 if dist_uv != -1:
                     sv = str(v)
                     d[sv] = dist_uv
+            #print(d)
             shortest_path_walk = shortest_path_walk.append(d, ignore_index=True)
 
             j+=1

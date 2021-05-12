@@ -70,7 +70,7 @@ class Network:
                     distance_walk = np.nan
                     
                     #nx.exception.NodeNotFound
-        
+        #print(distance_walk)
         if math.isnan(distance_walk):
             '''
             nodeu = osm_api.NodeGet(u)

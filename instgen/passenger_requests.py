@@ -492,7 +492,7 @@ def _generate_requests(
                         node_drive = inst.network.schools.loc[int(random_school_id), 'osmid_drive']
                         inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
 
-                print(inst.parameters[param]['list_ids'+str(replicate_num)])
+                #print(inst.parameters[param]['list_ids'+str(replicate_num)])
 
         if inst.parameters[param]['type'] == 'list_zones':
 
@@ -508,13 +508,14 @@ def _generate_requests(
                 if random_zone_id not in inst.parameters[param]['zones'+str(replicate_num)]:
                     inst.parameters[param]['zones'+str(replicate_num)].append(random_zone_id)
 
-            print(inst.parameters[param]['zones'+str(replicate_num)])               
+            #print(inst.parameters[param]['zones'+str(replicate_num)])               
 
-    num_requests = inst.request_demand[0].num_requests
+    num_requests = inst.parameters['number_data']['value']
     print(num_requests)
     instance_data = {}
     all_instance_data = {}  
     i=0
+    #ps = []
     while i < num_requests:
 
         attributes = {}
@@ -611,6 +612,7 @@ def _generate_requests(
                         if (inst.GA.nodes[att]['type'] == 'time') or (inst.GA.nodes[att]['type'] == 'integer'):
                             attributes[att] = int(attributes[att])
 
+                        
                         #print(attributes[att])
 
                     if inst.GA.nodes[att]['pdf'][0]['type'] == 'uniform':
@@ -787,8 +789,8 @@ def _generate_requests(
                 ##if att == 'earliest_departure':
                 #    print(attributes[att])
 
-                if att == 'accompanying':
-                    print(attributes[att])
+                #if att == 'inbound_outbound':
+                #    print(attributes[att])
            
             if not_feasible_attribute:
             
@@ -798,6 +800,9 @@ def _generate_requests(
         #print(attributes)
         if feasible_data:
             #print(attributes)
+
+            
+            #ps.append(attributes['earliest_departure'])
             
             instance_data.update({i: attributes})
 
@@ -814,7 +819,11 @@ def _generate_requests(
                         destination_points.append((attributes['destinationy'], attributes[att]))  
             #print(i)
             i += 1     
-                  
+              
+
+    #count, bins, ignored = plt.hist(ps, 30, density=True)
+    #plt.plot(bins, np.ones_like(bins), linewidth=2, color='r')    
+    #plt.show()
     all_instance_data.update({'num_data:': len(instance_data),
                           'requests': instance_data
                           })
@@ -861,43 +870,43 @@ def _generate_requests(
             all_instance_data.update({'travel_time_matrix': travel_time_json
                             })
                         
-        if 'graphml' in inst.parameters:
-            if inst.parameters['graphml']['value'] is True:
-                #creates a graph that will serve as the travel time matrix for the given set of requests
-                gtt = nx.DiGraph() 
+            if 'graphml' in inst.parameters:
+                if inst.parameters['graphml']['value'] is True:
+                    #creates a graph that will serve as the travel time matrix for the given set of requests
+                    gtt = nx.DiGraph() 
 
-                if 'bus_stations' in inst.parameters['travel_time_matrix']['locations']:
+                    if 'bus_stations' in inst.parameters['travel_time_matrix']['locations']:
 
-                    for index, row in inst.network.bus_stations.iterrows():
+                        for index, row in inst.network.bus_stations.iterrows():
 
-                        gtt.add_node(index, type='bus_stations')
+                            gtt.add_node(index, type='bus_stations')
 
-                for param in inst.parameters:
+                    for param in inst.parameters:
 
-                    if param in inst.parameters['travel_time_matrix']['locations']:
+                        if param in inst.parameters['travel_time_matrix']['locations']:
 
-                        for d in inst.parameters[param]['list_seq_id'+str(replicate_num)]:
+                            for d in inst.parameters[param]['list_seq_id'+str(replicate_num)]:
 
-                            node = d
-                            gtt.add_node(node, type=param)
+                                node = d
+                                gtt.add_node(node, type=param)
 
-                for att in inst.sorted_attributes:
-                    
-                    if att in inst.parameters['travel_time_matrix']['locations']:
+                    for att in inst.sorted_attributes:
+                        
+                        if att in inst.parameters['travel_time_matrix']['locations']:
 
-                        for d in instance_data:
+                            for d in instance_data:
 
-                            node = instance_data[att+'id']
-                            gtt.add_node(node, type=att)
+                                node = instance_data[d][att+'id']
+                                gtt.add_node(node, type=att)
 
-                for u in node_list_seq:
-                    for v in node_list_seq:
+                    for u in node_list_seq:
+                        for v in node_list_seq:
 
-                        gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+                            gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
 
-                output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+                    output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
 
-                nx.write_graphml(gtt, output_name_graphml)
+                    nx.write_graphml(gtt, output_name_graphml)
 
     save_dir = os.getcwd()+'/'+inst.output_folder_base
     save_dir_images = os.path.join(save_dir, 'images')
@@ -905,7 +914,7 @@ def _generate_requests(
 
     
     final_filename = ''
-    print(inst.instance_filename)
+    #print(inst.instance_filename)
     for p in inst.instance_filename:
 
         if p in inst.parameters:

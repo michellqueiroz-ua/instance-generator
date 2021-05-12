@@ -215,12 +215,15 @@ def input_json(filename_json):
             inst.set_time_window(min_early_departure=min_early_departure, max_early_departure=max_early_departure, time_unit=time_unit)
 
     if 'locations' in data:
-
+        location_names = []
         for j in data['locations']:
 
             if 'name' in j:
+                if not (isinstance(j['name'], (str))): 
+                    raise TypeError('name for a location must be a string')
                 namelocation = j['name']
             else: raise ValueError('name parameter for locations is mandatory')
+            location_names.append(j['name'])
 
             if ('centroid' in j) or (('lat' in j) and ('lon' in j)):
                    
@@ -242,20 +245,27 @@ def input_json(filename_json):
                 raise ValueError('location for '+namelocation+' is not within the boundaries of network')
 
             if 'type' in j: 
+                typelocs = ['school', 'coordinate']
+
+                if j['type'] not in typelocs:
+                    raise ValueError('location '+str(j['type'])+' is not supported')
+
                 if j['type'] == 'school':
                     inst.network.add_new_school(name=namelocation, x=lon, y=lat)
 
-        for x in data['locations']:
+        for x in range(len(data['locations'])):
 
-            point = (x['lat'], x['lon'])
-            x['node_drive'] = ox.get_nearest_node(inst.network.G_drive, point)
-            x['node_walk'] = ox.get_nearest_node(inst.network.G_walk, point)
+            point = (data['locations'][x]['lat'], data['locations'][x]['lon'])
+            data['locations'][x]['node_drive'] = ox.get_nearest_node(inst.network.G_drive, point)
+            data['locations'][x]['node_walk'] = ox.get_nearest_node(inst.network.G_walk, point)
 
     if 'zones' in data:
 
         for j in data['zones']:
 
             if 'name' in j:
+                if not (isinstance(j['name'], (str))): 
+                    raise TypeError('name for a zone must be a string')
                 nameszone  = j['name']
             else: raise ValueError('name parameter for zone is mandatory')
 
@@ -282,6 +292,10 @@ def input_json(filename_json):
                 raise ValueError('location for '+nameszone+' is not within the boundaries of network')
 
             if 'length_unit' in j:
+                lunit = j['length_unit']
+                if (lunit != 'km') and (lunit != 'm') and (lunit != 'mi'):
+                    raise ValueError('length_unit must be m, km or mi')
+
                 length_unit  = j['length_unit']
             else:
                 length_unit = "m"
@@ -289,16 +303,28 @@ def input_json(filename_json):
             mult = get_multiplier_length_unit(length_unit)
 
             if 'length_lon' in j:
+                if not (isinstance(j['length_lon'], (int, float))): 
+                    raise TypeError('length_lon for type length must be a number (integer, float)')
+                if j['length_lon'] < 0:
+                    raise TypeError('negative number is not allowed for type length')
                 length_lon  = j['length_lon']*mult
             else:
                 length_lon = 0
 
             if 'length_lat' in j:
+                if not (isinstance(j['length_lat'], (int, float))): 
+                    raise TypeError('length_lat for type length must be a number (integer, float)')
+                if j['length_lat'] < 0:
+                    raise TypeError('negative number is not allowed for type length')
                 length_lat  = j['length_lat']*mult
             else:
                 length_lat = 0
 
             if 'radius' in j:
+                if not (isinstance(j['radius'], (int, float))): 
+                    raise TypeError('radius for type length must be a number (integer, float)')
+                if j['radius'] < 0:
+                    raise TypeError('negative number is not allowed for type length')
                 radius  = j['radius']
             else:
                 radius = 0
@@ -307,15 +333,32 @@ def input_json(filename_json):
 
     if 'parameters' in data:
 
-         for j in data['parameters']:
+        inst.parameters['all_locations'] = {}
+        inst.parameters['all_locations']['type'] = 'builtin'
+        inst.parameters['all_locations']['list'] = []
+        inst.parameters['all_locations']['list'].append('bus_stations')
+
+        for j in data['parameters']:
 
             if 'name' in j:
+
+                if not (isinstance(j['name'], (str))): 
+                    raise TypeError('name for an attribute must be a string')
 
                 inst.parameters[j['name']] = {}
                 if 'value' in j:
                     
                     mult = 1
                     if 'time_unit' in j:
+                        
+                        tunit = j['time_unit']
+                        if (tunit != 's') and (tunit != 'min') and (tunit != 'h'):
+                            raise ValueError('time_unit must be s, min or h')
+
+                        if not (isinstance(j['value'], (int, float))): 
+                            raise TypeError('value for type time must be a number (integer, float)')
+                        if j['value'] < 0:
+                            raise TypeError('negative number is not allowed for type time')
                         mult = get_multiplier_time_unit(j['time_unit'])
 
                         inst.parameters[j['name']]['value'] = j['value']*mult
@@ -323,10 +366,30 @@ def input_json(filename_json):
                     elif 'speed_unit' in j:
                         mult = get_multiplier_speed_unit(j['speed_unit'])
 
+                        sunit = j['speed_unit']
+                        if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'mph'):
+                            raise ValueError('speed_unit must be mps, kmh or mph')
+
+                        if not (isinstance(j['value'], (int, float))): 
+                            raise TypeError('value for type speed must be a number (integer, float)')
+
+                        if j['value'] < 0:
+                            raise TypeError('negative number is not allowed for type speed')
+
                         inst.parameters[j['name']]['value'] = j['value']*mult
 
                     elif 'length_unit' in j:
                         mult = get_multiplier_length_unit(j['length_unit'])
+
+                        lunit = j['length_unit']
+                        if (lunit != 'km') and (lunit != 'm') and (lunit != 'mi'):
+                            raise ValueError('length_unit must be m, km or mi')
+
+                        if not (isinstance(j['value'], (int, float))): 
+                            raise TypeError('value for type length must be a number (integer, float)')
+
+                        if j['value'] < 0:
+                            raise TypeError('negative number is not allowed for type length')
                     
                         inst.parameters[j['name']]['value'] = j['value']*mult
 
@@ -334,22 +397,63 @@ def input_json(filename_json):
 
                         inst.parameters[j['name']]['value'] = j['value']
 
+
+
+                else: inst.parameters[j['name']]['value'] = np.nan
+
                 if j['name'] == 'travel_time_matrix':
 
                     if 'locations' in j:
-                        inst.parameters[j['name']]['locations'] = j['locations']
+                        if (isinstance(j['locations'], (list))): 
+                            inst.parameters[j['name']]['locations'] = j['locations']
+                        else: raise TypeError('locations for travel_time_matrix must be a list')
+
                     else: raise ValueError('locations for travel_time_matrix is mandatory')
 
                 if 'type' in j:
 
+                    types = ['string', 'integer', 'time', 'speed', 'length', 'list_coordinates', 'list_zones', 'matrix', 'graphml']
+                    if not (j['type'] in types):
+                        raise ValueError('type ' +j['type']+' is not supported')
+
                     inst.parameters[j['name']]['type'] = j['type']
 
+                    if j['type'] == 'integer':
+                        if not (isinstance(j['value'], (int))): 
+                            raise TypeError('value for '+j['name']+' must be integer')
+
+                    if j['type'] == 'string':
+                        if not (isinstance(j['value'], (str))): 
+                            raise TypeError('value for '+j['name']+' must be string')
+
+                    if j['type'] == 'float':
+                        if not (isinstance(j['value'], (float))): 
+                            raise TypeError('value for '+j['name']+' must be float')
+
                     if j['type'] == 'list_coordinates':
+                        inst.parameters['all_locations']['list'].append(j['name'])
+
+
                         if 'size' in j:
-                            inst.parameters[j['name']]['size'] = j['size']
+                            
+                            if (isinstance(j['size'], (int))): 
+                                inst.parameters[j['name']]['size'] = j['size']
+                            else: raise TypeError('size must be an integer number')
+
+                            if j['size'] < 0:
+                                raise TypeError('size must be a positive integer number')
 
                         if 'list' in j:
-                            inst.parameters[j['name']]['list'] = j['list']
+                                                        
+                            if (isinstance(j['list'], (list))): 
+                                inst.parameters[j['name']]['list'] = j['list']
+                            else: raise TypeError('list parameter must be type list')
+
+                            for elem in inst.parameters[j['name']]['list']:
+
+                                if elem not in location_names:
+                                    raise ValueError('locaton '+elem+' does not exist')
+
                         else:
                             inst.parameters[j['name']]['list'] = []
 
@@ -357,7 +461,16 @@ def input_json(filename_json):
                         inst.parameters[j['name']]['list_node_walk'] = []
 
                         if 'locs' in j:
-                            inst.parameters[j['name']]['locs'] = j['locs']
+                            
+
+                            if (isinstance(j['locs'], (str))): 
+                                inst.parameters[j['name']]['locs'] = j['locs']
+                            else:
+                                raise TypeError('locs must be a string')
+
+                            loctypes = ['anywhere', 'schools']
+                            if not (inst.parameters[j['name']]['locs'] in loctypes):
+                                raise ValueError('loc ' +inst.parameters[j['name']]['locs']+' is not supported')
 
                             if j['locs'] == 'schools':
 
@@ -372,7 +485,7 @@ def input_json(filename_json):
                                         inst.parameters[j['name']]['list_node_walk'].append(inst.network.schools.loc[index_school, 'osmid_walk'])
                                     else:
                                         raise ValueError('no school named after '+s)
-                                    print(index_school)
+                                    #print(index_school)
                             else:
 
                                 for x in data['locations']:
@@ -387,10 +500,19 @@ def input_json(filename_json):
 
                         inst.parameters[j['name']]['zones'] = []
                         if 'size' in j:
-                            inst.parameters[j['name']]['size'] = j['size']
+                            
+                            if (isinstance(j['size'], (int))): 
+                                inst.parameters[j['name']]['size'] = j['size']
+                            else: raise TypeError('size parameter must be integer')
+
+                            if j['size'] < 0:
+                                raise TypeError('size must be a positive integer number')
 
                         if 'list' in j:
-                            inst.parameters[j['name']]['list'] = j['list']
+
+                            if (isinstance(j['list'], (list))): 
+                                inst.parameters[j['name']]['list'] = j['list']
+                            else: raise TypeError('list parameter must be type list')
 
                             for z in j['list']:
 
@@ -412,7 +534,12 @@ def input_json(filename_json):
     if 'instance_filename' in data:
 
         inst.instance_filename = data['instance_filename']
-        print(inst.instance_filename)
+
+        for x in data['instance_filename']:
+            if x not in inst.parameters:
+                raise ValueError(x+ ' is not a parameter, therefore not valid for instance_filename')
+
+        #print(inst.instance_filename)
 
     if 'lead_time' in data:
 
@@ -508,14 +635,28 @@ def input_json(filename_json):
 
             if 'name' in attribute:
 
-                name = attribute['name']
+                if (isinstance(attribute['name'], (str))): 
+                    name = attribute['name']
+                else:
+                    raise TypeError('name for an attribute must be a string')
+
                 GA.add_node(name)
                 
             else: raise ValueError('name parameter for attribute is mandatory')
 
             if 'type' in attribute:
 
-                GA.nodes[name]['type'] = attribute['type']
+                if (isinstance(attribute['type'], (str))): 
+                    GA.nodes[name]['type'] = attribute['type']
+                else:
+                    raise TypeError('type for an attribute must be a string')
+
+                types = ['time', 'speed', 'length', 'integer', 'float', 'string', 'list', 'coordinate']
+                if not (GA.nodes[name]['type'] in types):
+                    raise ValueError('type ' +GA.nodes[name]['type']+' is not supported')
+
+                if attribute['type'] == 'coordinate':
+                    inst.parameters['all_locations']['list'].append(attribute['name'])
 
                 if attribute['type'] == 'time':
 
@@ -593,8 +734,9 @@ def input_json(filename_json):
                 GA.nodes[name]['pdf'] = attribute['pdf']
 
                 mult = 1
+                positiveV = False
                 if 'time_unit' in GA.nodes[name]['pdf'][0]:
-
+                    positiveV = True
                     tunit = GA.nodes[name]['pdf'][0]['time_unit']
                     if (tunit != 's') and (tunit != 'min') and (tunit != 'h'):
                         raise ValueError('time_unit must be s, min or h')
@@ -602,7 +744,7 @@ def input_json(filename_json):
                     mult = get_multiplier_time_unit(GA.nodes[name]['pdf'][0]['time_unit'])
 
                 elif 'speed_unit' in GA.nodes[name]['pdf'][0]:
-                    
+                    positiveV = True
                     sunit = GA.nodes[name]['pdf'][0]['speed_unit']
                     if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'mph'):
                         raise ValueError('speed_unit must be mps, kmh or mph')
@@ -610,7 +752,7 @@ def input_json(filename_json):
                     mult = get_multiplier_speed_unit(GA.nodes[name]['pdf'][0]['speed_unit'])
 
                 elif 'length_unit' in GA.nodes[name]['pdf'][0]:
-                    
+                    positiveV = True
                     lunit = GA.nodes[name]['pdf'][0]['length_unit']
                     if (lunit != 'm') and (lunit != 'km') and (lunit != 'mi'):
                         raise ValueError('length_unit must be m, km or mi')
@@ -628,6 +770,12 @@ def input_json(filename_json):
                         GA.nodes[name]['pdf'][0]['std'] = GA.nodes[name]['pdf'][0]['std']*mult
                     else:
                         raise TypeError('std value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['mean'] < 0):
+                        raise TypeError('a negative "mean" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['std'] < 0):
+                        raise TypeError('a negative "std" number is not allowed for type time/speed/length')
                     
                 elif GA.nodes[name]['pdf'][0]['type'] == 'uniform':
 
@@ -641,6 +789,12 @@ def input_json(filename_json):
                     else:
                         raise TypeError('min value must be a number (integer, float)')
 
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['max'] < 0):
+                        raise TypeError('a negative "max" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['min'] < 0):
+                        raise TypeError('a negative "min" number is not allowed for type time/speed/length')
+
                     if (GA.nodes[name]['type'] == 'time') or (GA.nodes[name]['type'] == 'integer'):
                         GA.nodes[name]['pdf'][0]['max'] += 1
 
@@ -650,6 +804,9 @@ def input_json(filename_json):
                         GA.nodes[name]['pdf'][0]['lam'] = GA.nodes[name]['pdf'][0]['lam']*mult
                     else:
                         raise TypeError('lam value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['lam'] < 0):
+                        raise TypeError('a negative "lam" number is not allowed for type time/speed/length')
 
                 else:
                     raise TypeError('pdf must be normal, uniform or poisson')
@@ -669,10 +826,6 @@ def input_json(filename_json):
                 else:
                     raise TypeError('weights must be a list')
 
-                for w in GA.nodes[name]['weights']:
-                    if not (isinstance(w, (int, float))): 
-                        raise TypeError('weights values must be numbers (integer, float)')
-
                 size_all_values = 0
 
                 if 'pdf' in attribute:
@@ -683,31 +836,42 @@ def input_json(filename_json):
                         size_all_values = len(GA.nodes[name]['all_values'])
                     else: raise ValueError('normal distribution and weights is not allowed')
 
-                if 'subset_zones' in attribute:
+                elif 'subset_zones' in attribute:
 
                     size_all_values = inst.parameters[attribute['subset_zones']]['size']
 
                 if attribute['weights'][0] == 'randomized_weights':
 
                     GA.nodes[name]['weights'] = np.random.randint(0, 101, size_all_values)
-
+                    #print(GA.nodes[name]['weights'])
                     sumall = 0
                     for w in GA.nodes[name]['weights']:
                         sumall += w
 
                     for w in range(len(GA.nodes[name]['weights'])):
-                        GA.nodes[name]['weights'][w] = int(GA.nodes[name]['weights'][w]/sumall)
-                        
-                    print(GA.nodes[name]['weights'])
+                        GA.nodes[name]['weights'][w] = int((GA.nodes[name]['weights'][w]/sumall)*100)
+                  
+                    #print('randomized_weights')      
+                    #print(GA.nodes[name]['weights'])
+
+                    for w in GA.nodes[name]['weights']:
+                        if not (isinstance(w, (np.integer))): 
+                            raise TypeError('weights values must be numbers (integer, float)')
 
                 else:
                     if len(attribute['weights']) < size_all_values:  
-                        raise ValueError('size of weights for '+att+' do not match')
+                        raise ValueError('size of weights list for '+att+' do not match')
 
             if name == 'time_stamp':
                 
                 if 'static_probability' in attribute:
-                    GA.nodes[name]['static_probability'] = float(attribute['static_probability'])
+                    if (isinstance(attribute['static_probability'], (float))):
+                        if (attribute['static_probability'] >= 0) and (attribute['static_probability'] <= 1):
+                            GA.nodes[name]['static_probability'] = float(attribute['static_probability'])
+                        else:
+                            raise ValueError('static_probability must be a float between [0,1]')
+                    else:
+                        raise TypeError('static_probability values must be a float number') 
                 
                 else:    
                     GA.nodes[name]['static_probability'] = 0
@@ -748,6 +912,11 @@ def input_json(filename_json):
         inst.sorted_attributes = list(nx.topological_sort(GA))
         inst.GA = GA
         print(inst.sorted_attributes)
+
+        if 'travel_time_matrix' in inst.parameters:
+            for loc in inst.parameters['travel_time_matrix']['locations']:
+                if loc not in inst.parameters['all_locations']['list']:
+                    raise ValueError(str(loc)+ ' is not recognized or does not exists for travel_time_matrix')
 
     else: raise ValueError('attributes for instance are mandatory')
 

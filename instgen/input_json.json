@@ -97,7 +97,7 @@
 	],
 	"zones": [
 		{
-			"name": "zone1",
+			"name": "zonexx",
 			"lon": -1.6902891077472344,
 			"lat": 48.09282962664396,
 			"length_lon": 1000,
@@ -110,7 +110,7 @@
 			"radius": 1000
 		},
 		{
-			"name": "zone2",
+			"name": "zone2x",
 			"lon": -1.6945037524387636,
 			"lat": 48.105993349477394,
 			"radius": 1000,
@@ -194,13 +194,13 @@
 			"name": "zonesdest",
 			"type": "list_zones", 
 			"size": 2,
-			"list": ["zonecenter", "zone1"]
+			"list": ["zonecenter", "zonexx"]
 		},
 		{
 			"name": "travel_time_matrix",
 			"type": "matrix",
 			"value": true,
-			"locations": ["bus_stations", "schools"]
+			"locations": ["bus_stations", "school"]
 		},
 		{
 			"name": "graphml",
@@ -214,9 +214,9 @@
 			"name": "earliest_departure",
 			"type": "time",
 			"time_unit": "s",
-			"pdf": [ {	"type": "uniform",
-						"min": 8.5,
-						"max": 10,
+			"pdf": [ {	"type": "normal",
+						"mean": 8.5,
+						"std": 1,
 						"time_unit": "h"
 					} ],
 			"constraints": [ "earliest_departure >= 0", 
@@ -364,7 +364,7 @@
 						"min": 0,
 						"max": 1
 					} ],
-			"weights": [90, 10]
+			"weights": ["randomized_weights"]
 		},
 		{
 			"name": "accompanying",
