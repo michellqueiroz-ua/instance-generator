@@ -12,6 +12,28 @@ import ray
 import re
 from shapely.geometry import Point
 
+def eval_expression(input_string):
+    
+    allowed_names = {"len": len, 
+                    "set": set,
+                    "abs": abs,
+                    "float": float,
+                    "int": int,
+                    "max": max,
+                    "min": min,
+                    "pow": pow,
+                    "round": round,
+                    "str": str,
+                    "isinstance": isinstance
+                    }
+    
+    code = compile(input_string, "<string>", "eval")
+    
+    for name in code.co_names:
+        if name not in allowed_names:
+            raise NameError(f"Use of "+name+" is not allowed OR it is not in the parameters/attributes")
+    return eval(code, {"__builtins__": {}}, allowed_names)
+
 def plot_requests(network, save_dir_images, origin_points, destination_points):
 
 
@@ -404,6 +426,10 @@ def _generate_requests_ODBRPFL(
         json.dump(instance_data, file, indent=4)
         file.close()
 
+def _generate_single_data():
+    pass
+
+
 def _generate_requests( 
     inst,
     replicate_num,
@@ -574,7 +600,7 @@ def _generate_requests(
 
                         attributes[att] = np.random.normal(inst.GA.nodes[att]['pdf'][0]['mean'], inst.GA.nodes[att]['pdf'][0]['std'])
                         
-                        if (inst.GA.nodes[att]['type'] == 'time'):
+                        if (inst.GA.nodes[att]['type'] == 'time') or (inst.GA.nodes[att]['type'] == 'integer'):
                             attributes[att] = int(attributes[att])
 
 
@@ -582,10 +608,10 @@ def _generate_requests(
 
                         attributes[att] = np.random.poisson(inst.GA.nodes[att]['pdf'][0]['lam'])
                         
-                        if (inst.GA.nodes[att]['type'] == 'time'):
+                        if (inst.GA.nodes[att]['type'] == 'time') or (inst.GA.nodes[att]['type'] == 'integer'):
                             attributes[att] = int(attributes[att])
 
-                        print(attributes[att])
+                        #print(attributes[att])
 
                     if inst.GA.nodes[att]['pdf'][0]['type'] == 'uniform':
 
@@ -602,9 +628,9 @@ def _generate_requests(
                             else:
                                 attributes[att] = np.random.uniform(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
 
+                            #print(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
                             #if att == 'ambulatory':
                                 #print(attributes[att])
-
 
                 elif 'expression' in inst.GA.nodes[att]:
 
@@ -612,6 +638,7 @@ def _generate_requests(
 
                     if att == 'time_stamp':
                         static = np.random.uniform(0, 1)
+                        #print(static)
                         if static < inst.GA.nodes[att]['static_probability']:
                             expression = '0'
                     
@@ -624,8 +651,15 @@ def _generate_requests(
 
                     try:
                         
-                        attributes[att] = eval(expression)
+                        #attributes[att] = eval(expression)
+                        #print(expression)
+                        attributes[att] = eval_expression(expression)
                         #print(attributes[att])
+
+                        if (inst.GA.nodes[att]['type'] == 'time') or (inst.GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+                        #if att == 'time_stamp':
+                        #   print(attributes[att])
                     
                     except (SyntaxError, NameError, ValueError, TypeError):
 
@@ -635,17 +669,24 @@ def _generate_requests(
                         
                         if expression[0] == 'dtt':
 
-                            node_drive1 = attributes[expression[1]+'node_drive']
-                            node_drive2 = attributes[expression[2]+'node_drive']
+                            if (expression[1] in attributes) and (expression[2] in attributes):
+                                node_drive1 = attributes[expression[1]+'node_drive']
+                                node_drive2 = attributes[expression[2]+'node_drive']
+                            else:
+                                raise ValueError('expression '+inst.GA.nodes[att]['expression']+' not possible to evaluate. check the parameters')
 
                             attributes[att] = inst.network._return_estimated_travel_time_drive(node_drive1, node_drive2)
 
-                        if expression[0] == 'stops':
+                        elif expression[0] == 'stops':
 
                             stops = []
                             stops_walking_distance = []
 
-                            node_walk = attributes[expression[1]+'node_walk']
+                            if (expression[1] in attributes):
+                                node_walk = attributes[expression[1]+'node_walk']
+                            else:
+                                raise ValueError('expression '+inst.GA.nodes[att]['expression']+' not possible to evaluate. check the parameters')
+                            
 
                             for index in inst.network.bus_stations_ids:
                     
@@ -653,28 +694,57 @@ def _generate_requests(
 
                                 eta_walk = inst.network.get_eta_walk(node_walk, osmid_possible_stop, attributes['walk_speed'])
                                 if (eta_walk >= 0) and (eta_walk <= attributes['max_walking']):
+                                    #print(eta_walk)
                                     stops.append(index)
                                     stops_walking_distance.append(eta_walk)
+
+                            '''
+                            fig, ax = ox.plot_graph(inst.network.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
+
+                            node_id = attributes[expression[1]+'node_drive']
+                            x = inst.network.G_drive.nodes[node_id]['x']
+                            y = inst.network.G_drive.nodes[node_id]['y']
+                            ax.scatter(x, y, c='red', s=8, marker=",")
+
+                            for stop in stops:
+                                node_id = inst.network.bus_stations.loc[int(stop), 'osmid_drive']
+                                x = inst.network.G_drive.nodes[node_id]['x']
+                                y = inst.network.G_drive.nodes[node_id]['y']
+                                ax.scatter(x, y, c='green', s=8, marker=",")
+
+                            plt.show()
+                            plt.close(fig)
+                            '''
 
                             attributes[att] = stops
                             attributes[att+'_walking_distance'] = stops_walking_distance
 
-                        if expression[0] == 'walk':
+                        elif expression[0] == 'walk':
 
-                            node_walk1 = attributes[expression[1]+'node_walk']
-                            node_walk2 = attributes[expression[2]+'node_walk']
-
+                            if (expression[1] in attributes) and (expression[2] in attributes):
+                                node_walk1 = attributes[expression[1]+'node_walk']
+                                node_walk2 = attributes[expression[2]+'node_walk']
+                            else:
+                                raise ValueError('expression '+inst.GA.nodes[att]['expression']+' not possible to evaluate. check the parameters')
+                            
                             attributes[att] = inst.network.get_eta_walk(node_walk1, node_walk2, attributes['walk_speed'])
 
-                        if expression[0] == 'dist_drive':
+                        elif expression[0] == 'dist_drive':
 
-                            node_walk1 = attributes[expression[1]+'node_drive']
-                            node_walk2 = attributes[expression[2]+'node_drive']
+                            
+                            if (expression[1] in attributes) and (expression[2] in attributes):
+                                node_drive1 = attributes[expression[1]+'node_drive']
+                                node_drive2 = attributes[expression[2]+'node_drive']
+                            else:
+                                raise ValueError('expression '+inst.GA.nodes[att]['expression']+' not possible to evaluate. check the parameters')
 
-                            attributes[att] = inst.network._return_estimated_distance_drive(node_walk1, node_walk2, attributes['walk_speed'])
+                            attributes[att] = inst.network._return_estimated_distance_drive(node_drive1, node_drive2)
 
-                            print(att)
-                            print(attributes[att])
+                            #print(att)
+                            #print(attributes[att])
+
+                        else:
+                            raise SyntaxError('expression '+inst.GA.nodes[att]['expression']+' is not supported')
                             
                 #check constraints
 
@@ -696,7 +766,8 @@ def _generate_requests(
                         
                         #print(constraint)
 
-                        check_constraint = eval(constraint)
+                        #check_constraint = eval(constraint)
+                        check_constraint = eval_expression(constraint)
                         #print(check_constraint)
                         
                         if not check_constraint:
@@ -709,6 +780,15 @@ def _generate_requests(
                 else:
 
                     not_feasible_attribute = False
+
+                #if att == 'direct_travel_time':
+                #    print(attributes[att])
+                
+                ##if att == 'earliest_departure':
+                #    print(attributes[att])
+
+                if att == 'accompanying':
+                    print(attributes[att])
            
             if not_feasible_attribute:
             
@@ -732,7 +812,7 @@ def _generate_requests(
                     if att == 'destinationx':
 
                         destination_points.append((attributes['destinationy'], attributes[att]))  
-
+            #print(i)
             i += 1     
                   
     all_instance_data.update({'num_data:': len(instance_data),
@@ -829,12 +909,17 @@ def _generate_requests(
     for p in inst.instance_filename:
 
         if p in inst.parameters:
-            if 'value' in p:
-                final_filename = final_filename + str(inst.parameters[p]['value'])
+            if 'value' in inst.parameters[p]:
+                strv = str(inst.parameters[p]['value'])
+                strv = strv.replace(" ", "")
+
+                if len(final_filename) > 0:
+                    final_filename = final_filename + '_' + strv
+                else: final_filename = strv
 
     print(final_filename)
 
-    inst.output_file_json = os.path.join(inst.save_dir_json, inst.output_folder_base + '_' + str(replicate_num) + '.json')
+    inst.output_file_json = os.path.join(inst.save_dir_json, final_filename + '_' + str(replicate_num) + '.json')
 
     with open(inst.output_file_json, 'w') as file:
         json.dump(all_instance_data, file, indent=4)

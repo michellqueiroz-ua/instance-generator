@@ -91,7 +91,7 @@
 			"type": "uniform",
 			"min_time": 8,
 			"max_time": 10,
-			"number_of_requests": 100,
+			"number_of_requests": 25,
 			"time_unit": "h"
 		}
 	],
@@ -160,12 +160,6 @@
 			"time_unit": "h"
 		},
 		{
-			"name": "time_window_length",
-			"type": "time",
-			"value": 10,
-			"time_unit": "min"
-		},
-		{
 			"name": "min_distance",
 			"type": "length",
 			"value": 2,
@@ -221,7 +215,7 @@
 			"type": "time",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
-						"min": 8,
+						"min": 8.5,
 						"max": 10,
 						"time_unit": "h"
 					} ],
@@ -231,10 +225,21 @@
 						   ]
 		},
 		{
+			"name": "time_window_length",
+			"type": "time",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"min": 10,
+						"max": 15,
+						"time_unit": "min"
+					} ],
+			"output_csv": false
+		},
+		{
 			"name": "latest_departure",
 			"type": "time",
 			"time_unit": "s",
-			"expression": ["earliest_departure + time_window_length"]
+			"expression": "earliest_departure + time_window_length"
 		},
 		{
 			"name": "earliest_departureP",
@@ -292,7 +297,7 @@
 		{
 			"name": "walk_speed",
 			"type": "speed",
-			"speed_unit": "s",
+			"speed_unit": "mps",
 			"pdf": [ {	"type": "uniform",
 						"min": 5,
 						"max": 5,

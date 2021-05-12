@@ -263,7 +263,11 @@ def download_network_information(
                 print('getting fixed lines DECONET')
                 get_fixed_lines_deconet(network, folder_path_deconet, save_dir, output_folder_base, place_name)
                 extra_stops = network.deconet_network_nodes['osmid_walk'].tolist()
-                shortest_path_walk = _update_distance_matrix_walk(G_walk, extra_stops, save_dir, output_folder_base)
+                print('extra stops')
+                extra_stops_fr = []
+                [extra_stops_fr.append(int(x)) for x in extra_stops if str(x) != 'nan'] 
+                print(extra_stops_fr)
+                shortest_path_walk = _update_distance_matrix_walk(G_walk, extra_stops_fr, save_dir, output_folder_base)
                 #if not os.path.isdir(folder_path_deconet):
                 #    raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
                 #else:         

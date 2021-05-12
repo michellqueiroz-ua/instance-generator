@@ -527,35 +527,64 @@ def input_json(filename_json):
 
                         GA.nodes[name]['time_unit'] = 's'
 
+                    if (attribute['time_unit'] != 's') and (attribute['time_unit'] != 'min') and (attribute['time_unit'] != 'h'):
+                        raise ValueError('time_unit must be s, min or h')
+
+                if attribute['type'] == 'speed':
+
+                    if 'speed_unit' in attribute:
+
+                        GA.nodes[name]['speed_unit'] = attribute['speed_unit']
+                    else:
+
+                        GA.nodes[name]['speed_unit'] = 'mps'
+
+                    sunit = GA.nodes[name]['speed_unit']
+                    if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'mph'):
+                        raise ValueError('speed_unit must be mps, kmh or mph')
+
+                if attribute['type'] == 'length':
+
+                    if 'length_unit' in attribute:
+
+                        GA.nodes[name]['length_unit'] = attribute['length_unit']
+                    else:
+
+                        GA.nodes[name]['length_unit'] = 'm'
+
+                    lunit = GA.nodes[name]['length_unit']
+                    if (lunit != 'm') and (lunit != 'km') and (lunit != 'mi'):
+                        raise ValueError('length_unit must be m, km or mi')
+
             else: raise ValueError('type parameter for attribute is mandatory')
 
             if 'subset_zones' in attribute:
 
-                GA.nodes[name]['subset_zones'] = attribute['subset_zones']
-                '''
-                GA.nodes[name]['zones'] = []
-                
-                if 'set_zones' in attribute:
+                if (isinstance(attribute['subset_zones'], (str))): 
+                    GA.nodes[name]['subset_zones'] = attribute['subset_zones']
+                else:
+                    raise TypeError('subset_zones must be a string')
 
-                    for z in attribute['set_zones']:
-
-                        idxs = inst.network.zones.index[inst.network.zones['name'] == z].tolist()
-
-                        if len(idxs) > 0:
-                            index_zone = idxs[0]
-                            GA.nodes[name]['zones'].append(index_zone)
-                        else:
-                            raise ValueError('no zone named after '+z)
-            '''
+                if GA.nodes[name]['subset_zones'] not in inst.parameters:
+                    raise ValueError('There is not parameter named '+GA.nodes[name]['subset_zones'])
 
             if 'subset_locations' in attribute:
 
-                GA.nodes[name]['subset_locations'] = attribute['subset_locations']
+                if (isinstance(attribute['subset_locations'], (str))): 
+                    GA.nodes[name]['subset_locations'] = attribute['subset_locations']
+                else:
+                    raise TypeError('subset_locations must be a string')
+
+                if GA.nodes[name]['subset_locations'] not in inst.parameters:
+                    raise ValueError('There is not parameter named '+GA.nodes[name]['subset_locations'])
 
 
             if 'output_csv' in attribute:
 
-                GA.nodes[name]['output_csv'] = attribute['output_csv']
+                if (isinstance(attribute['output_csv'], (bool))):
+                    GA.nodes[name]['output_csv'] = attribute['output_csv']
+                else:
+                    raise TypeError('output_csv value must be a boolean')
 
             else: GA.nodes[name]['output_csv'] = True
             
@@ -565,31 +594,65 @@ def input_json(filename_json):
 
                 mult = 1
                 if 'time_unit' in GA.nodes[name]['pdf'][0]:
+
+                    tunit = GA.nodes[name]['pdf'][0]['time_unit']
+                    if (tunit != 's') and (tunit != 'min') and (tunit != 'h'):
+                        raise ValueError('time_unit must be s, min or h')
+
                     mult = get_multiplier_time_unit(GA.nodes[name]['pdf'][0]['time_unit'])
 
                 elif 'speed_unit' in GA.nodes[name]['pdf'][0]:
+                    
+                    sunit = GA.nodes[name]['pdf'][0]['speed_unit']
+                    if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'mph'):
+                        raise ValueError('speed_unit must be mps, kmh or mph')
+
                     mult = get_multiplier_speed_unit(GA.nodes[name]['pdf'][0]['speed_unit'])
 
                 elif 'length_unit' in GA.nodes[name]['pdf'][0]:
+                    
+                    lunit = GA.nodes[name]['pdf'][0]['length_unit']
+                    if (lunit != 'm') and (lunit != 'km') and (lunit != 'mi'):
+                        raise ValueError('length_unit must be m, km or mi')
+
                     mult = get_multiplier_length_unit(GA.nodes[name]['pdf'][0]['length_unit'])
 
                 if GA.nodes[name]['pdf'][0]['type'] == 'normal':
 
-                    GA.nodes[name]['pdf'][0]['mean'] = GA.nodes[name]['pdf'][0]['mean']*mult
-                    GA.nodes[name]['pdf'][0]['std'] = GA.nodes[name]['pdf'][0]['std']*mult
+                    if (isinstance(GA.nodes[name]['pdf'][0]['mean'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['mean'] = GA.nodes[name]['pdf'][0]['mean']*mult
+                    else:
+                        raise TypeError('mean value must be a number (integer, float)')
 
+                    if (isinstance(GA.nodes[name]['pdf'][0]['std'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['std'] = GA.nodes[name]['pdf'][0]['std']*mult
+                    else:
+                        raise TypeError('std value must be a number (integer, float)')
+                    
                 elif GA.nodes[name]['pdf'][0]['type'] == 'uniform':
 
-                    GA.nodes[name]['pdf'][0]['max'] = GA.nodes[name]['pdf'][0]['max']*mult
-                    GA.nodes[name]['pdf'][0]['min'] = GA.nodes[name]['pdf'][0]['min']*mult
+                    if (isinstance(GA.nodes[name]['pdf'][0]['max'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['max'] = GA.nodes[name]['pdf'][0]['max']*mult
+                    else:
+                        raise TypeError('max value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['min'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['min'] = GA.nodes[name]['pdf'][0]['min']*mult
+                    else:
+                        raise TypeError('min value must be a number (integer, float)')
 
                     if (GA.nodes[name]['type'] == 'time') or (GA.nodes[name]['type'] == 'integer'):
                         GA.nodes[name]['pdf'][0]['max'] += 1
 
                 elif GA.nodes[name]['pdf'][0]['type'] == 'poisson':
 
-                    GA.nodes[name]['pdf'][0]['lam'] = GA.nodes[name]['pdf'][0]['lam']*mult
+                    if (isinstance(GA.nodes[name]['pdf'][0]['lam'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['lam'] = GA.nodes[name]['pdf'][0]['lam']*mult
+                    else:
+                        raise TypeError('lam value must be a number (integer, float)')
 
+                else:
+                    raise TypeError('pdf must be normal, uniform or poisson')
 
             elif 'expression' in attribute:
 
@@ -601,7 +664,14 @@ def input_json(filename_json):
 
             if 'weights' in attribute:
 
-                GA.nodes[name]['weights'] = attribute['weights']
+                if (isinstance(attribute['weights'], (list))): 
+                    GA.nodes[name]['weights'] = attribute['weights']
+                else:
+                    raise TypeError('weights must be a list')
+
+                for w in GA.nodes[name]['weights']:
+                    if not (isinstance(w, (int, float))): 
+                        raise TypeError('weights values must be numbers (integer, float)')
 
                 size_all_values = 0
 
@@ -617,7 +687,7 @@ def input_json(filename_json):
 
                     size_all_values = inst.parameters[attribute['subset_zones']]['size']
 
-                if attribute[weights][0] == 'randomized_weights':
+                if attribute['weights'][0] == 'randomized_weights':
 
                     GA.nodes[name]['weights'] = np.random.randint(0, 101, size_all_values)
 
@@ -637,7 +707,7 @@ def input_json(filename_json):
             if name == 'time_stamp':
                 
                 if 'static_probability' in attribute:
-                    GA.nodes[name]['static_probability'] = attribute['static_probability']
+                    GA.nodes[name]['static_probability'] = float(attribute['static_probability'])
                 
                 else:    
                     GA.nodes[name]['static_probability'] = 0
@@ -648,8 +718,9 @@ def input_json(filename_json):
         for node in GA.nodes():
 
             if 'expression' in GA.nodes[node]:
+                #print(GA.nodes[node]['expression'])
                 expression = re.split(r"[(,) ]", GA.nodes[node]['expression'])
-
+                
                 for exp in expression:
                     if exp in GA:
                         GA.add_edge(exp, node)

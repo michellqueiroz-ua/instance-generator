@@ -40,7 +40,7 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
 
         #remove duplicates from list
         bus_stops_ids = [] 
-        [bus_stops_ids.append(x) for x in test_bus_stops_ids if x not in bus_stops_ids] 
+        [bus_stops_ids.append(int(x)) for x in test_bus_stops_ids if x not in bus_stops_ids] 
 
         
         G_walk_id = ray.put(G_walk)
@@ -63,7 +63,7 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
                 if dist_uv != -1:
                     sv = str(v)
                     d[sv] = dist_uv
-            shortest_path_walk.append(d, ignore_index=True)
+            shortest_path_walk = shortest_path_walk.append(d, ignore_index=True)
 
             j+=1
             del d

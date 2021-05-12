@@ -63,8 +63,9 @@ class Network:
                 
                 try:
                     #print(u,v)
+                    #print(self.bus_stations.index[self.bus_stations['osmid_walk'] == v].tolist())
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
-                
+                    
                 except (nx.NetworkXNoPath, nx.NodeNotFound):
                     distance_walk = np.nan
                     
@@ -489,9 +490,9 @@ class Network:
                 ax.scatter(east, south, c='red', s=8, marker=",")
                 ax.scatter(east, north, c='red', s=8, marker=",")
                 ax.scatter(west, north, c='red', s=8, marker=",")
-                #print(lng, lat)
-                
+
                 polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+                ax.scatter(polygon.centroid.x, polygon.centroid.y, c='green', s=8, marker=",")
 
                 strname = 'zone'+str(zone_id)
 
@@ -522,11 +523,9 @@ class Network:
                     'id': zone_id,
                     'polygon': polygon,
                     'center_y': polygon.centroid.y,
-                    'center_x': polygon.centroid.x,
-                    'origin_weigth': 0,
-                    'destination_weigth': 0
+                    'center_x': polygon.centroid.x
                 } 
-                zone_id = 1
+                zone_id += 1
 
                 zones.append(d)
 
@@ -607,7 +606,7 @@ class Network:
         #self.blocks = pd.DataFrame(blocks)
 
 
-    def add_new_zone(self, name, center_x, center_y, length_x=0, length_y=0, radius=0, origin_weigth=0, destination_weigth=0):
+    def add_new_zone(self, name, center_x, center_y, length_x=0, length_y=0, radius=0):
 
 
         #for index, row in self.zones.iterrows():
@@ -618,11 +617,13 @@ class Network:
         if (radius > 0) and (length_x > 0):
             raise ValueError('radius and length can not be specified at the same time for a zone')
 
+        '''
         if not ((origin_weigth >= 0) and (origin_weigth <= 100)):
             raise ValueError('origin_weigth must be in the interval [0,100]')
 
         if not ((destination_weigth >= 0) and (destination_weigth <= 100)):
             raise ValueError('destination_weigth must be in the interval [0,100]')
+        '''
 
         if (length_x > 0) or (length_y > 0):
 
@@ -657,9 +658,7 @@ class Network:
                 'polygon': polygon,
                 'radius': radius,
                 'center_y': center_y,
-                'center_x': center_x,
-                'origin_weigth': origin_weigth,
-                'destination_weigth': destination_weigth
+                'center_x': center_x
             }
 
             self.zones = self.zones.append(d, ignore_index=True)
@@ -674,9 +673,7 @@ class Network:
                 'polygon': np.nan,
                 'radius': radius,
                 'center_y': center_y,
-                'center_x': center_x,
-                'origin_weigth': origin_weigth,
-                'destination_weigth': destination_weigth
+                'center_x': center_x
             }
 
             self.zones = self.zones.append(d, ignore_index=True)   
