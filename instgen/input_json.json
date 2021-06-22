@@ -1,12 +1,16 @@
 {
 	"seed": 100,
-	"network":"Rennes, France",
+	"network": "Rennes, France",
+	"problem": "DARP",
 	"get_fixed_lines": "deconet",
+	"max_speed_factor": 0.5,
 	"replicas": 1,
 	"records": 500,
-	"zones": [
+	"instance_filename": ["network", "problem", "records"],
+	"places": [
 		{
 			"name": "zonexx",
+			"type": "zone",
 			"lon": -1.6902891077472344,
 			"lat": 48.09282962664396,
 			"length_lon": 1000,
@@ -15,91 +19,81 @@
 		},
 		{
 			"name": "zonecenter",
+			"type": "zone",
 			"centroid": true,
 			"radius": 1000
 		},
 		{
 			"name": "zone2x",
+			"type": "zone",
 			"lon": -1.6945037524387636,
 			"lat": 48.105993349477394,
 			"radius": 1000,
 			"length_unit": "m"
-		}
-	],
-	"locations": [
+		},
 		{
 			"name": "depot1",
-			"type": "coordinate",
+			"type": "location",
 			"lon": -1.6457340723441525,
 			"lat": 48.100199454954804
 		},
 		{
 			"name": "school1",
-			"type": "school",
+			"type": "location",
+			"class": "school",
 			"lon": -1.742000418660542,
 			"lat": 48.09010529664507
 		}
 	],
 	"parameters":[
 		{
-			"name": "problem",
-			"type": "string",
-			"value": "DARP"
-		},
-		{
 			"name": "min_early_departure",
-			"type": "time",
+			"type": "integer",
 			"value": 5,
 			"time_unit": "h"
 		},
 		{
 			"name": "max_early_departure",
-			"type": "time",
+			"type": "integer",
 			"value": 11,
 			"time_unit": "h"
 		},
 		{
 			"name": "min_distance",
-			"type": "length",
+			"type": "integer",
 			"value": 2,
 			"length_unit": "km"
 		},
 		{
 			"name": "max_distance",
-			"type": "length",
+			"type": "integer",
 			"value": 5,
 			"length_unit": "km"
 		},
 		{
 			"name": "depots",
-			"type": "list_coordinates", 
+			"type": "array_locations", 
 			"size": 1,
-			"list": ["depot1"],
+			"value": ["depot1"],
 			"locs": "random"
 		},
 		{
 			"name": "schools",
-			"type": "list_coordinates", 
+			"type": "array_locations", 
 			"size": 2,
-			"list": ["school1"],
+			"value": ["school1"],
 			"locs": "schools"
 		},
 		{
 			"name": "zonesorgn",
-			"type": "list_zones", 
+			"type": "array_zones", 
 			"size": 3
 		},
 		{
 			"name": "zonesdest",
-			"type": "list_zones", 
+			"type": "array_zones", 
 			"size": 2,
-			"list": ["zonecenter", "zonexx"]
-		},
-		{
-			"name": "travel_time_matrix",
-			"type": "matrix",
-			"value": true,
-			"locations": ["bus_stations"]
+			"value": ["zonecenter", "zonexx"]
 		},
 		{
 			"name": "graphml",
@@ -107,16 +101,14 @@
 			"value": true
 		}
 	],
-	"instance_filename": ["network", "problem", "number_records", "min_early_departure", "max_early_departure"],
 	"attributes": [
 		{
 			"name": "earliest_departure",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
-						"mean": 8.5,
-						"std": 1,
-						"time_unit": "h"
+						"mean": 30600,
+						"std": 3600
 					} ],
 			"constraints": [ "earliest_departure >= 0", 
 							"earliest_departure >= min_early_departure",
@@ -125,28 +117,26 @@
 		},
 		{
 			"name": "time_window_length",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
-						"min": 10,
-						"max": 15,
-						"time_unit": "min"
+						"min": 600,
+						"max": 900
 					} ],
 			"output_csv": false
 		},
 		{
 			"name": "latest_departure",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"expression": "earliest_departure + time_window_length"
 		},
 		{
 			"name": "earliest_departureP",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "poisson",
-						"lam": 7,
-						"time_unit": "h"
+						"lam": 25200
 					} ],
 			"constraints": [ "earliest_departureP >= 0", 
 							"earliest_departureP >= min_early_departure",
@@ -155,86 +145,83 @@
 		},
 		{
 			"name": "earliest_arrival",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"expression": "latest_arrival - time_window_length"
 		},
 		{
 			"name": "latest_arrival",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"expression": "earliest_departure + direct_travel_time + (direct_travel_time * 0.5)"
 		},
 		{
 			"name": "lead_time",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
 						"min": 0,
-						"max": 5,
-						"time_unit": "min"
+						"max": 300
 					} ]
 		},
 		{  
 			"name": "time_stamp",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"expression": "earliest_departure - lead_time",
 			"static_probability": 0.5
 		},
 		{
 			"name": "max_walking",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
 						"min": 550,
-						"max": 600,
-						"time_unit": "s"
+						"max": 600
 					} ],
 			"output_csv": false
 		},
 		{
 			"name": "walk_speed",
-			"type": "speed",
+			"type": "real",
 			"speed_unit": "mps",
 			"pdf": [ {	"type": "uniform",
-						"min": 5,
-						"max": 5,
-						"speed_unit": "kmh"
+						"min": 1.38889,
+						"max": 1.38889
 					} ],
 			"output_csv": false
 		},
 		{  
 			"name": "origin",
-			"type": "coordinate",
+			"type": "location",
 			"subset_zones": "zonesorgn",
 			"weights": [50, 30, 20]
 		},
 		{ 
 			"name": "stops_orgn",
-			"type": "list",
+			"type": "array_primitives",
 			"expression": "stops(origin)",
 			"constraints": ["len(stops_orgn) > 0"]
 		}, 
 		{  
 			"name": "destination",
-			"type": "coordinate",
+			"type": "location",
 			"subset_zones": "zonesdest"
 		},
 		{ 
 			"name": "stops_dest",
-			"type": "list",
+			"type": "array_primitives",
 			"expression": "stops(destination)",
 			"constraints": ["len(stops_dest) > 0", "not (set(stops_orgn) & set(stops_dest))"]
 		},
 		{
 			"name": "school",
-			"type": "coordinate", 
+			"type": "location", 
 			"subset_locations": "schools"
 		},
 		{
 			"name": "direct_travel_time",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"expression": "dtt(origin,destination)",
 			"constraints": ["direct_travel_time >= 0"],
@@ -242,7 +229,7 @@
 		},
 		{
 			"name": "direct_distance",
-			"type": "length",
+			"type": "integer",
 			"length_unit": "m",
 			"expression": "dist_drive(origin,destination)",
 			"constraints": ["direct_distance >= min_distance"],
@@ -250,7 +237,7 @@
 		},
 		{
 			"name": "time_walking",
-			"type": "time",
+			"type": "integer",
 			"time_unit": "s",
 			"expression": "walk(origin,destination)",
 			"constraints": ["time_walking > max_walking"],
@@ -282,5 +269,6 @@
 						"max": 1
 					} ]
 		}
-	]
+	],
+	"travel_time_matrix": ["bus_stations"]
 }

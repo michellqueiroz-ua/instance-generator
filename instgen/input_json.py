@@ -53,10 +53,13 @@ def input_json(filename_json):
 
     f = open(filename_json,)
 
+    #true = True
+    #false = False
+
     data = json.load(f)
 
     if 'seed' in data:
-        value = data['value']
+        value = data['seed']
            
     else: 
         value = 1
@@ -66,173 +69,195 @@ def input_json(filename_json):
 
     if 'network' in data:
 
-        if (len(data['network']) > 1):
-            raise ValueError('only one network per instance is allowed')
+        #if (len(data['network']) > 1):
+        #    raise ValueError('only one network per instance is allowed')
+      
+        place_name=data['network']
+        
+        save_dir = os.getcwd()+'/'+place_name
+        pickle_dir = os.path.join(save_dir, 'pickle')
+        network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
 
-        for j in data['network']:
-            if 'name' in j:
-                
-                place_name=j['name']
-                
-                save_dir = os.getcwd()+'/'+place_name
-                pickle_dir = os.path.join(save_dir, 'pickle')
-                network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+
+        if Path(network_class_file).is_file():
+
+            inst = Instance(folder_to_network=place_name)
+
+        else:
+
+            if 'get_fixed_lines' in data:
+                get_fixed_lines = data['get_fixed_lines']
             else:
-                raise ValueError('name is mandatory for network')
+                get_fixed_lines = None
 
-            if Path(network_class_file).is_file():
-
-                inst = Instance(folder_to_network=place_name)
-
+            if 'max_speed_factor' in data:
+                max_speed_factor = data['max_speed_factor']
             else:
+                max_speed_factor = 0.5
 
-                if 'get_fixed_lines' in j:
-                    get_fixed_lines = j['get_fixed_lines']
-                else:
-                    get_fixed_lines = None
+            #print(max_speed_factor)
+            network = download_network_information(place_name=place_name, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines)
 
-                network = download_network_information(place_name=place_name, max_speed_factor=0.5, get_fixed_lines=get_fixed_lines)
+            save_dir_fr = os.path.join(save_dir, 'fr_network')
+            if not os.path.isdir(save_dir_fr):
+                os.mkdir(save_dir_fr)
 
-                save_dir_fr = os.path.join(save_dir, 'fr_network')
-                if not os.path.isdir(save_dir_fr):
-                    os.mkdir(save_dir_fr)
+            output_name_fr = place_name+'.frn'
 
-                output_name_fr = place_name+'.frn'
+            if get_fixed_lines is not None:
+                output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)
 
-                if get_fixed_lines is not None:
-                    output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)
+            inst = Instance(folder_to_network=place_name)
 
-                inst = Instance(folder_to_network=place_name)
-
-            inst.parameters['network'] = {}
-            inst.parameters['network']['value'] = j['name']
-            inst.parameters['network']['type'] = 'network'
+        inst.parameters['network'] = {}
+        inst.parameters['network']['value'] = data['network']
+        inst.parameters['network']['type'] = 'network'
 
     else: raise ValueError('network parameter is mandatory')
 
-    if 'locations' in data:
+    if 'problem' in data:
+
+        inst.parameters['problem'] = {}
+        inst.parameters['problem']['type'] = "string"
+        inst.parameters['problem']['value'] = data['problem']
+
+    if 'problem' in data:
+
+        inst.parameters['problem'] = {}
+        inst.parameters['problem']['type'] = "string"
+        inst.parameters['problem']['value'] = data['problem']
+
+
+    if 'places' in data:
+
         location_names = []
-        for j in data['locations']:
+        for j in data['places']:
 
-            if 'name' in j:
-                if not (isinstance(j['name'], (str))): 
-                    raise TypeError('name for a location must be a string')
-                namelocation = j['name']
-            else: raise ValueError('name parameter for locations is mandatory')
-            location_names.append(j['name'])
+            if j['type'] == 'location':
+                
+                if 'name' in j:
+                    if not (isinstance(j['name'], (str))): 
+                        raise TypeError('name for a location must be a string')
+                    namelocation = j['name']
+                else: raise ValueError('name parameter for locations is mandatory')
+                
+                #print(j['name'])
+                location_names.append(j['name'])
+                #print(location_names)
 
-            if ('centroid' in j) or (('lat' in j) and ('lon' in j)):
-                   
-                if ('lon' in j) and ('lat' in j):
+                if ('centroid' in j) or (('lat' in j) and ('lon' in j)):
+                       
+                    if ('lon' in j) and ('lat' in j):
+                        lon = j['lon']
+                        lat = j['lat']
+                    else:
+                        if j['centroid'] is True:
+
+                            pt = inst.network.polygon.centroid
+                            lon = pt.x
+                            lat = pt.y
+
+                        else: raise ValueError('lon/lat or centroid parameter for locations is mandatory')
+
+                else: raise ValueError('lon/lat or centroid parameter for locations is mandatory')
+
+                if not inst.network.polygon.contains(Point(lon,lat)):
+                    raise ValueError('location for '+namelocation+' is not within the boundaries of network')
+
+                
+                if 'class' in j: 
+                    classlocs = ['school', 'coordinate']
+
+                    if j['class'] not in classlocs:
+                        raise ValueError('location '+str(j['type'])+' is not supported')
+
+                    if j['class'] == 'school':
+                        inst.network.add_new_school(name=namelocation, x=lon, y=lat)
+                
+
+            if j['type'] == 'zone':
+
+                if 'name' in j:
+                    if not (isinstance(j['name'], (str))): 
+                        raise TypeError('name for a zone must be a string')
+                    nameszone  = j['name']
+                else: raise ValueError('name parameter for zone is mandatory')
+
+                if 'lon' in j:
                     lon = j['lon']
-                    lat = j['lat']
+                
+                    if 'lat' in j:
+                        lat = j['lat']
+                    else: raise ValueError('lat parameter for zone is mandatory when lon is set')
+
                 else:
-                    if j['centroid'] is True:
+                    if 'centroid' in j:
+                        if j['centroid'] is True:
+                            pt = inst.network.polygon.centroid
+                            lon = pt.x
+                            lat = pt.y
 
-                        pt = inst.network.polygon.centroid
-                        lon = pt.x
-                        lat = pt.y
+                        else: raise ValueError('either lon/lat must be given or centroid must be set to true')
 
-                    else: raise ValueError('lon/lat or centroid parameter for locations is mandatory')
+                    else: raise ValueError('either lon/lat or centroid parameters must be set')
 
-            else: raise ValueError('lon/lat or centroid parameter for locations is mandatory')
+                if not inst.network.polygon.contains(Point(lon,lat)):
 
-            if not inst.network.polygon.contains(Point(lon,lat)):
-                raise ValueError('location for '+namelocation+' is not within the boundaries of network')
+                    raise ValueError('location for '+nameszone+' is not within the boundaries of network')
 
-            if 'type' in j: 
-                typelocs = ['school', 'coordinate']
+                if 'length_unit' in j:
+                    lunit = j['length_unit']
+                    if (lunit != 'km') and (lunit != 'm') and (lunit != 'mi'):
+                        raise ValueError('length_unit must be m, km or mi')
 
-                if j['type'] not in typelocs:
-                    raise ValueError('location '+str(j['type'])+' is not supported')
+                    length_unit  = j['length_unit']
+                else:
+                    length_unit = "m"
 
-                if j['type'] == 'school':
-                    inst.network.add_new_school(name=namelocation, x=lon, y=lat)
+                mult = get_multiplier_length_unit(length_unit)
 
-        for x in range(len(data['locations'])):
+                if 'length_lon' in j:
+                    if not (isinstance(j['length_lon'], (int, float))): 
+                        raise TypeError('length_lon for type length must be a number (integer, float)')
+                    if j['length_lon'] < 0:
+                        raise TypeError('negative number is not allowed for type length')
+                    length_lon  = j['length_lon']*mult
+                else:
+                    length_lon = 0
 
-            point = (data['locations'][x]['lat'], data['locations'][x]['lon'])
-            data['locations'][x]['node_drive'] = ox.get_nearest_node(inst.network.G_drive, point)
-            data['locations'][x]['node_walk'] = ox.get_nearest_node(inst.network.G_walk, point)
+                if 'length_lat' in j:
+                    if not (isinstance(j['length_lat'], (int, float))): 
+                        raise TypeError('length_lat for type length must be a number (integer, float)')
+                    if j['length_lat'] < 0:
+                        raise TypeError('negative number is not allowed for type length')
+                    length_lat  = j['length_lat']*mult
+                else:
+                    length_lat = 0
 
-    if 'zones' in data:
+                if 'radius' in j:
+                    if not (isinstance(j['radius'], (int, float))): 
+                        raise TypeError('radius for type length must be a number (integer, float)')
+                    if j['radius'] < 0:
+                        raise TypeError('negative number is not allowed for type length')
+                    radius  = j['radius']
+                else:
+                    radius = 0
 
-        for j in data['zones']:
+                inst.network.add_new_zone(name=nameszone, center_x=lon, center_y=lat, length_x=length_lon, length_y=length_lat, radius=radius)
 
-            if 'name' in j:
-                if not (isinstance(j['name'], (str))): 
-                    raise TypeError('name for a zone must be a string')
-                nameszone  = j['name']
-            else: raise ValueError('name parameter for zone is mandatory')
+        for x in range(len(data['places'])):
 
-            if 'lon' in j:
-                lon = j['lon']
-            
-                if 'lat' in j:
-                    lat = j['lat']
-                else: raise ValueError('lat parameter for zone is mandatory when lon is set')
-
-            else:
-                if 'centroid' in j:
-                    if j['centroid'] is True:
-                        pt = inst.network.polygon.centroid
-                        lon = pt.x
-                        lat = pt.y
-
-                    else: raise ValueError('either lon/lat must be given or centroid must be set to true')
-
-                else: raise ValueError('either lon/lat or centroid parameters must be set')
-
-            if not inst.network.polygon.contains(Point(lon,lat)):
-
-                raise ValueError('location for '+nameszone+' is not within the boundaries of network')
-
-            if 'length_unit' in j:
-                lunit = j['length_unit']
-                if (lunit != 'km') and (lunit != 'm') and (lunit != 'mi'):
-                    raise ValueError('length_unit must be m, km or mi')
-
-                length_unit  = j['length_unit']
-            else:
-                length_unit = "m"
-
-            mult = get_multiplier_length_unit(length_unit)
-
-            if 'length_lon' in j:
-                if not (isinstance(j['length_lon'], (int, float))): 
-                    raise TypeError('length_lon for type length must be a number (integer, float)')
-                if j['length_lon'] < 0:
-                    raise TypeError('negative number is not allowed for type length')
-                length_lon  = j['length_lon']*mult
-            else:
-                length_lon = 0
-
-            if 'length_lat' in j:
-                if not (isinstance(j['length_lat'], (int, float))): 
-                    raise TypeError('length_lat for type length must be a number (integer, float)')
-                if j['length_lat'] < 0:
-                    raise TypeError('negative number is not allowed for type length')
-                length_lat  = j['length_lat']*mult
-            else:
-                length_lat = 0
-
-            if 'radius' in j:
-                if not (isinstance(j['radius'], (int, float))): 
-                    raise TypeError('radius for type length must be a number (integer, float)')
-                if j['radius'] < 0:
-                    raise TypeError('negative number is not allowed for type length')
-                radius  = j['radius']
-            else:
-                radius = 0
-
-            inst.network.add_new_zone(name=nameszone, center_x=lon, center_y=lat, length_x=length_lon, length_y=length_lat, radius=radius)
+            if data['places'][x]['type'] == 'location': 
+                point = (data['places'][x]['lat'], data['places'][x]['lon'])
+                data['places'][x]['node_drive'] = ox.get_nearest_node(inst.network.G_drive, point)
+                data['places'][x]['node_walk'] = ox.get_nearest_node(inst.network.G_walk, point)
 
     if 'parameters' in data:
 
         inst.parameters['all_locations'] = {}
         inst.parameters['all_locations']['type'] = 'builtin'
-        inst.parameters['all_locations']['list'] = []
-        inst.parameters['all_locations']['list'].append('bus_stations')
+        inst.parameters['all_locations']['value'] = []
+        inst.parameters['all_locations']['value'].append('bus_stations')
 
         for j in data['parameters']:
 
@@ -252,9 +277,9 @@ def input_json(filename_json):
                             raise ValueError('time_unit must be s, min or h')
 
                         if not (isinstance(j['value'], (int, float))): 
-                            raise TypeError('value for type time must be a number (integer, float)')
+                            raise TypeError('value be a number (integer, float)')
                         if j['value'] < 0:
-                            raise TypeError('negative number is not allowed for type time')
+                            raise TypeError('negative number is not allowed for time')
                         mult = get_multiplier_time_unit(j['time_unit'])
 
                         inst.parameters[j['name']]['value'] = j['value']*mult
@@ -297,18 +322,9 @@ def input_json(filename_json):
 
                 else: inst.parameters[j['name']]['value'] = np.nan
 
-                if j['name'] == 'travel_time_matrix':
-
-                    if 'locations' in j:
-                        if (isinstance(j['locations'], (list))): 
-                            inst.parameters[j['name']]['locations'] = j['locations']
-                        else: raise TypeError('locations for travel_time_matrix must be a list')
-
-                    else: raise ValueError('locations for travel_time_matrix is mandatory')
-
                 if 'type' in j:
 
-                    types = ['string', 'integer', 'time', 'speed', 'length', 'list_coordinates', 'list_zones', 'matrix', 'graphml']
+                    types = ['string', 'integer', 'speed', 'length', 'array_primitives', 'array_locations', 'array_zones', 'matrix', 'graphml']
                     if not (j['type'] in types):
                         raise ValueError('type ' +j['type']+' is not supported')
 
@@ -326,8 +342,8 @@ def input_json(filename_json):
                         if not (isinstance(j['value'], (float))): 
                             raise TypeError('value for '+j['name']+' must be float')
 
-                    if j['type'] == 'list_coordinates':
-                        inst.parameters['all_locations']['list'].append(j['name'])
+                    if j['type'] == 'array_locations':
+                        inst.parameters['all_locations']['value'].append(j['name'])
 
 
                         if 'size' in j:
@@ -339,11 +355,11 @@ def input_json(filename_json):
                             if j['size'] < 0:
                                 raise TypeError('size must be a positive integer number')
 
-                        if 'list' in j:
+                        if 'value' in j:
                                                         
-                            if (isinstance(j['list'], (list))): 
-                                inst.parameters[j['name']]['list'] = j['list']
-                            else: raise TypeError('list parameter must be type list')
+                            if (isinstance(j['value'], (list))): 
+                                inst.parameters[j['name']]['list'] = j['value']
+                            else: raise TypeError('value parameter must be an array')
 
                             for elem in inst.parameters[j['name']]['list']:
 
@@ -358,7 +374,6 @@ def input_json(filename_json):
 
                         if 'locs' in j:
                             
-
                             if (isinstance(j['locs'], (str))): 
                                 inst.parameters[j['name']]['locs'] = j['locs']
                             else:
@@ -384,15 +399,16 @@ def input_json(filename_json):
                                     #print(index_school)
                             else:
 
-                                for x in data['locations']:
+                                for x in data['places']:
 
-                                    if x['name'] in inst.parameters[j['name']]['list']:
-                                        inst.parameters[j['name']]['list_node_drive'].append(x['node_drive'])
-                                        inst.parameters[j['name']]['list_node_walk'].append(x['node_walk'])
+                                    if x['type'] == 'location':
+                                        if x['name'] in inst.parameters[j['name']]['list']:
+                                            inst.parameters[j['name']]['list_node_drive'].append(x['node_drive'])
+                                            inst.parameters[j['name']]['list_node_walk'].append(x['node_walk'])
 
-                        else: raise ValueError('locs for a list_coordinates parameter is mandatory')
+                        else: raise ValueError('locs for a array_locations parameter is mandatory')
 
-                    if j['type'] == 'list_zones':
+                    if j['type'] == 'array_zones':
 
                         inst.parameters[j['name']]['zones'] = []
                         if 'size' in j:
@@ -404,13 +420,13 @@ def input_json(filename_json):
                             if j['size'] < 0:
                                 raise TypeError('size must be a positive integer number')
 
-                        if 'list' in j:
+                        if 'value' in j:
 
-                            if (isinstance(j['list'], (list))): 
-                                inst.parameters[j['name']]['list'] = j['list']
-                            else: raise TypeError('list parameter must be type list')
+                            if (isinstance(j['value'], (list))): 
+                                inst.parameters[j['name']]['list'] = j['value']
+                            else: raise TypeError('value parameter must be an array')
 
-                            for z in j['list']:
+                            for z in j['value']:
 
                                 idxs = inst.network.zones.index[inst.network.zones['name'] == z].tolist()
 
@@ -427,16 +443,6 @@ def input_json(filename_json):
 
             else: raise ValueError('name for a parameter is mandatory')
 
-    if 'instance_filename' in data:
-
-        inst.instance_filename = data['instance_filename']
-
-        for x in data['instance_filename']:
-            if x not in inst.parameters:
-                raise ValueError(x+ ' is not a parameter, therefore not valid for instance_filename')
-
-        #print(inst.instance_filename)
-
     if 'replicas' in data:
 
         inst.set_number_replicas(number_replicas=data['replicas'])
@@ -449,7 +455,25 @@ def input_json(filename_json):
         inst.parameters['records']['value'] = data['records']
         inst.parameters['records']['type'] = 'integer'
 
+    if 'instance_filename' in data:
+
+        inst.instance_filename = data['instance_filename']
+
+        for x in data['instance_filename']:
+            if x not in inst.parameters:
+                raise ValueError(x+ ' is not a parameter, therefore not valid for instance_filename')
+
     GA = nx.DiGraph()
+
+    if 'travel_time_matrix' in data:
+
+        inst.parameters['travel_time_matrix'] = {}
+        inst.parameters['travel_time_matrix']['type'] = 'matrix'
+        inst.parameters['travel_time_matrix']['value'] = True
+        
+        if (isinstance(data['travel_time_matrix'], (list))): 
+            inst.parameters['travel_time_matrix']['locations'] = data['travel_time_matrix']
+        else: raise TypeError('locations for travel_time_matrix must be an array')
 
     if 'attributes' in data:
 
@@ -457,6 +481,8 @@ def input_json(filename_json):
         for attribute in data['attributes']:
 
             if 'name' in attribute:
+
+                #print(attribute['name'])
 
                 if (isinstance(attribute['name'], (str))): 
                     name = attribute['name']
@@ -474,47 +500,47 @@ def input_json(filename_json):
                 else:
                     raise TypeError('type for an attribute must be a string')
 
-                types = ['time', 'speed', 'length', 'integer', 'float', 'string', 'list', 'coordinate']
+                types = ['integer', 'real', 'string', 'array_primitives', 'location']
                 if not (GA.nodes[name]['type'] in types):
                     raise ValueError('type ' +GA.nodes[name]['type']+' is not supported')
 
-                if attribute['type'] == 'coordinate':
-                    inst.parameters['all_locations']['list'].append(attribute['name'])
+                if attribute['type'] == 'location':
+                    inst.parameters['all_locations']['value'].append(attribute['name'])
 
-                if attribute['type'] == 'time':
+                
+                if 'time_unit' in attribute:
 
-                    if 'time_unit' in attribute:
+                    GA.nodes[name]['time_unit'] = attribute['time_unit']
+                    
+                #else: 
 
-                        GA.nodes[name]['time_unit'] = attribute['time_unit']
-                        
-                    else: 
-
-                        GA.nodes[name]['time_unit'] = 's'
+                    #GA.nodes[name]['time_unit'] = 's'
 
                     if (attribute['time_unit'] != 's') and (attribute['time_unit'] != 'min') and (attribute['time_unit'] != 'h'):
                         raise ValueError('time_unit must be s, min or h')
 
-                if attribute['type'] == 'speed':
+                    
 
-                    if 'speed_unit' in attribute:
+                
+                if 'speed_unit' in attribute:
 
-                        GA.nodes[name]['speed_unit'] = attribute['speed_unit']
-                    else:
+                    GA.nodes[name]['speed_unit'] = attribute['speed_unit']
 
-                        GA.nodes[name]['speed_unit'] = 'mps'
+                #else:
+
+                    #GA.nodes[name]['speed_unit'] = 'mps'
 
                     sunit = GA.nodes[name]['speed_unit']
                     if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'mph'):
                         raise ValueError('speed_unit must be mps, kmh or mph')
 
-                if attribute['type'] == 'length':
+                if 'length_unit' in attribute:
 
-                    if 'length_unit' in attribute:
+                    GA.nodes[name]['length_unit'] = attribute['length_unit']
 
-                        GA.nodes[name]['length_unit'] = attribute['length_unit']
-                    else:
+                #else:
 
-                        GA.nodes[name]['length_unit'] = 'm'
+                    #GA.nodes[name]['length_unit'] = 'm'
 
                     lunit = GA.nodes[name]['length_unit']
                     if (lunit != 'm') and (lunit != 'km') and (lunit != 'mi'):
@@ -542,6 +568,15 @@ def input_json(filename_json):
                 if GA.nodes[name]['subset_locations'] not in inst.parameters:
                     raise ValueError('There is not parameter named '+GA.nodes[name]['subset_locations'])
 
+            if 'subset_primitives' in attribute:
+
+                if (isinstance(attribute['subset_primitives'], (str))): 
+                    GA.nodes[name]['subset_primitives'] = attribute['subset_primitives']
+                else:
+                    raise TypeError('subset_primitives must be a string')
+
+                if GA.nodes[name]['subset_primitives'] not in inst.parameters:
+                    raise ValueError('There is not parameter named '+GA.nodes[name]['subset_primitives'])
 
             if 'output_csv' in attribute:
 
@@ -558,29 +593,29 @@ def input_json(filename_json):
 
                 mult = 1
                 positiveV = False
-                if 'time_unit' in GA.nodes[name]['pdf'][0]:
+                if 'time_unit' in attribute:
                     positiveV = True
-                    tunit = GA.nodes[name]['pdf'][0]['time_unit']
-                    if (tunit != 's') and (tunit != 'min') and (tunit != 'h'):
-                        raise ValueError('time_unit must be s, min or h')
+                    tunit = attribute['time_unit']
+                    #if (tunit != 's') and (tunit != 'min') and (tunit != 'h'):
+                    #    raise ValueError('time_unit must be s, min or h')
 
-                    mult = get_multiplier_time_unit(GA.nodes[name]['pdf'][0]['time_unit'])
+                    mult = get_multiplier_time_unit(attribute['time_unit'])
 
-                elif 'speed_unit' in GA.nodes[name]['pdf'][0]:
+                elif 'speed_unit' in attribute:
                     positiveV = True
-                    sunit = GA.nodes[name]['pdf'][0]['speed_unit']
-                    if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'mph'):
-                        raise ValueError('speed_unit must be mps, kmh or mph')
+                    sunit = attribute['speed_unit']
+                    #if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'mph'):
+                    #    raise ValueError('speed_unit must be mps, kmh or mph')
 
-                    mult = get_multiplier_speed_unit(GA.nodes[name]['pdf'][0]['speed_unit'])
+                    mult = get_multiplier_speed_unit(attribute['speed_unit'])
 
-                elif 'length_unit' in GA.nodes[name]['pdf'][0]:
+                elif 'length_unit' in attribute:
                     positiveV = True
-                    lunit = GA.nodes[name]['pdf'][0]['length_unit']
-                    if (lunit != 'm') and (lunit != 'km') and (lunit != 'mi'):
-                        raise ValueError('length_unit must be m, km or mi')
+                    lunit = attribute['length_unit']
+                    #if (lunit != 'm') and (lunit != 'km') and (lunit != 'mi'):
+                    #    raise ValueError('length_unit must be m, km or mi')
 
-                    mult = get_multiplier_length_unit(GA.nodes[name]['pdf'][0]['length_unit'])
+                    mult = get_multiplier_length_unit(attribute['length_unit'])
 
                 if GA.nodes[name]['pdf'][0]['type'] == 'normal':
 
@@ -618,7 +653,7 @@ def input_json(filename_json):
                     if (positiveV) and (GA.nodes[name]['pdf'][0]['min'] < 0):
                         raise TypeError('a negative "min" number is not allowed for type time/speed/length')
 
-                    if (GA.nodes[name]['type'] == 'time') or (GA.nodes[name]['type'] == 'integer'):
+                    if (GA.nodes[name]['type'] == 'integer'):
                         GA.nodes[name]['pdf'][0]['max'] += 1
 
                 elif GA.nodes[name]['pdf'][0]['type'] == 'poisson':
@@ -699,9 +734,6 @@ def input_json(filename_json):
                 else:    
                     GA.nodes[name]['static_probability'] = 0
 
-
-
-
         for node in GA.nodes():
 
             if 'expression' in GA.nodes[node]:
@@ -731,17 +763,19 @@ def input_json(filename_json):
                                 GA.add_edge(exp, node)
 
 
-
         inst.sorted_attributes = list(nx.topological_sort(GA))
         inst.GA = GA
         print(inst.sorted_attributes)
 
         if 'travel_time_matrix' in inst.parameters:
             for loc in inst.parameters['travel_time_matrix']['locations']:
-                if loc not in inst.parameters['all_locations']['list']:
+                if loc not in inst.parameters['all_locations']['value']:
                     raise ValueError(str(loc)+ ' is not recognized or does not exists for travel_time_matrix')
 
     else: raise ValueError('attributes for instance are mandatory')
+
+    
+    #else: raise ValueError('locations for travel_time_matrix is mandatory')
 
     inst.generate_requests()
 
@@ -768,6 +802,7 @@ def input_json(filename_json):
             
             output_name_cpp = instance.split('.')[0] + '_cpp.pass'
             output_name_cpp = output_name_cpp.replace(" ", "")
+            print(output_name_cpp)
 
             output_name_csv = instance.split('.')[0] + '.csv'
             output_name_csv = output_name_csv.replace(" ", "")

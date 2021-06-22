@@ -449,7 +449,7 @@ def _generate_requests(
 
     for param in inst.parameters:
 
-        if inst.parameters[param]['type'] == 'list_coordinates':
+        if inst.parameters[param]['type'] == 'array_locations':
 
             if inst.parameters[param]['locs'] == 'random':
 
@@ -494,7 +494,7 @@ def _generate_requests(
 
                 #print(inst.parameters[param]['list_ids'+str(replicate_num)])
 
-        if inst.parameters[param]['type'] == 'list_zones':
+        if inst.parameters[param]['type'] == 'array_zones':
 
             inst.parameters[param]['zones'+str(replicate_num)] = []
             for elem in inst.parameters[param]['zones']:
@@ -528,7 +528,7 @@ def _generate_requests(
 
             while (not_feasible_attribute) and (exhaustion_iterations < 100):
 
-                if inst.GA.nodes[att]['type'] == 'coordinate':
+                if inst.GA.nodes[att]['type'] == 'location':
 
                     if 'subset_zones' in inst.GA.nodes[att]:
 
