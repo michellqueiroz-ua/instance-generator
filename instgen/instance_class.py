@@ -40,9 +40,9 @@ class Instance:
 
         self.spatial_distribution = []
 
-        self.origin_weights = [0] * len(self.network.zones)
+        #self.origin_weights = [0] * len(self.network.zones)
 
-        self.destination_weights = [0] * len(self.network.zones)
+        #self.destination_weights = [0] * len(self.network.zones)
 
         '''
         self.num_origins = -1
@@ -262,7 +262,6 @@ class Instance:
 
         else: raise ValueError('speed_unit method argument must be either "kmh", "mph" or "mps"')
 
-
     def set_interval_max_walking(self, lb_max_walking, ub_max_walking, time_unit):
 
         '''
@@ -306,7 +305,6 @@ class Instance:
 
         else: raise ValueError('time_unit method argument must be either "h" or "min", or "s"')
 
-
     def set_problem_type(self, problem_type, school_id=None):
 
         if (problem_type == "ODBRP") or (problem_type == "ODBRPFL") or (problem_type == "SBRP") or (problem_type == "DARP"):
@@ -329,14 +327,12 @@ class Instance:
             self.can_set_address_school = False
         else: raise ValueError('this function can not be called after adding school from address')
 
-
     def set_num_depots(self, num_depots):
 
         if self.can_set_random_depot:
             self.num_depots = num_depots
             self.can_set_address_depot = False
         else: raise ValueError('this function can not be called after adding depot from address')
-
 
     def add_school_from_name(self, school_name):
 
@@ -351,7 +347,6 @@ class Instance:
                 self.can_set_random_school = False
 
         else: raise ValueError('this function can not be called after setting the number of schools with set_num_schools')
-
 
     def add_school_from_address(self, address_school, school_name):
 
@@ -372,7 +367,6 @@ class Instance:
             self.num_schools = len(self.school_ids)
 
         else: raise ValueError('this function can not be called after setting the number of schools with set_num_schools')
-
 
     def add_depot_from_address(self, depot_address):
 
@@ -415,7 +409,6 @@ class Instance:
 
     def generate_requests(self):
 
-
         for replicate_num in range(self.number_replicas):
             
             self.seed += self.increment_seed
@@ -423,19 +416,16 @@ class Instance:
             if self.problem_type == "DARP":
                 _generate_requests(self, replicate_num)  
 
-            if self.problem_type == "ODBRP":
+            elif self.problem_type == "ODBRP":
                 _generate_requests_ODBRP(self, replicate_num) 
 
-            if self.problem_type == "ODBRPFL":
+            elif self.problem_type == "ODBRPFL":
                 _generate_requests_ODBRPFL(self, replicate_num) 
 
-            if self.problem_type == "SBRP":
+            elif self.problem_type == "SBRP":
                 _generate_requests_SBRP(self, replicate_num)
 
-    def _assign_weights_coord(self, attribute, ):
-
-        if attribute == 'origin':
-            pass
+            else: _generate_requests(self, replicate_num)
 
     def _assign_weights_subset_zones(self, attribute, num_zones, cum_weigth):
 
@@ -551,7 +541,6 @@ class Instance:
                     sumw2 += new_weigth
 
             print(sumw2)
-
 
     '''
     sets the interval of walking time (in units of time), that the user is willing to walk to reach a pre defined location, such as bus stations

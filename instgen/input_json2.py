@@ -49,6 +49,9 @@ def get_multiplier_speed_unit(speed_unit):
 
     return mult
 
+def get_network():
+
+
 def input_json(filename_json):
 
     f = open(filename_json,)
@@ -56,59 +59,170 @@ def input_json(filename_json):
     data = json.load(f)
 
     if 'seed' in data:
-        value = data['value']
-           
+        
+        for j in data['seed']:
+            
+            if 'value' in j:
+                value = j['value']
+            else: raise ValueError('value parameter for seed is mandatory')
+
+            if 'increment' in j:
+                increment = j['increment']
+            else:
+                increment = 1
+
     else: 
+
         value = 1
+        increment = 1
 
     random.seed(value)
     np.random.seed(value)
 
     if 'network' in data:
 
-        if (len(data['network']) > 1):
-            raise ValueError('only one network per instance is allowed')
+        if 'name' in data['network']:
+            place_name=data['network']['name']
+            
+            save_dir = os.getcwd()+'/'+place_name
+            pickle_dir = os.path.join(save_dir, 'pickle')
+            network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+        else:
+            raise ValueError('name is mandatory for network')
 
-        for j in data['network']:
-            if 'name' in j:
-                
-                place_name=j['name']
-                
-                save_dir = os.getcwd()+'/'+place_name
-                pickle_dir = os.path.join(save_dir, 'pickle')
-                network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+        if Path(network_class_file).is_file():
+
+            inst = Instance(folder_to_network=place_name)
+
+        else:
+
+            if 'get_fixed_lines' in data['network']:
+                get_fixed_lines = data['network']['get_fixed_lines']
             else:
-                raise ValueError('name is mandatory for network')
+                get_fixed_lines = None
 
-            if Path(network_class_file).is_file():
+            network = download_network_information(place_name=place_name, max_speed_factor=0.5, get_fixed_lines=get_fixed_lines)
 
-                inst = Instance(folder_to_network=place_name)
+            save_dir_fr = os.path.join(save_dir, 'fr_network')
+            if not os.path.isdir(save_dir_fr):
+                os.mkdir(save_dir_fr)
 
-            else:
+            output_name_fr = place_name+'.frn'
 
-                if 'get_fixed_lines' in j:
-                    get_fixed_lines = j['get_fixed_lines']
-                else:
-                    get_fixed_lines = None
+            if get_fixed_lines is not None:
+                output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)
 
-                network = download_network_information(place_name=place_name, max_speed_factor=0.5, get_fixed_lines=get_fixed_lines)
-
-                save_dir_fr = os.path.join(save_dir, 'fr_network')
-                if not os.path.isdir(save_dir_fr):
-                    os.mkdir(save_dir_fr)
-
-                output_name_fr = place_name+'.frn'
-
-                if get_fixed_lines is not None:
-                    output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)
-
-                inst = Instance(folder_to_network=place_name)
-
-            inst.parameters['network'] = {}
-            inst.parameters['network']['value'] = j['name']
-            inst.parameters['network']['type'] = 'network'
+            inst = Instance(folder_to_network=place_name)
 
     else: raise ValueError('network parameter is mandatory')
+
+    '''
+    if 'problem' in data:
+
+        inst.set_problem_type(problem_type=data['problem'])
+    '''
+
+    #inst.set_seed(seed=value, increment_seed=increment)
+
+    '''
+    if 'request_demand_uniform' in data:
+
+        for j in data['request_demand_uniform']:
+
+            if 'min_time' in j:
+                min_time = j['min_time']
+            else: raise ValueError('min_time parameter for request_demand_uniform is mandatory')
+
+            if 'max_time' in j:
+                max_time = j['max_time']
+            else: raise ValueError('max_time parameter for request_demand_uniform is mandatory')
+
+            if 'number_of_requests' in j:
+                number_of_requests = j['number_of_requests']
+            else: raise ValueError('number_of_requests parameter for request_demand_uniform is mandatory')
+
+            if 'time_unit' in j:
+                time_unit = j['time_unit']
+            else: raise ValueError('time_unit parameter for request_demand_uniform is mandatory')
+
+        inst.add_request_demand_uniform(min_time=min_time, max_time=max_time, number_of_requests=number_of_requests, time_unit=time_unit)
+
+    if 'spatial_distribution1' in data:
+
+        for j in data['spatial_distribution1']:
+
+            if 'num_origins' in j:
+                num_origins = j['num_origins']
+            else: raise ValueError('num_origins parameter for request_demand_uniform is mandatory')
+
+            if 'num_destinations' in j:
+                num_destinations = j['num_destinations']
+            else: raise ValueError('num_destinations parameter for request_demand_uniform is mandatory')
+
+            if 'prob' in j:
+                prob = j['prob']
+            else: raise ValueError('number_of_requests parameter for request_demand_uniform is mandatory')
+
+            if 'is_random_origin_zones' in j:
+                is_random_origin_zones = j['is_random_origin_zones']
+            else: raise ValueError('is_random_origin_zones parameter for request_demand_uniform is mandatory')
+
+            if 'is_random_destination_zones' in j:
+                is_random_destination_zones = j['is_random_destination_zones']
+            else: raise ValueError('is_random_destination_zones parameter for request_demand_uniform is mandatory')
+
+        inst.add_spatial_distribution(num_origins=num_origins, num_destinations=num_destinations, prob=prob, is_random_origin_zones=is_random_origin_zones, is_random_destination_zones=is_random_destination_zones)
+
+    if 'spatial_distribution2' in data:
+
+        for j in data['spatial_distribution2']:
+
+            if 'num_origins' in j:
+                num_origins = j['num_origins']
+            else: raise ValueError('num_origins parameter for request_demand_uniform is mandatory')
+
+            if 'num_destinations' in j:
+                num_destinations = j['num_destinations']
+            else: raise ValueError('num_destinations parameter for request_demand_uniform is mandatory')
+
+            if 'prob' in j:
+                prob = j['prob']
+            else: raise ValueError('number_of_requests parameter for request_demand_uniform is mandatory')
+
+            if 'is_random_origin_zones' in j:
+                is_random_origin_zones = j['is_random_origin_zones']
+            else: raise ValueError('is_random_origin_zones parameter for request_demand_uniform is mandatory')
+
+            if 'is_random_destination_zones' in j:
+                is_random_destination_zones = j['is_random_destination_zones']
+            else: raise ValueError('is_random_destination_zones parameter for request_demand_uniform is mandatory')
+
+        inst.add_spatial_distribution(num_origins=num_origins, num_destinations=num_destinations, prob=prob, is_random_origin_zones=is_random_origin_zones, is_random_destination_zones=is_random_destination_zones)
+
+    inst.add_spatial_distribution(num_origins=-1, num_destinations=-1, prob=0)
+    inst.add_spatial_distribution(num_origins=-1, num_destinations=-1, prob=0)
+
+    if 'planning_horizon' in data:
+
+        for j in data['planning_horizon']:
+
+            if 'min_early_departure' in j:
+                min_early_departure = j['min_early_departure']
+                #inst.parameters['min_early_departure'] = j['min_early_departure']*3600
+            else: raise ValueError('min_early_departure parameter for planning_horizon is mandatory')
+
+            if 'max_early_departure' in j:
+                max_early_departure = j['max_early_departure']
+                #inst.parameters['max_early_departure'] = j['max_early_departure']*3600
+            else: raise ValueError('max_early_departure parameter for planning_horizon is mandatory')
+
+            if 'time_unit' in j:
+                time_unit = j['time_unit']
+                #inst.parameters['time_unit'] = j['time_unit']
+            else: raise ValueError('time_unit parameter for planning_horizon is mandatory')
+
+            inst.set_time_window(min_early_departure=min_early_departure, max_early_departure=max_early_departure, time_unit=time_unit)
+    '''
 
     if 'locations' in data:
         location_names = []
@@ -364,7 +478,7 @@ def input_json(filename_json):
                             else:
                                 raise TypeError('locs must be a string')
 
-                            loctypes = ['random', 'schools']
+                            loctypes = ['anywhere', 'schools']
                             if not (inst.parameters[j['name']]['locs'] in loctypes):
                                 raise ValueError('loc ' +inst.parameters[j['name']]['locs']+' is not supported')
 
@@ -437,17 +551,93 @@ def input_json(filename_json):
 
         #print(inst.instance_filename)
 
-    if 'replicas' in data:
+    '''
+    if 'lead_time' in data:
 
-        inst.set_number_replicas(number_replicas=data['replicas'])
+        for j in data['lead_time']:
+
+            if 'min_lead_time' in j:
+                min_lead_time = j['min_lead_time']
+            else: raise ValueError('min_lead_time parameter for lead_time is mandatory')
+
+            if 'max_lead_time' in j:
+                max_lead_time = j['max_lead_time']
+            else: raise ValueError('max_lead_time parameter for lead_time is mandatory')
+
+            if 'time_unit' in j:
+                time_unit = j['time_unit']
+            else: raise ValueError('time_unit parameter for lead_time is mandatory')
+
+            inst.set_interval_lead_time(min_lead_time=min_lead_time, max_lead_time=max_lead_time, time_unit=time_unit)
+
+    if 'walk_speed' in data:
+
+        for j in data['walk_speed']:
+
+            if 'min_walk_speed' in j:
+                min_walk_speed = j['min_walk_speed']
+            else: raise ValueError('min_walk_speed parameter for walk_speed is mandatory')
+
+            if 'max_walk_speed' in j:
+                max_walk_speed = j['max_walk_speed']
+            else: raise ValueError('max_walk_speed parameter for walk_speed is mandatory')
+
+            if 'speed_unit' in j:
+                speed_unit = j['speed_unit']
+            else: raise ValueError('speed_unit parameter for walk_speed is mandatory')
+
+            inst.set_interval_walk_speed(min_walk_speed=min_walk_speed, max_walk_speed=max_walk_speed, speed_unit=speed_unit)
+
+    if 'max_walking' in data:
+
+        for j in data['max_walking']:
+
+            if 'lb_max_walking' in j:
+                lb_max_walking = j['lb_max_walking']
+            else: raise ValueError('lb_max_walking parameter for max_walking is mandatory')
+
+            if 'ub_max_walking' in j:
+                ub_max_walking = j['ub_max_walking']
+            else: raise ValueError('ub_max_walking parameter for max_walking is mandatory')
+
+            if 'time_unit' in j:
+                time_unit = j['time_unit']
+            else: raise ValueError('time_unit parameter for max_walking is mandatory')
+
+            inst.set_interval_max_walking(lb_max_walking=lb_max_walking, ub_max_walking=ub_max_walking, time_unit=time_unit)
+    '''
+
+    if 'number_replicas' in data:
+
+        inst.set_number_replicas(number_replicas=data['number_replicas'])
 
     else: inst.set_number_replicas(number_replicas=1)
 
-    if 'records' in data:
+    '''
+    if 'delay_vehicle_factor' in data:
 
-        inst.parameters['records'] = {}
-        inst.parameters['records']['value'] = data['records']
-        inst.parameters['records']['type'] = 'integer'
+        inst.set_delay_vehicle_factor(delay_vehicle_factor=data['delay_vehicle_factor'])
+
+    if 'delay_walk_factor' in data:
+
+        inst.set_delay_walk_factor(delay_walk_factor=data['delay_walk_factor'])
+
+    if 'time_window_length' in data:
+
+        for j in data['time_window_length']:
+
+            if 'length' in j:
+                length = j['length']
+            else: raise ValueError('length parameter for time_window_length is mandatory')
+
+            if 'time_unit' in j:
+                time_unit = j['time_unit']
+            else: raise ValueError('time_unit parameter for time_window_length is mandatory')
+
+            inst.add_time_window_gap(g=length, time_unit=time_unit)
+
+    inst.set_return_factor(return_factor=0.0)
+    '''
 
     GA = nx.DiGraph()
 
@@ -743,6 +933,7 @@ def input_json(filename_json):
 
     else: raise ValueError('attributes for instance are mandatory')
 
+
     inst.generate_requests()
 
     caching.clear_cache()
@@ -775,7 +966,7 @@ def input_json(filename_json):
             output_name_ls = instance.split('.')[0] + '_ls.pass'
 
             converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
+            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), inst=inst, problem_type=inst.problem_type, path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
             #converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
     
 

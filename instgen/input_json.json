@@ -1,100 +1,9 @@
 {
-	"seed": [
-		{
-			"value": 100,
-			"increment": 20
-		}
-	],
-	"network": "Rennes, France",
-	"problem": "DARP",
+	"seed": 100,
+	"network":"Rennes, France",
 	"get_fixed_lines": "deconet",
-	"request_demand_uniform": [
-		{
-			"min_time": 8,
-			"max_time": 10,
-			"number_of_requests": 500,
-			"time_unit": "h"
-		}
-	],
-	"spatial_distribution1": [
-		{
-			"num_origins": -1,
-			"num_destinations": -1,
-			"prob": 50,
-			"is_random_origin_zones": true,
-			"is_random_destination_zones": true
-		}
-	],
-	"spatial_distribution2": [
-		{
-			"num_origins": -1,
-			"num_destinations": -1,
-			"prob": 50,
-			"is_random_origin_zones": true,
-			"is_random_destination_zones": true
-		}
-	],
-	"spatial_distribution3": [
-		{
-			"num_origins": -1,
-			"num_destinations": -1,
-			"prob": 0
-		}
-	],
-	"spatial_distribution4": [
-		{
-			"num_origins": -1,
-			"num_destinations": -1,
-			"prob": 0
-		}
-	],
-	"planning_horizon": [
-		{
-			"min_early_departure": 5,
-			"max_early_departure": 11,
-			"time_unit": "h"
-		}
-	],
-	"lead_time": [
-		{
-			"min_lead_time": 0,
-			"max_lead_time": 5,
-			"time_unit": "min"
-		}
-	],
-	"walk_speed": [
-		{
-			"min_walk_speed": 5,
-			"max_walk_speed": 5,
-			"speed_unit": "kmh"
-		}
-	],
-	"max_walking": [
-		{
-			"lb_max_walking": 600,
-			"ub_max_walking": 600,
-			"time_unit": "s"
-		}
-	],
-	"number_replicas": 1,
-	"delay_vehicle_factor": 0.5,
-	"delay_walk_factor": 0.5,
-	"time_window_length": [
-		{
-			"length": 10,
-			"time_unit": "min"
-
-		}
-	],
-	"request_demand_uniform": [
-		{
-			"type": "uniform",
-			"min_time": 8,
-			"max_time": 10,
-			"number_of_requests": 25,
-			"time_unit": "h"
-		}
-	],
+	"replicas": 1,
+	"records": 500,
 	"zones": [
 		{
 			"name": "zonexx",
@@ -133,19 +42,9 @@
 	],
 	"parameters":[
 		{
-			"name": "network",
-			"type": "string",
-			"value": "Rennes, France"
-		},
-		{
 			"name": "problem",
 			"type": "string",
 			"value": "DARP"
-		},
-		{
-			"name": "number_data",
-			"type": "integer",
-			"value": 500
 		},
 		{
 			"name": "min_early_departure",
@@ -176,7 +75,7 @@
 			"type": "list_coordinates", 
 			"size": 1,
 			"list": ["depot1"],
-			"locs": "anywhere"
+			"locs": "random"
 		},
 		{
 			"name": "schools",
@@ -200,7 +99,7 @@
 			"name": "travel_time_matrix",
 			"type": "matrix",
 			"value": true,
-			"locations": ["bus_stations", "school"]
+			"locations": ["bus_stations"]
 		},
 		{
 			"name": "graphml",
@@ -208,7 +107,7 @@
 			"value": true
 		}
 	],
-	"instance_filename": ["network", "problem", "number_data", "min_early_departure", "max_early_departure"],
+	"instance_filename": ["network", "problem", "number_records", "min_early_departure", "max_early_departure"],
 	"attributes": [
 		{
 			"name": "earliest_departure",

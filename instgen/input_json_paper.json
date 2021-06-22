@@ -1,0 +1,92 @@
+{
+	"seed": 100,
+	"network": "Rennes, France",
+	"get_fixed_lines": "deconet",
+	"replicas": 1,
+	"records": 500,
+	"locations": [
+		{
+			"name": "Depot Example",
+			"type": "place",
+			"lon": -1.6457340723441525,
+			"lat": 48.100199454954804
+		},
+		{
+			"name": "School Example",
+			"type": "place",
+			"lon": -1.742000418660542,
+			"lat": 48.09010529664507
+		},
+		{
+			"name": "zonexx",
+			"type": "zone",
+			"lon": -1.6902891077472344,
+			"lat": 48.09282962664396,
+			"length_lon": 1000,
+			"length_lat": 1000,
+			"length_unit": "m" 
+		},
+		{
+			"name": "zonecenter",
+			"type": "zone",
+			"centroid": true,
+			"radius": 1000
+		},
+	],
+	"parameters":[
+		{
+			"name": "problem",
+			"type": "string",
+			"value": "DARP"
+		},
+		{
+			"name": "min_early_departure",
+			"type": "time",
+			"value": 5,
+			"time_unit": "h"
+		},
+		{
+			"name": "depots",
+			"type": "list_places", 
+			"size": 2,
+			"list": ["Depot Example"],
+			"locs": "random"
+		},
+		{
+			"name": "zonesdest",
+			"type": "list_zones", 
+			"size": 2,
+			"list": ["zonecenter", "zonexx"]
+		}
+	],
+	"attributes": [
+		{
+			"name": "earliest_departure",
+			"type": "time",
+			"time_unit": "s",
+			"pdf": [ {	"type": "normal",
+						"mean": 8.5,
+						"std": 1
+					} ],
+			"constraints": [ "earliest_departure >= min_early_departure"]
+		},
+		{
+			"name": "latest_arrival",
+			"type": "time",
+			"time_unit": "s",
+			"expression": "earliest_departure + 1800"
+		},
+		{  
+			"name": "origin",
+			"type": "coordinate",
+			"subset_zones": "zonesorgn",
+			"weights": [50, 30, 20]
+		},
+		{  
+			"name": "destination",
+			"type": "coordinate",
+			"subset_zones": "zonesdest"
+		},
+	],
+	"instance_filename": ["network", "problem", "number_records", "min_early_departure", "max_early_departure"]
+}
