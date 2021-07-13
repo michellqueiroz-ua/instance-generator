@@ -10,7 +10,7 @@ from instance_class import Instance
 if __name__ == '__main__':
 
     place_name = "Rennes, France"
-    problem = 'DARP'
+    problem = 'ODBRP'
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
     network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
@@ -79,7 +79,7 @@ if __name__ == '__main__':
                     ltrd = []
                     for idx2, row2 in inst1.iterrows():
 
-                        if idx2 > idx1:
+                        if idx2 != idx1:
 
                             #print(row2['earliest_departure'])
                             if (row2['earliest_departure'] >= row1['earliest_departure'] - 600) and (row2['earliest_departure'] <= row1['earliest_departure'] + 600):
@@ -136,25 +136,26 @@ if __name__ == '__main__':
                     
                     #print(ltrot)
                     #pegar a media das 5 primeiras
+                    n_neig = 5
                     avgo = 0
-                    for i in range(min(5, len(ltrot))):
+                    for i in range(min(n_neig, len(ltrot))):
                         avgo += ltrot[i][1]
                     
                     if len(ltrot) > 0:
-                        avgo = avgo/min(5, len(ltrot))
+                        avgo = avgo/min(n_neig, len(ltrot))
 
                     avgd = 0
-                    for j in range(min(5, len(ltrdt))):
+                    for j in range(min(n_neig, len(ltrdt))):
                         avgd += ltrdt[j][1]
                     #adicionar numa variavel de soma
                     if len(ltrdt) > 0:
-                        avgd = avgd/min(5, len(ltrdt))
+                        avgd = avgd/min(n_neig, len(ltrdt))
                     
                     #print(avgo, avgd)
                     #print(avgd)
                     sumnn += avgo + avgd
 
-                omegaodbrp = sumnn/len(inst1)
+                omegaodbrp = sumnn/(len(inst1)*2)
 
 
                 '''
@@ -172,8 +173,8 @@ if __name__ == '__main__':
                 '''
 
                 
-                #print(muodbrp)
-                #print(omegaodbrp)
+                print(muodbrp)
+                print(omegaodbrp)
                 gd = muodbrp + omegaodbrp
                 print(gd)
                 #gd = varchi * mumuodbrp + (1 - varchi) * omega2
@@ -199,7 +200,7 @@ if __name__ == '__main__':
                     ltrd = []
                     for idx2, row2 in inst1.iterrows():
 
-                        if idx2 > idx1:
+                        if idx2 != idx1:
 
                             #print(row2['earliest_departure'])
                             if (row2['earliest_departure'] >= row1['earliest_departure'] - 600) and (row2['earliest_departure'] <= row1['earliest_departure'] + 600):
@@ -248,32 +249,32 @@ if __name__ == '__main__':
                     #print(ltrdt)
 
                     #pegar a media das 5 primeiras
-
+                    n_neig = 5
                     avgo = 0
-                    for i in range(min(5, len(ltrot))):
+                    for i in range(min(n_neig, len(ltrot))):
                         avgo += ltrot[i][1]
                     
                     if len(ltrot) > 0:
-                        avgo = avgo/min(5, len(ltrot))
+                        avgo = avgo/min(n_neig, len(ltrot))
 
                     avgd = 0
-                    for j in range(min(5, len(ltrdt))):
+                    for j in range(min(n_neig, len(ltrdt))):
                         avgd += ltrdt[j][1]
                     #adicionar numa variavel de soma
                     if len(ltrdt) > 0:
-                        avgd = avgd/min(5, len(ltrdt))
+                        avgd = avgd/min(n_neig, len(ltrdt))
                     
                     #print(avgo, avgd)
                     #print(avgd)
                     sumnn += avgo + avgd
 
-                omegadarp = sumnn/len(inst1)
+                omegadarp = sumnn/(len(inst1)*2)
                 #ttm1['mean'] = ttm1.mean(axis=1)
                 #varchi = 0.7
                 #omega = ttm1['mean'].mean()
                 
-                #print(mudarp)
-                #print(omegadarp)
+                print(mudarp)
+                print(omegadarp)
                 gd = mudarp + omegadarp
                 print(gd)
                 #gd = varchi * mudarp + (1 - varchi) * omega

@@ -259,6 +259,9 @@ def download_network_information(
     ##network.transfer_nodes = []
     #network.direct_lines = []
     #network.nodes_covered_fixed_lines = []
+    #removes unreacheable stops or useless duplicate stations
+    
+
     if get_fixed_lines is not None:
         if get_fixed_lines == 'osm':
             pt_fixed_lines = get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_folder_base)
@@ -283,11 +286,9 @@ def download_network_information(
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
 
-        #removes unreacheable stops or useless duplicate stations
         num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
         network.bus_stations = network.bus_stations.reset_index(drop=True)
-
 
         for lp in range(len(network.linepieces)):
             for s in range(len(network.linepieces[lp])): 
@@ -329,6 +330,12 @@ def download_network_information(
         #print(count)
         print(len(network.nodes_covered_fixed_lines))
 
+    else:
+
+        num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
+
+        network.bus_stations = network.bus_stations.reset_index(drop=True)
+        
     network.bus_stations_ids = []
     for index, stop_node in network.bus_stations.iterrows():
         if index not in network.bus_stations_ids:

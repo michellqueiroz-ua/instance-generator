@@ -1,6 +1,6 @@
 {
 	"seed": 100,
-	"network": "Center Ville, Rennes, France",
+	"network": "Rennes, France",
 	"problem": "DARP",
 	"max_speed_factor": 0.5,
 	"replicas": 2,
@@ -37,7 +37,7 @@
 			"lat": 48.100199454954804
 		},
 		{
-			"name": "school1",
+			"name": "schuol1",
 			"type": "location",
 			"class": "school",
 			"lon": -1.742000418660542,
@@ -82,10 +82,10 @@
 			"locs": "random"
 		},
 		{
-			"name": "schools",
+			"name": "schoulls",
 			"type": "array_locations", 
 			"size": 2,
-			"value": ["school1"],
+			"value": ["schuol1"],
 			"locs": "schools"
 		},
 		{
@@ -131,15 +131,15 @@
 			"expression": "earliest_departure + time_window_length"
 		},
 		{
-			"name": "earliest_departureP",
+			"name": "earliest_Pdeparture",
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "poisson",
 						"lam": 25200
 					} ],
-			"constraints": [ "earliest_departureP >= 0", 
-							"earliest_departureP >= min_early_departure",
-							 "earliest_departureP <= max_early_departure"
+			"constraints": [ "earliest_Pdeparture >= 0", 
+							"earliest_Pdeparture >= min_early_departure",
+							 "earliest_Pdeparture <= max_early_departure"
 						   ]
 		},
 		{
@@ -213,7 +213,7 @@
 		{
 			"name": "school",
 			"type": "location",
-			"subset_locations": "schools"
+			"subset_locations": "schoulls"
 		},
 		{
 			"name": "direct_travel_time",

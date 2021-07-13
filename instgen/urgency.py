@@ -53,7 +53,7 @@ if __name__ == '__main__':
             '''
             
             print(mean)
-            print(stdv)
+            #print(stdv)
 
             #print(mean2)
             #print(stdv4)

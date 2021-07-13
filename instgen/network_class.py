@@ -343,8 +343,16 @@ class Network:
         number = 1
         while counter < number:
             pnt = Point(np.random.uniform(minx, maxx), np.random.uniform(miny, maxy))
-            if polygon.contains(pnt):
-                return pnt
+            pnt2 = (pnt.y, pnt.x)
+            osmid_drive = ox.get_nearest_node(self.G_drive, pnt2)
+            pnt_osmid = Point(self.G_drive.nodes[osmid_drive]['x'], self.G_drive.nodes[osmid_drive]['y'])
+            distancepts = math.sqrt( ((pnt.x-pnt_osmid.x)**2)+((pnt.y-pnt_osmid.y)**2) )
+
+            if distancepts < 500:
+                if polygon.contains(pnt):
+                    return pnt
+            else:
+                print(distancepts)
 
         return (-1, -1)
 
@@ -419,6 +427,8 @@ class Network:
         west = lng - delta_lng
         
         polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
+
+
             
         #updates the polygon. used to generate coordinates within the zone
         self.zones.loc[index, 'polygon'] = polygon
@@ -478,7 +488,7 @@ class Network:
         for lat in range(len(lats)-1):
             for lng in range(len(lngs)-1):
 
-                ##ax.scatter(lng, lat, c='red', s=8, marker=",")
+                #ax.scatter(lng, lat, c='red', s=8, marker=",")
                 #print(lng, lat)
 
                 north = lats[lat+1]
@@ -486,48 +496,56 @@ class Network:
                 east = lngs[lng+1]
                 west = lngs[lng]
 
-                ax.scatter(west, south, c='red', s=8, marker=",")
-                ax.scatter(east, south, c='red', s=8, marker=",")
-                ax.scatter(east, north, c='red', s=8, marker=",")
-                ax.scatter(west, north, c='red', s=8, marker=",")
+                
 
                 polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
-                ax.scatter(polygon.centroid.x, polygon.centroid.y, c='green', s=8, marker=",")
+                
 
                 strname = 'zone'+str(zone_id)
 
                 zone_center_point = (polygon.centroid.y, polygon.centroid.x)
-                            
+
                 #osmid nearest node walk
                 osmid_walk = ox.get_nearest_node(self.G_walk, zone_center_point) 
 
                 #osmid nearest node drive
                 osmid_drive = ox.get_nearest_node(self.G_drive, zone_center_point)
 
-                #plot here the center point zone in the walk network
-                nc = ['r' if (node == osmid_walk) else '#336699' for node in self.G_walk.nodes()]
-                ns = [16 if (node == osmid_walk) else 1 for node in self.G_walk.nodes()]
-                zone_filename = str(zone_id)+'_'+strname+'_walk.png'
-                fig2, ax2 = ox.plot_graph(self.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
-                plt.close(fig2)
+               
+                pnt = Point(self.G_drive.nodes[osmid_drive]['x'],  self.G_drive.nodes[osmid_drive]['y'])
 
-                #plot here the center point zone in the drive network
-                nc = ['r' if (node == osmid_drive) else '#336699' for node in self.G_drive.nodes()]
-                ns = [16 if (node == osmid_drive) else 1 for node in self.G_drive.nodes()]
-                zone_filename = str(zone_id)+'_'+strname+'_drive.png'
-                fig3, ax3 = ox.plot_graph(self.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
-                plt.close(fig3)
+                if polygon.contains(pnt):
+                    ax.scatter(west, south, c='red', s=8, marker=",")
+                    ax.scatter(east, south, c='red', s=8, marker=",")
+                    ax.scatter(east, north, c='red', s=8, marker=",")
+                    ax.scatter(west, north, c='red', s=8, marker=",")
 
-                d = {
-                    "name": strname,
-                    'id': zone_id,
-                    'polygon': polygon,
-                    'center_y': polygon.centroid.y,
-                    'center_x': polygon.centroid.x
-                } 
-                zone_id += 1
+                    ax.scatter(polygon.centroid.x, polygon.centroid.y, c='green', s=8, marker=",")
 
-                zones.append(d)
+                    #plot here the center point zone in the walk network
+                    nc = ['r' if (node == osmid_walk) else '#336699' for node in self.G_walk.nodes()]
+                    ns = [16 if (node == osmid_walk) else 1 for node in self.G_walk.nodes()]
+                    zone_filename = str(zone_id)+'_'+strname+'_walk.png'
+                    fig2, ax2 = ox.plot_graph(self.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
+                    plt.close(fig2)
+
+                    #plot here the center point zone in the drive network
+                    nc = ['r' if (node == osmid_drive) else '#336699' for node in self.G_drive.nodes()]
+                    ns = [16 if (node == osmid_drive) else 1 for node in self.G_drive.nodes()]
+                    zone_filename = str(zone_id)+'_'+strname+'_drive.png'
+                    fig3, ax3 = ox.plot_graph(self.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
+                    plt.close(fig3)
+
+                    d = {
+                        "name": strname,
+                        'id': zone_id,
+                        'polygon': polygon,
+                        'center_y': polygon.centroid.y,
+                        'center_x': polygon.centroid.x
+                    } 
+                    zone_id += 1
+
+                    zones.append(d)
 
         zones = pd.DataFrame(zones)
         zones.to_csv(path_zones_csv_file)

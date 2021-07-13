@@ -52,13 +52,13 @@ if __name__ == '__main__':
 
             number_reqs = len(inst1)
             Te = param.parameters['max_early_departure']['value'] - param.parameters['min_early_departure']['value']
-            Te = 10
+            #Te = 10
 
             theta = int(Te/len(sorted_ts))
             #print(float(theta))
 
             #theta = float(theta)
-            print(theta)
+            #print(theta)
 
             SIGMA = []
             for k in range(len(DELTA)):
@@ -106,11 +106,11 @@ if __name__ == '__main__':
             #print(eta)
             rho = 1 - (sum(SIGMA)/sum(NEGSIGMA)) 
 
-            print(DELTA)
-            print(SIGMA)
-            print(NEGSIGMA)
-            print(lambdax)
-            print(eta)
+            #print(DELTA)
+            #print(SIGMA)
+            #print(NEGSIGMA)
+            #print(lambdax)
+            #print(eta)
             print(rho)
 
 

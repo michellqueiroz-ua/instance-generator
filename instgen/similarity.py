@@ -9,37 +9,6 @@ from instance_class import Instance
 
 if __name__ == '__main__':
 
-    G2 = nx.Graph()
-    G2.add_node("A")
-    G2.add_node("B")
-    G2.add_node("C")
-    G2.add_node("D")
-    G2.add_node("E")
-    G2.add_node("F")
-    G2.add_node("G")
-    G2.add_node("H")
-    G2.add_node("I")
-    G2.add_node("J")
-    G2.add_node("K")
-    G2.add_node("L")
-    G2.add_edge("A", "B")
-    G2.add_edge("B", "D")
-    G2.add_edge("B", "C")
-    G2.add_edge("D", "F")
-    G2.add_edge("C", "E")
-    #G2.add_edge("F", "E")
-    G2.add_edge("E", "G")
-    G2.add_edge("F", "G")
-    G2.add_edge("F", "J")
-    G2.add_edge("J", "L")
-    G2.add_edge("G", "I")
-    G2.add_edge("G", "H")
-    G2.add_edge("H", "K")
-    G2.add_edge("J", "I")
-
-    print(nx.center(G2))
-
-
     place_name = "Rennes, France"
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
@@ -50,9 +19,9 @@ if __name__ == '__main__':
     if Path(network_class_file).is_file():
         inst = Instance(folder_to_network=place_name)
 
-    thtt = 180
+    thtt = 360
     thts = 60
-    the = 30
+    the = 60
     csv_directory = network_directory+'/csv_format'
     directory = os.fsencode(csv_directory)
     for file_inst1 in os.listdir(directory):
@@ -68,7 +37,6 @@ if __name__ == '__main__':
             number_reqs = len(inst1)
 
 
-
             for file_inst2 in os.listdir(directory):
 
                 filename2 = os.fsdecode(file_inst2)
@@ -78,6 +46,13 @@ if __name__ == '__main__':
                     G = nx.Graph()
                     for i in range(number_reqs*2):
                         G.add_node(int(i))
+
+                    top_nodes = [i for i in range(number_reqs)]
+                    bottom_nodes = [i+500 for i in range(number_reqs)]
+                    #print(top_nodes)
+                    #print(bottom_nodes)
+                    #G.add_nodes_from(top_nodes, bipartite=0)
+                    #G.add_nodes_from(bottom_nodes, bipartite=1)
 
                     if (filename2.endswith(".csv")):
 
@@ -96,52 +71,67 @@ if __name__ == '__main__':
                                     d2 = req2['destinationnode_drive']
 
                                     oott = inst.network._return_estimated_travel_time_drive(int(o1), int(o2))  
-                                    ddtt = inst.network._return_estimated_travel_time_drive(int(d1), int(d2))  
+                                    ddtt = inst.network._return_estimated_travel_time_drive(int(d1), int(d2)) 
 
-                                    odtt = inst.network._return_estimated_travel_time_drive(int(o1), int(d2))  
-                                    dott = inst.network._return_estimated_travel_time_drive(int(d1), int(o2))
+                                    oott2 = inst.network._return_estimated_travel_time_drive(int(o2), int(o1))  
+                                    ddtt2 = inst.network._return_estimated_travel_time_drive(int(d2), int(d1))  
+
+                                    #odtt = inst.network._return_estimated_travel_time_drive(int(o1), int(d2))  
+                                    #dott = inst.network._return_estimated_travel_time_drive(int(d1), int(o2))
 
 
-                                    phi = min(oott + ddtt, odtt + dott)
+                                    phi = min(oott + ddtt, oott2 + ddtt2)
+                                    #phi = oott + ddtt
 
                                     n1 = int(id1)
                                     n2 = int(id2+number_reqs)
                                     if phi < thtt:
-
+                                        #print("here")
                                         tau = abs(req1['time_stamp'] - req2['time_stamp'])
 
-                                        eu1 = abs(req1['latest_departure'] - req1['time_stamp'])
-                                        eu2 = abs(req2['latest_departure'] - req2['time_stamp'])
+                                        eu1 = abs(req1['earliest_departure'])
+                                        eu2 = abs(req2['earliest_departure'])
                                         vartheta = abs(eu1 - eu2)
+
+                                        #print(tau, vartheta)
 
                                         if (tau < thts) and (vartheta < the):
 
-                                            G.add_edge(n1, n2, similarity=100)
+                                            G.add_edge(n1, n2, weight=100)
 
                                         else:
 
                                             if (tau < thts) or (vartheta < the):
-
-                                                G.add_edge(n1, n2, similarity=75)
+                                                #print("here")
+                                                G.add_edge(n1, n2, weight=75)
 
                                             else:
+                                                #print("here")
+                                                G.add_edge(n1, n2, weight=50)
+                                    #else:
 
-                                                G.add_edge(n1, n2, similarity=50)
-                                    else:
-
-                                        G.add_edge(n1, n2, similarity=0)
+                                        #G.add_edge(n1, n2, weight=0.001)
 
 
-                        M = nx.max_weight_matching(G, maxcardinality=True, weight='similarity')
+                        M = nx.max_weight_matching(G, weight='weight')
+                        #M = nx.bipartite.minimum_weight_full_matching(G, weight='weight')
 
                         si1i2 = 0
-                        #print(len(M))
+                        print(len(M))
+                        #print(M)
+                        count = 0
                         for e in M:
+                            #print(e)
                             #print(e[0])
                             #print(e[1])
                             #print(e)
-                            si1i2 += G.edges[int(e[0]), int(e[1])]['similarity']
+                            #print(e)
+                            peso = G.edges[int(e[0]), int(e[1])]['weight']
+                            if peso > 1: 
+                                si1i2 += peso
+                                count += 1
+                            #print(si1i2)
 
-                        si1i2 = si1i2/len(M)
+                        si1i2 = si1i2/count
 
                         print(si1i2)

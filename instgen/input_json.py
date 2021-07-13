@@ -130,7 +130,7 @@ def input_json(filename_json):
         inst.parameters['problem']['type'] = "string"
         inst.parameters['problem']['value'] = data['problem']
 
-
+    list_names = []
     if 'places' in data:
 
         location_names = []
@@ -141,8 +141,16 @@ def input_json(filename_json):
                 if 'name' in j:
                     if not (isinstance(j['name'], (str))): 
                         raise TypeError('name for a location must be a string')
-                    namelocation = j['name']
-                else: raise ValueError('name parameter for locations is mandatory')
+                    
+
+                    word = j['name']
+                    if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
+                        namelocation = j['name']
+                        list_names.append(j['name'])
+                    else:
+                        raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+                
+                else: raise ValueError('name parameter for places is mandatory')
                 
                 #print(j['name'])
                 location_names.append(j['name'])
@@ -183,7 +191,14 @@ def input_json(filename_json):
                 if 'name' in j:
                     if not (isinstance(j['name'], (str))): 
                         raise TypeError('name for a zone must be a string')
-                    nameszone  = j['name']
+
+                    word = j['name']
+                    if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
+                        nameszone  = j['name']
+                        list_names.append(j['name'])
+                    else:
+                        raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+                    
                 else: raise ValueError('name parameter for zone is mandatory')
 
                 if 'lon' in j:
@@ -269,7 +284,14 @@ def input_json(filename_json):
                 if not (isinstance(j['name'], (str))): 
                     raise TypeError('name for an attribute must be a string')
 
-                inst.parameters[j['name']] = {}
+                word = j['name']
+                if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
+                    inst.parameters[j['name']] = {}
+                    list_names.append(j['name'])
+                else:
+                    raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+
+                
                 if 'value' in j:
                     
                     mult = 1
@@ -489,7 +511,14 @@ def input_json(filename_json):
                 #print(attribute['name'])
 
                 if (isinstance(attribute['name'], (str))): 
-                    name = attribute['name']
+                
+                    word = attribute['name']
+                    if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
+                        name = attribute['name']
+                        list_names.append(attribute['name'])
+                    else:
+                        raise ValueError('name '+attribute['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+
                 else:
                     raise TypeError('name for an attribute must be a string')
 
