@@ -1,13 +1,16 @@
 import json
 import math
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import random
 import re
 import os
 import osmnx as ox
+import pickle
 
 from instance_class import Instance
+from parameters_class import Parameters
 from output_files import JsonConverter
 from output_files import output_fixed_route_network
 from pathlib import Path
@@ -463,6 +466,7 @@ def input_json(filename_json):
             if x not in inst.parameters:
                 raise ValueError(x+ ' is not a parameter, therefore not valid for instance_filename')
 
+    
     GA = nx.DiGraph()
 
     if 'travel_time_matrix' in data:
@@ -557,6 +561,11 @@ def input_json(filename_json):
 
                 if GA.nodes[name]['subset_zones'] not in inst.parameters:
                     raise ValueError('There is not parameter named '+GA.nodes[name]['subset_zones'])
+
+            else:
+
+                GA.nodes[name]['subset_zones'] = False
+
 
             if 'subset_locations' in attribute:
 
@@ -776,6 +785,45 @@ def input_json(filename_json):
 
     
     #else: raise ValueError('locations for travel_time_matrix is mandatory')
+
+    #caching.clear_cache()
+
+    final_filename = ''
+    #print(inst.instance_filename)
+    for p in inst.instance_filename:
+
+        if p in inst.parameters:
+            if 'value' in inst.parameters[p]:
+                strv = str(inst.parameters[p]['value'])
+                strv = strv.replace(" ", "")
+
+                if len(final_filename) > 0:
+                    final_filename = final_filename + '_' + strv
+                else: final_filename = strv
+
+    print(final_filename)
+
+    #instance_class_file = os.path.join(inst.pickle_dir, final_filename + '.instance.class.pkl')
+    pclassfile = Parameters()
+    pclassfile.parameters = inst.parameters
+    p_class_file = inst.pickle_dir+'/'+final_filename+'.param.class.pkl'
+    output_p_class = open(p_class_file, 'wb')
+    pickle.dump(pclassfile, output_p_class, pickle.HIGHEST_PROTOCOL)
+
+    #plot network
+    fig, ax = ox.plot_graph(inst.network.G_drive, show=False, close=False,  figsize=(8, 8), node_color='#000000', node_size=20, bgcolor="#ffffff", edge_color="#999999", edge_alpha=None, dpi=1440)
+
+    save_dir = os.getcwd()+'/'+inst.output_folder_base
+    save_dir_images = os.path.join(save_dir, 'images')
+    network_folder = os.path.join(save_dir_images, 'network')
+
+    if not os.path.isdir(network_folder):
+        os.mkdir(network_folder)
+    plt.savefig(network_folder+'/network_drive')
+
+    #plot network
+    fig, ax = ox.plot_graph(inst.network.G_walk, show=False, close=False,  figsize=(8, 8), node_color='#000000', node_size=12, bgcolor="#ffffff", edge_color="#999999", edge_alpha=None, dpi=1440)
+    plt.savefig(network_folder+'/network_walk')
 
     inst.generate_requests()
 

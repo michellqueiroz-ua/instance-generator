@@ -179,16 +179,24 @@ def plot_bus_stations(network, save_dir_images):
     for index, stop in network.bus_stations.iterrows():
         bus_station_list_nodes.append(stop['osmid_walk'])
 
-    nc = ['r' if (node in bus_station_list_nodes) else '#336699' for node in network.G_walk.nodes()]
-    ns = [12 if (node in bus_station_list_nodes) else 6 for node in network.G_walk.nodes()]
-    fig, ax = ox.plot_graph(network.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/pre_existing_stops_walk.png')
+    nc = ['#000000' if (node in bus_station_list_nodes) else '#000000' for node in network.G_walk.nodes()]
+    ns = [20 if (node in bus_station_list_nodes) else 12 for node in network.G_walk.nodes()]
+    fig, ax = ox.plot_graph(network.G_walk, node_size=ns, figsize=(8, 8), show=False, bgcolor="#ffffff", node_color=nc, node_zorder=2, save=True,edge_color="#999999", edge_alpha=None, dpi=1440, filepath=stops_folder+'/pre_existing_stops_walk.png')
+    
+
     plt.close(fig)
 
     bus_station_list_nodes = []
     for index, stop in network.bus_stations.iterrows():
         bus_station_list_nodes.append(stop['osmid_drive'])
 
-    nc = ['r' if (node in bus_station_list_nodes) else '#336699' for node in network.G_drive.nodes()]
-    ns = [12 if (node in bus_station_list_nodes) else 6 for node in network.G_drive.nodes()]
-    fig, ax = ox.plot_graph(network.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/pre_existing_stops_drive.png')
+    nc = ['#000000' if (node in bus_station_list_nodes) else '#000000' for node in network.G_drive.nodes()]
+    ns = [20 if (node in bus_station_list_nodes) else 20 for node in network.G_drive.nodes()]
+    fig, ax = ox.plot_graph(network.G_drive, node_size=ns, figsize=(8, 8), show=False, bgcolor="#ffffff", node_color=nc, node_zorder=2,edge_color="#999999", edge_alpha=None, dpi=1440, filepath=stops_folder+'/pre_existing_stops_drive.png')
+    
+    for bus_stop in bus_station_list_nodes:
+
+        ax.scatter(network.G_drive.nodes[bus_stop]['x'], network.G_drive.nodes[bus_stop]['y'], c='black', s=60, marker=",")
+    
+    plt.savefig(stops_folder+'/pre_existing_stops_drive.png')
     plt.close(fig)

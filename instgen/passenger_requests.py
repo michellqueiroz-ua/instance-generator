@@ -1,12 +1,14 @@
 from fixed_lines import _check_subway_routes_serve_passenger
 from fixed_lines import _evaluate_best_fixed_route
 import json
-import os
-import osmnx as ox
 import math
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import os
+import osmnx as ox
+import pandas as pd
+import pickle
 import random
 import ray
 import re
@@ -828,6 +830,22 @@ def _generate_requests(
                           'requests': instance_data
                           })
 
+
+    final_filename = ''
+    #print(inst.instance_filename)
+    for p in inst.instance_filename:
+
+        if p in inst.parameters:
+            if 'value' in inst.parameters[p]:
+                strv = str(inst.parameters[p]['value'])
+                strv = strv.replace(" ", "")
+
+                if len(final_filename) > 0:
+                    final_filename = final_filename + '_' + strv
+                else: final_filename = strv
+
+    #print(final_filename)
+
     if 'travel_time_matrix' in inst.parameters:
         if inst.parameters['travel_time_matrix']['value'] is True:
             node_list = []
@@ -908,25 +926,32 @@ def _generate_requests(
 
                     nx.write_graphml(gtt, output_name_graphml)
 
+
+            output_file_ttm_csv = os.path.join(inst.save_dir_ttm, 'travel_time_matrix_' + final_filename + '_' + str(replicate_num) + '.csv')
+        
+            ttml = []
+            for u in node_list_seq:
+                d = {}
+                d['osmid_origin'] = u
+                for v in node_list_seq:
+
+                    dist_uv = int(travel_time_json[u][v])
+                    sv = str(v)
+                    d[sv] = dist_uv
+                ttml.append(d)
+                del d
+
+            ttmpd = pd.DataFrame(ttml)
+
+            ttmpd.to_csv(output_file_ttm_csv)
+            ttmpd.set_index(['osmid_origin'], inplace=True)
+
+
+
+
     save_dir = os.getcwd()+'/'+inst.output_folder_base
     save_dir_images = os.path.join(save_dir, 'images')
     plot_requests(inst.network, save_dir_images, origin_points, destination_points)
-
-    
-    final_filename = ''
-    #print(inst.instance_filename)
-    for p in inst.instance_filename:
-
-        if p in inst.parameters:
-            if 'value' in inst.parameters[p]:
-                strv = str(inst.parameters[p]['value'])
-                strv = strv.replace(" ", "")
-
-                if len(final_filename) > 0:
-                    final_filename = final_filename + '_' + strv
-                else: final_filename = strv
-
-    print(final_filename)
 
     inst.output_file_json = os.path.join(inst.save_dir_json, final_filename + '_' + str(replicate_num) + '.json')
 

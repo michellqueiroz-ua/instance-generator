@@ -103,6 +103,10 @@ def download_network_information(
     if not os.path.isdir(graphml_dir):
         os.mkdir(graphml_dir)
 
+    ttm_dir = os.path.join(save_dir, 'travel_time_matrix')
+    if not os.path.isdir(ttm_dir):
+        os.mkdir(ttm_dir)
+
     '''
     ‘drive’ – get drivable public streets (but not service roads)
     ‘drive_service’ – get drivable public streets, including service roads
@@ -250,6 +254,11 @@ def download_network_information(
     #network.G_drive.remove_nodes_from(unreachable_nodes)
     
     #get fixed lines
+    #network.linepieces = []
+    #network.connecting_nodes = []
+    ##network.transfer_nodes = []
+    #network.direct_lines = []
+    #network.nodes_covered_fixed_lines = []
     if get_fixed_lines is not None:
         if get_fixed_lines == 'osm':
             pt_fixed_lines = get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_folder_base)
@@ -274,51 +283,51 @@ def download_network_information(
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
 
-    #removes unreacheable stops or useless duplicate stations
-    num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
+        #removes unreacheable stops or useless duplicate stations
+        num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
-    network.bus_stations = network.bus_stations.reset_index(drop=True)
+        network.bus_stations = network.bus_stations.reset_index(drop=True)
 
 
-    for lp in range(len(network.linepieces)):
-        for s in range(len(network.linepieces[lp])): 
-            network.linepieces[lp][s] -= num_removed
+        for lp in range(len(network.linepieces)):
+            for s in range(len(network.linepieces[lp])): 
+                network.linepieces[lp][s] -= num_removed
 
-    for s in range(len(network.connecting_nodes)):
-        network.connecting_nodes[s] -= num_removed
+        for s in range(len(network.connecting_nodes)):
+            network.connecting_nodes[s] -= num_removed
 
-    for s in range(len(network.transfer_nodes)):
-        network.transfer_nodes[s] -= num_removed
+        for s in range(len(network.transfer_nodes)):
+            network.transfer_nodes[s] -= num_removed
 
-    for lp in range(len(network.direct_lines)):
-        for s in range(len(network.direct_lines[lp])): 
-            network.direct_lines[lp][s] -= num_removed
+        for lp in range(len(network.direct_lines)):
+            for s in range(len(network.direct_lines[lp])): 
+                network.direct_lines[lp][s] -= num_removed
 
-    for node in network.nodes_covered_fixed_lines:
+        for node in network.nodes_covered_fixed_lines:
 
-        network.deconet_network_nodes.loc[int(node), 'bindex'] -= num_removed
+            network.deconet_network_nodes.loc[int(node), 'bindex'] -= num_removed
 
-    #testing if all remain as one
-    count = 0
-    for node in network.nodes_covered_fixed_lines:
+        #testing if all remain as one
+        count = 0
+        for node in network.nodes_covered_fixed_lines:
 
-        bn = network.deconet_network_nodes.loc[int(node), 'bindex']
+            bn = network.deconet_network_nodes.loc[int(node), 'bindex']
 
-        #print(network.bus_stations.loc[int(bn), 'type'])
+            #print(network.bus_stations.loc[int(bn), 'type'])
 
-        osm_w1 = network.deconet_network_nodes.loc[int(node), 'osmid_walk']
-        osm_d1 = network.deconet_network_nodes.loc[int(node), 'osmid_drive']
+            osm_w1 = network.deconet_network_nodes.loc[int(node), 'osmid_walk']
+            osm_d1 = network.deconet_network_nodes.loc[int(node), 'osmid_drive']
 
-        osm_w2 = network.bus_stations.loc[int(bn), 'osmid_walk']
-        osm_d2 = network.bus_stations.loc[int(bn), 'osmid_drive']
+            osm_w2 = network.bus_stations.loc[int(bn), 'osmid_walk']
+            osm_d2 = network.bus_stations.loc[int(bn), 'osmid_drive']
 
-        if int(network.bus_stations.loc[int(bn), 'type']) == 1:
-            if ((osm_w1 == osm_w2) and (osm_d1 == osm_d2)):
-                #print('ok')
-                count += 1
+            if int(network.bus_stations.loc[int(bn), 'type']) == 1:
+                if ((osm_w1 == osm_w2) and (osm_d1 == osm_d2)):
+                    #print('ok')
+                    count += 1
 
-    #print(count)
-    print(len(network.nodes_covered_fixed_lines))
+        #print(count)
+        print(len(network.nodes_covered_fixed_lines))
 
     network.bus_stations_ids = []
     for index, stop_node in network.bus_stations.iterrows():

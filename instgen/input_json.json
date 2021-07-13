@@ -1,10 +1,9 @@
 {
 	"seed": 100,
-	"network": "Rennes, France",
+	"network": "Center Ville, Rennes, France",
 	"problem": "DARP",
-	"get_fixed_lines": "deconet",
 	"max_speed_factor": 0.5,
-	"replicas": 1,
+	"replicas": 2,
 	"records": 500,
 	"instance_filename": ["network", "problem", "records"],
 	"places": [
@@ -71,6 +70,11 @@
 			"length_unit": "km"
 		},
 		{
+			"name": "graphml",
+			"type": "graphml",
+			"value": true
+		},
+		{
 			"name": "depots",
 			"type": "array_locations", 
 			"size": 1,
@@ -94,11 +98,6 @@
 			"type": "array_zones", 
 			"size": 2,
 			"value": ["zonecenter", "zonexx"]
-		},
-		{
-			"name": "graphml",
-			"type": "graphml",
-			"value": true
 		}
 	],
 	"attributes": [
@@ -193,9 +192,7 @@
 		},
 		{  
 			"name": "origin",
-			"type": "location",
-			"subset_zones": "zonesorgn",
-			"weights": [50, 30, 20]
+			"type": "location"
 		},
 		{ 
 			"name": "stops_orgn",
@@ -205,8 +202,7 @@
 		}, 
 		{  
 			"name": "destination",
-			"type": "location",
-			"subset_zones": "zonesdest"
+			"type": "location"
 		},
 		{ 
 			"name": "stops_dest",
@@ -216,7 +212,7 @@
 		},
 		{
 			"name": "school",
-			"type": "location", 
+			"type": "location",
 			"subset_locations": "schools"
 		},
 		{
@@ -224,8 +220,7 @@
 			"type": "integer",
 			"time_unit": "s",
 			"expression": "dtt(origin,destination)",
-			"constraints": ["direct_travel_time >= 0"],
-			"output_csv": false
+			"constraints": ["direct_travel_time >= 0"]
 		},
 		{
 			"name": "direct_distance",

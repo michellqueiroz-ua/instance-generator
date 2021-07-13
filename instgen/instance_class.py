@@ -27,6 +27,7 @@ class Instance:
         self.pickle_dir = os.path.join(self.save_dir, 'pickle')
         self.save_dir_json = os.path.join(self.save_dir, 'json_format')
         self.save_dir_graphml = os.path.join(self.save_dir, 'graphml_format')
+        self.save_dir_ttm = os.path.join(self.save_dir, 'travel_time_matrix')
         
         self.network_class_file = self.pickle_dir+'/'+self.output_folder_base+'.network.class.pkl'
 

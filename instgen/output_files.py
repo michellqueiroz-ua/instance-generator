@@ -105,7 +105,7 @@ class JsonConverter(object):
 
     def convert_normal(self, output_file_name, inst, problem_type, path_instance_csv_file):
 
-        '''
+        
         instance = []
         requests = self.json_data.get('requests')
         for request in requests.values():
@@ -117,12 +117,16 @@ class JsonConverter(object):
                     
                     if inst.GA.nodes[att]['output_csv'] is True:
                         d[att] = request.get(att)
-                                           
+                                   
+                        if ((att == 'origin') or (att == 'destination')):
+
+                            d[att+'node_drive'] = request.get(att+'node_drive')
+
             instance.append(d)
 
         instance = pd.DataFrame(instance)
         instance.to_csv(path_instance_csv_file)
-        '''
+        
         
         with open(output_file_name, 'w') as file:
 
