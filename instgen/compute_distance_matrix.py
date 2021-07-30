@@ -89,6 +89,7 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
 def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base):
     shortest_path_walk = []
     shortest_path_drive = []
+    shortest_dist_drive = []
     
     ray.shutdown()
     ray.init(num_cpus=cpu_count())
@@ -99,9 +100,11 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
     
     path_dist_csv_file_walk = os.path.join(save_dir_csv, output_file_base+'.dist.walk.csv')
     path_dist_csv_file_drive = os.path.join(save_dir_csv, output_file_base+'.dist.drive.csv')
+    path_tt_csv_file_drive = os.path.join(save_dir_csv, output_file_base+'.tt.drive.csv')
     
     shortest_path_drive = pd.DataFrame()
     shortest_path_walk = pd.DataFrame()
+    shortest_dist_drive = pd.DataFrame()
 
     #calculates the shortest paths between all nodes walk (takes long time)
 
@@ -159,8 +162,11 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
 
     if os.path.isfile(path_dist_csv_file_drive):
         print('is file dist drive')
-        shortest_path_drive = pd.read_csv(path_dist_csv_file_drive)
+        shortest_path_drive = pd.read_csv(path_tt_csv_file_drive)
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
+
+        shortest_dist_drive = pd.read_csv(path_dist_csv_file_drive)
+        shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
     else:
 
         print('calculating shortest paths drive network')
@@ -174,6 +180,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         G_drive_id = ray.put(G_drive)
         #start = time.process_time()
 
+        #traveltime
         shortest_path_length_drive = []
         results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="travel_time") for u in list_nodes])
 
@@ -206,7 +213,43 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         del results
         gc.collect()
 
-        shortest_path_drive.to_csv(path_dist_csv_file_drive)
+        shortest_path_drive.to_csv(path_tt_csv_file_drive)
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
 
-    return shortest_path_walk, shortest_path_drive, unreachable_nodes
+        #distance
+        shortest_path_length_drive = []
+        results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="length") for u in list_nodes])
+
+        j=0
+        for u in list_nodes:
+            d = {}
+            d['osmid_origin'] = u
+            count = 0
+            for v in G_drive.nodes():
+                
+                dist_uv = -1
+                try:
+                    dist_uv = int(results[j][v])
+                except KeyError:
+                    pass
+                if dist_uv != -1:
+                    sv = str(v)
+                    d[sv] = dist_uv
+                    count += 1
+            shortest_path_length_drive.append(d)
+
+            if count == 1:
+                unreachable_nodes.append(u)
+
+            j+=1
+            del d
+
+        shortest_dist_drive = pd.DataFrame(shortest_path_length_drive)
+        del shortest_path_length_drive
+        del results
+        gc.collect()
+
+        shortest_dist_drive.to_csv(path_dist_csv_file_drive)
+        shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
+
+    return shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes

@@ -47,7 +47,7 @@ def get_multiplier_speed_unit(speed_unit):
     if speed_unit == "kmh":
         mult = float(1/3.6)
 
-    elif speed_unit == "mph":
+    elif speed_unit == "miph":
         mult = float(1/2.237)
 
     return mult
@@ -98,8 +98,31 @@ def input_json(filename_json):
             else:
                 max_speed_factor = 0.5
 
+            if 'set_fixed_speed' in data:
+
+                vehicle_speed_data = "set"
+                if 'vehicle_speed_data_unit' in data:
+                    mult = get_multiplier_speed_unit(data['vehicle_speed_data_unit'])
+
+                    sunit = data['vehicle_speed_data_unit']
+                    if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'miph'):
+                        raise ValueError('vehicle_speed_data_unit must be mps, kmh or miph')
+
+                    if not (isinstance(data['vehicle_speed_data'], (int, float))): 
+                        raise TypeError('value for vehicle_speed_data speed must be a number (integer, float)')
+
+                    if data['vehicle_speed_data'] < 0:
+                        raise TypeError('negative number is not allowed for type speed')
+
+                    vehicle_speed = data['vehicle_speed_data']
+                    vehicle_speed = vehicle_speed*mult
+                
+            else:
+                vehicle_speed_data = "max"
+                vehicle_speed = None
+
             #print(max_speed_factor)
-            network = download_network_information(place_name=place_name, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines)
+            network = download_network_information(place_name=place_name, vehicle_speed_data=vehicle_speed_data, vehicle_speed=vehicle_speed, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines)
 
             save_dir_fr = os.path.join(save_dir, 'fr_network')
             if not os.path.isdir(save_dir_fr):
@@ -313,8 +336,8 @@ def input_json(filename_json):
                         mult = get_multiplier_speed_unit(j['speed_unit'])
 
                         sunit = j['speed_unit']
-                        if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'mph'):
-                            raise ValueError('speed_unit must be mps, kmh or mph')
+                        if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'miph'):
+                            raise ValueError('speed_unit must be mps, kmh or miph')
 
                         if not (isinstance(j['value'], (int, float))): 
                             raise TypeError('value for type speed must be a number (integer, float)')
@@ -564,8 +587,8 @@ def input_json(filename_json):
                     #GA.nodes[name]['speed_unit'] = 'mps'
 
                     sunit = GA.nodes[name]['speed_unit']
-                    if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'mph'):
-                        raise ValueError('speed_unit must be mps, kmh or mph')
+                    if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'miph'):
+                        raise ValueError('speed_unit must be mps, kmh or miph')
 
                 if 'length_unit' in attribute:
 
@@ -642,8 +665,8 @@ def input_json(filename_json):
                 elif 'speed_unit' in attribute:
                     positiveV = True
                     sunit = attribute['speed_unit']
-                    #if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'mph'):
-                    #    raise ValueError('speed_unit must be mps, kmh or mph')
+                    #if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'miph'):
+                    #    raise ValueError('speed_unit must be mps, kmh or miph')
 
                     mult = get_multiplier_speed_unit(attribute['speed_unit'])
 

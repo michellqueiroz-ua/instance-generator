@@ -1,49 +1,11 @@
 {
 	"seed": 100,
-	"network": "Rennes, France",
+	"network": "Austin, Texas",
 	"problem": "DARP",
 	"max_speed_factor": 0.5,
 	"replicas": 2,
 	"records": 500,
 	"instance_filename": ["network", "problem", "records"],
-	"places": [
-		{
-			"name": "zonexx",
-			"type": "zone",
-			"lon": -1.6902891077472344,
-			"lat": 48.09282962664396,
-			"length_lon": 1000,
-			"length_lat": 1000,
-			"length_unit": "m" 
-		},
-		{
-			"name": "zonecenter",
-			"type": "zone",
-			"centroid": true,
-			"radius": 1000
-		},
-		{
-			"name": "zone2x",
-			"type": "zone",
-			"lon": -1.6945037524387636,
-			"lat": 48.105993349477394,
-			"radius": 1000,
-			"length_unit": "m"
-		},
-		{
-			"name": "depot1",
-			"type": "location",
-			"lon": -1.6457340723441525,
-			"lat": 48.100199454954804
-		},
-		{
-			"name": "schuol1",
-			"type": "location",
-			"class": "school",
-			"lon": -1.742000418660542,
-			"lat": 48.09010529664507
-		}
-	],
 	"parameters":[
 		{
 			"name": "min_early_departure",
@@ -73,31 +35,6 @@
 			"name": "graphml",
 			"type": "graphml",
 			"value": true
-		},
-		{
-			"name": "depots",
-			"type": "array_locations", 
-			"size": 1,
-			"value": ["depot1"],
-			"locs": "random"
-		},
-		{
-			"name": "schoulls",
-			"type": "array_locations", 
-			"size": 2,
-			"value": ["schuol1"],
-			"locs": "schools"
-		},
-		{
-			"name": "zonesorgn",
-			"type": "array_zones", 
-			"size": 3
-		},
-		{
-			"name": "zonesdest",
-			"type": "array_zones", 
-			"size": 2,
-			"value": ["zonecenter", "zonexx"]
 		}
 	],
 	"attributes": [
@@ -192,9 +129,7 @@
 		},
 		{  
 			"name": "origin",
-			"type": "location",
-			"subset_zones": "zonesorgn",
-			"weights": [50, 30, 20]
+			"type": "location"
 		},
 		{ 
 			"name": "stops_orgn",
@@ -204,8 +139,7 @@
 		}, 
 		{  
 			"name": "destination",
-			"type": "location",
-			"subset_zones": "zonesdest"
+			"type": "location"
 		},
 		{ 
 			"name": "stops_dest",
@@ -215,8 +149,7 @@
 		},
 		{
 			"name": "school",
-			"type": "location",
-			"subset_locations": "schoulls"
+			"type": "location"
 		},
 		{
 			"name": "direct_travel_time",

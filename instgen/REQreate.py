@@ -5,4 +5,4 @@ if __name__ == '__main__':
 
     caching.clear_cache()
 
-    input_json('input_json.json')
+    input_json('input_json2.json')

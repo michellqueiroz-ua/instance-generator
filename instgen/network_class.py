@@ -94,20 +94,23 @@ class Network:
 
     def _return_estimated_distance_drive(self, origin_node, destination_node):
 
+        #returns estimated distance in meters between origin_node to destination_node
+        distance_drive = -1
         try:
-            distance_drive = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
-    
-        except (nx.NetworkXNoPath, nx.NodeNotFound):
-            distance_drive = np.nan
+            #distance_drive = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
+            distance_drive = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
 
-        return distance_drive
+            if str(distance_drive) != 'nan':
+                distance_drive = int(distance_drive)
+    
+        except KeyError:
+            distance_drive = -1
+
+        return int(distance_drive)
 
     def _return_estimated_travel_time_drive(self, origin_node, destination_node):
 
-        '''
-        returns estimated travel time in seconds between origin_node to destination_node
-        '''
-
+        #returns estimated travel time in seconds between origin_node to destination_node
         eta = -1
         try:
             
@@ -119,18 +122,8 @@ class Network:
         except KeyError:
             eta = -1
 
-        '''
-        if eta == -1:
-
-            try:
-                eta = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
-            except nx.NetworkXNoPath:
-                eta = -2
-        '''
-
         return int(eta)
         
-
     def return_estimated_travel_time_bus(self, stops_origin, stops_destination):
         max_eta_bus = -1
         avg_eta_bus = -1
@@ -346,13 +339,15 @@ class Network:
             pnt2 = (pnt.y, pnt.x)
             osmid_drive = ox.get_nearest_node(self.G_drive, pnt2)
             pnt_osmid = Point(self.G_drive.nodes[osmid_drive]['x'], self.G_drive.nodes[osmid_drive]['y'])
-            distancepts = math.sqrt( ((pnt.x-pnt_osmid.x)**2)+((pnt.y-pnt_osmid.y)**2) )
+            pnt_osmid2 = (pnt_osmid.y, pnt_osmid.x)
+            #distancepts = math.sqrt( ((pnt.x-pnt_osmid.x)**2)+((pnt.y-pnt_osmid.y)**2) )
 
-            if distancepts < 500:
+            distancepts = geopy.distance.distance(pnt2, pnt_osmid2).m
+            if distancepts < 200:
                 if polygon.contains(pnt):
                     return pnt
-            else:
-                print(distancepts)
+            #else:
+            #    print(distancepts)
 
         return (-1, -1)
 

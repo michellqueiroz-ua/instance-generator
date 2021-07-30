@@ -237,8 +237,6 @@ def download_network_information(
     network_stats(network)
 
 
-
-
     '''
     list_bus_stations = []
     for index, stop_node in network.bus_stations.iterrows():
@@ -248,9 +246,8 @@ def download_network_information(
     '''
 
     #computes distance matrix for drivig and walking network
-    shortest_path_walk, shortest_path_drive, unreachable_nodes = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
+    shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
 
-    #print(unreachable_nodes)
     #network.G_drive.remove_nodes_from(unreachable_nodes)
     
     #get fixed lines
@@ -261,7 +258,6 @@ def download_network_information(
     #network.nodes_covered_fixed_lines = []
     #removes unreacheable stops or useless duplicate stations
     
-
     if get_fixed_lines is not None:
         if get_fixed_lines == 'osm':
             pt_fixed_lines = get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_folder_base)
@@ -345,6 +341,7 @@ def download_network_information(
 
     network.shortest_path_walk = shortest_path_walk
     network.shortest_path_drive = shortest_path_drive
+    network.shortest_dist_drive = shortest_dist_drive
 
     print('successfully retrieved network')
 
