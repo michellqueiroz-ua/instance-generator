@@ -246,7 +246,11 @@ def download_network_information(
     '''
 
     #computes distance matrix for drivig and walking network
-    shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
+    shortest_path_walk = []
+    shortest_path_drive = []
+    shortest_dist_drive = []
+    unreachable_nodes = []
+    #shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
 
     #network.G_drive.remove_nodes_from(unreachable_nodes)
     
@@ -327,10 +331,10 @@ def download_network_information(
         print(len(network.nodes_covered_fixed_lines))
 
     else:
+        pass
+        #num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
-        num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
-
-        network.bus_stations = network.bus_stations.reset_index(drop=True)
+        #network.bus_stations = network.bus_stations.reset_index(drop=True)
         
     network.bus_stations_ids = []
     for index, stop_node in network.bus_stations.iterrows():

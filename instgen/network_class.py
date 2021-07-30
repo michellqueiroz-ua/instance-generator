@@ -97,8 +97,8 @@ class Network:
         #returns estimated distance in meters between origin_node to destination_node
         distance_drive = -1
         try:
-            #distance_drive = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
-            distance_drive = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
+            distance_drive = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
+            #distance_drive = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
 
             if str(distance_drive) != 'nan':
                 distance_drive = int(distance_drive)
@@ -114,10 +114,11 @@ class Network:
         eta = -1
         try:
             
-            distance = self.shortest_path_drive.loc[int(origin_node), str(destination_node)]
+            travel_time = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='travel_time')
+            #distance = self.shortest_path_drive.loc[int(origin_node), str(destination_node)]
             
-            if str(distance) != 'nan':
-                eta = int(distance)
+            if str(travel_time) != 'nan':
+                eta = int(travel_time)
 
         except KeyError:
             eta = -1
