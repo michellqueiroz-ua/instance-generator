@@ -28,30 +28,6 @@ import powerlaw
 from pathlib import Path
 from instance_class import Instance
 
-def add_osmid_nodes(place_name, df):
-
-    save_dir = os.getcwd()+'/'+place_name
-    pickle_dir = os.path.join(save_dir, 'pickle')
-    network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
-
-    network_directory = os.getcwd()+'/'+place_name
-
-    if Path(network_class_file).is_file():
-        inst = Instance(folder_to_network=place_name)
-
-    for id1, row1 in df.iterrows():
-
-        longitude = row1['start_station_longitude']
-        latitude = row1['start_station_latitude']
-        origin_point = (latitude, longitude)
-        df.loc[id1, 'osmid_origin'] = ox.get_nearest_node(inst.network.G_drive, origin_point)
-
-        longitude = row1['end_station_longitude']
-        latitude = row1['end_station_latitude']
-        destination_point = (latitude, longitude)
-        df.loc[id1, 'osmid_destination'] = ox.get_nearest_node(inst.network.G_drive, destination_point)
-
-    return df
 
 def heatmap_osmnx(place_name, database):
 
@@ -99,13 +75,13 @@ def heatmap_osmnx(place_name, database):
 
     #Then plot a graph where node size and node color are related to the number of visits
     nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'OGcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,fig_height=8,fig_width=8,node_size=nodes['OGcount'], node_color=nc)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['OGcount'], node_color=nc)
 
     plt.savefig(os.getcwd()+'/heatmap_origin_points.png')
     plt.close(fig)
 
     nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'DEcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,fig_height=8,fig_width=8,node_size=nodes['DEcount'], node_color=nc)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['DEcount'], node_color=nc)
 
     plt.savefig(os.getcwd()+'/heatmap_destination_points.png')
     plt.close(fig)
@@ -140,16 +116,18 @@ def distance(place_name, df_dist):
         latitude = row['start_station_latitude']
         origin_point = (latitude, longitude)
         node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        df_dist.loc[idxs, 'osmid_origin'] = node_origin
         
         longitude = row['end_station_longitude']
         latitude = row['end_station_latitude']
         destination_point = (latitude, longitude)
         node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        df_dist.loc[idxs, 'osmid_destination'] = node_destination
 
-        df_dist['trip_distance'] = inst.network._return_estimated_distance_drive(int(node_origin), int(node_destination))
+        df_dist.loc[idxs, 'trip_distance'] = inst.network._return_estimated_distance_drive(int(node_origin), int(node_destination))
 
     df_dist.dropna(subset=['trip_distance'], inplace=True)
-    df_dist = df_dist.loc[(df['trip_distance'] > 500)]
+    df_dist = df_dist.loc[(df_dist['trip_distance'] > 500)]
 
     return df_dist
 
@@ -167,15 +145,17 @@ def ratio_eta_real_time(place_name, df_ratio):
     ratios = []
     for id1, row1 in df_ratio.iterrows():
 
-        longitude = row1['start_station_longitude']
-        latitude = row1['start_station_latitude']
-        origin_point = (latitude, longitude)
-        node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        #longitude = row1['start_station_longitude']
+        #latitude = row1['start_station_latitude']
+        #origin_point = (latitude, longitude)
+        #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
         
-        longitude = row1['end_station_longitude']
-        latitude = row1['end_station_latitude']
-        destination_point = (latitude, longitude)
-        node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        #longitude = row1['end_station_longitude']
+        #latitude = row1['end_station_latitude']
+        #destination_point = (latitude, longitude)
+        #node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        node_origin = row1['osmid_origin'] 
+        node_destination = row1['osmid_destination']
 
         eta = inst.network._return_estimated_travel_time_drive(int(node_origin), int(node_destination))
         real = row1['duration_sec']
@@ -184,7 +164,13 @@ def ratio_eta_real_time(place_name, df_ratio):
         ratios.append(ratio)
         #print(real) 
 
-    print(ratios)
+    #print(ratios)
+    mean = sum(ratios) / len(ratios)
+    variance = sum([((x - mean) ** 2) for x in ratios]) / len(ratios)
+    res = variance ** 0.5
+
+    print('mean ratio', mean)
+    print('std ratio', res)
     
 def geographic_dispersion(place_name, inst1, df_loc):
 
@@ -202,10 +188,10 @@ def geographic_dispersion(place_name, inst1, df_loc):
     directory = os.fsencode(csv_directory)
 
 
-    ttm_file_inst1 = 'travel_time_matrix_'+filename1
-    ttmfilename1 = os.fsdecode(ttm_file_inst1)
-    ttm1 = pd.read_csv(ttm_directory+'/'+ttmfilename1)
-    ttm1.set_index(['osmid_origin'], inplace=True)
+    #ttm_file_inst1 = 'travel_time_matrix_'+filename1
+    #ttmfilename1 = os.fsdecode(ttm_file_inst1)
+    #ttm1 = pd.read_csv(ttm_directory+'/'+ttmfilename1)
+    #ttm1.set_index(['osmid_origin'], inplace=True)
 
 
     #mu
@@ -222,7 +208,7 @@ def geographic_dispersion(place_name, inst1, df_loc):
     #nyc -> compute for the 5 nearest zones
     earliest_departure = 'pu_time_sec'
     #latest_arrival = 'do_time_sec'
-    time_gap = 10
+    time_gap = 600
     #node_origin = 
     #node_destination = 
     
@@ -241,37 +227,41 @@ def geographic_dispersion(place_name, inst1, df_loc):
                 if (row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                     #ltro.append(row2['originnode_drive'])
-                    longitude = row2['start_station_longitude']
-                    latitude = row2['start_station_latitude']
-                    origin_point = (latitude, longitude)
-                    node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    #longitude = row2['start_station_longitude']
+                    #latitude = row2['start_station_latitude']
+                    #origin_point = (latitude, longitude)
+                    #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    node_origin = row2['osmid_origin']
                     ltro.append(node_origin)
 
                 if (latest_arrival2 >= row1[earliest_departure] - time_gap) and (latest_arrival2 <= row1[earliest_departure] + time_gap):
                     #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
                     #ltro.append(row2['destinationnode_drive'])
-                    longitude = row2['end_station_longitude']
-                    latitude = row2['end_station_longitude']
-                    destination_point = (latitude, longitude)
-                    node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    #longitude = row2['end_station_longitude']
+                    #latitude = row2['end_station_longitude']
+                    #destination_point = (latitude, longitude)
+                    #node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    node_destination = row2['osmid_destination']
                     ltro.append(node_destination)
 
                 if (latest_arrival2 >= latest_arrival1 - time_gap) and (latest_arrival2 <= latest_arrival1 + time_gap):
                     #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
                     #ltrd.append(row2['destinationnode_drive'])
-                    longitude = row2['end_station_longitude']
-                    latitude = row2['end_station_longitude']
-                    destination_point = (latitude, longitude)
-                    node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    #longitude = row2['end_station_longitude']
+                    #latitude = row2['end_station_longitude']
+                    #destination_point = (latitude, longitude)
+                    #node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    node_destination = row2['osmid_destination']
                     ltro.append(node_destination)
 
                 if (row2[earliest_departure] >= latest_arrival1 - time_gap) and (row2[earliest_departure] <= latest_arrival1 + time_gap):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                     #ltrd.append(row2['originnode_drive'])
-                    longitude = row2['start_station_longitude']
-                    latitude = row2['start_station_latitude']
-                    origin_point = (latitude, longitude)
-                    node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    #longitude = row2['start_station_longitude']
+                    #latitude = row2['start_station_latitude']
+                    #origin_point = (latitude, longitude)
+                    #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    node_origin = row2['osmid_origin']
                     ltro.append(node_origin)
 
         #ltro = list(dict.fromkeys(ltro))
@@ -283,10 +273,11 @@ def geographic_dispersion(place_name, inst1, df_loc):
         ltrdt = []
         
         #org_row1 = int(row1['originnode_drive'])
-        longitude = row1['start_station_longitude']
-        latitude = row1['start_station_latitude']
-        origin_point = (latitude, longitude)
-        org_row1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        #longitude = row1['start_station_longitude']
+        #latitude = row1['start_station_latitude']
+        #origin_point = (latitude, longitude)
+        #org_row1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        org_row1 = row1['osmid_origin']
         
         for x in ltro:
 
@@ -294,10 +285,11 @@ def geographic_dispersion(place_name, inst1, df_loc):
             ltrot.append(tuplx)
 
         #dest_row1 = int(row1['destinationnode_drive'])
-        longitude = row1['end_station_longitude']
-        latitude = row1['end_station_longitude']
-        destination_point = (latitude, longitude)
-        dest_row1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        #longitude = row1['end_station_longitude']
+        #latitude = row1['end_station_longitude']
+        #destination_point = (latitude, longitude)
+        #dest_row1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        dest_row1 = row1['osmid_destination']
         
         for y in ltrd:
 
@@ -369,31 +361,35 @@ def similarity(place_name, inst1, inst2, df_loc):
     for id1, req1 in inst1.iterrows():
 
         #o1 = req1['originnode_drive']
-        longitude = req1['start_station_longitude']
-        latitude = req1['start_station_longitude']
-        origin_point = (latitude, longitude)
-        o1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        #longitude = req1['start_station_longitude']
+        #latitude = req1['start_station_longitude']
+        #origin_point = (latitude, longitude)
+        #o1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
         
         #d1 = req1['destinationnode_drive']
-        longitude = req1['end_station_longitude']
-        latitude = req1['end_station_latitude']
-        destination_point = (latitude, longitude)
-        d1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        #longitude = req1['end_station_longitude']
+        #latitude = req1['end_station_latitude']
+        #destination_point = (latitude, longitude)
+        #d1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        o1 = req1['osmid_origin'] 
+        d1 = req1['osmid_destination']
 
         for id2, req2 in inst2.iterrows():
 
             #o2 = req2['originnode_drive']
             #d2 = req2['destinationnode_drive']
-            longitude = req2['start_station_longitude']
-            latitude = req2['start_station_longitude']
-            origin_point = (latitude, longitude)
-            o2 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+            #longitude = req2['start_station_longitude']
+            #latitude = req2['start_station_longitude']
+            #origin_point = (latitude, longitude)
+            #o2 = ox.get_nearest_node(inst.network.G_drive, origin_point)
             
             #d1 = req1['destinationnode_drive']
-            longitude = req2['end_station_longitude']
-            latitude = req2['end_station_latitude']
-            destination_point = (latitude, longitude)
-            d2 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+            #longitude = req2['end_station_longitude']
+            #latitude = req2['end_station_latitude']
+            #destination_point = (latitude, longitude)
+            #d2 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+            o2 = req2['osmid_origin'] 
+            d2 = req2['osmid_destination']
 
             oott = inst.network._return_estimated_travel_time_drive(int(o1), int(o2))  
             ddtt = inst.network._return_estimated_travel_time_drive(int(d1), int(d2)) 
@@ -591,13 +587,12 @@ def real_data_tests_sanfranciscobay_database(ed, ld):
             
             df['do_time_sec'] = df['idh'] + df['idmin'] + df['idsec']
             df['do_time_sec'] = df['do_time_sec'].astype(int)
-            #df = distance("San Francisco Bay Area, California", df)
+            df = distance("San Francisco Bay Area, California", df)
 
             df = remove_false_records(df)
 
             df['direct_travel_time'] = df['do_time_sec'] - df['pu_time_sec']
             df['speed'] = df['trip_distance']/df['direct_travel_time']
-            df = add_osmid_nodes("San Francisco Bay Area, California", df)
             df.index += j
             df.to_sql('table_record', sanfranciscobay_database, if_exists='append')
             j = df.index[-1] + 1
@@ -638,7 +633,7 @@ def real_data_tests_sanfranciscobay_database(ed, ld):
 
     #speed
     df_speed = pd.read_sql_query('SELECT speed FROM table_record', sanfranciscobay_database)
-    df['speed'] = df['speed']*3.6
+    df_speed['speed'] = df_speed['speed']*3.6
     z_scores = zscore(df_speed)
     abs_z_scores = np.abs(z_scores)
     filtered_entries = (abs_z_scores < 3).all(axis=1)
@@ -647,7 +642,7 @@ def real_data_tests_sanfranciscobay_database(ed, ld):
     print(df_speed['speed'].mean())
     print(df_speed['speed'].std())
 
-    ax = df_dist['speed'].hist(bins=30, figsize=(15,5))
+    ax = df_speed['speed'].hist(bins=30, figsize=(15,5))
     ax.set_yscale('log')
     ax.set_xlabel("trip distance (kmh)")
     ax.set_ylabel("count")
@@ -664,10 +659,10 @@ def real_data_tests_sanfranciscobay_database(ed, ld):
                 d1 = '2019-09-{0:0=2d}'.format(day)
                 d2 = '2019-09-{0:0=2d}'.format(day2)
 
-                df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, start_station_latitude, start_station_longitude, end_station_latitude, end_station_longitude \
+                df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, start_station_latitude, start_station_longitude, end_station_latitude, end_station_longitude, osmid_origin, osmid_destination \
                         FROM table_record', sanfranciscobay_database)
 
-                df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, start_station_latitude, start_station_longitude, end_station_latitude, end_station_longitude \
+                df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, start_station_latitude, start_station_longitude, end_station_latitude, end_station_longitude, osmid_origin, osmid_destination \
                         FROM table_record', sanfranciscobay_database)
 
                 df_1 = df_1.loc[(df_1['pickup_day'] == d1) & (df_1['pu_time_sec'] >= ed) & (df_1['pu_time_sec'] <= ld)]
@@ -685,10 +680,10 @@ def real_data_tests_sanfranciscobay_database(ed, ld):
                     df_2 = df_2.sample(n = row_nr, replace = False)
 
                 print(len(df_1), len(df_2))
-                #similarities.append(similarity("San Francisco Bay Area, California", df_1, df_2, df_loc))
+                similarities.append(similarity("San Francisco Bay Area, California", df_1, df_2, df_loc))
 
     #geographic dispersion
-    df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, start_station_latitude, start_station_longitude, end_station_latitude, end_station_longitude, duration_sec  \
+    df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, start_station_latitude, start_station_longitude, end_station_latitude, end_station_longitude, duration_sec, osmid_origin, osmid_destination  \
                         FROM table_record', sanfranciscobay_database)
 
     print(df_gd.columns)
@@ -705,9 +700,9 @@ def real_data_tests_sanfranciscobay_database(ed, ld):
         #print(df_gd_d_loc.head())
         
         print('geographic dispersion')
-        #geographic_dispersion("San Francisco Bay Area, California", df_gd_d, df_loc)
+        geographic_dispersion("San Francisco Bay Area, California", df_gd_d, df_loc, day)
 
-    df_dyn = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, start_station_latitude, start_station_longitude, end_station_latitude, end_station_longitude, duration_sec  \
+    df_dyn = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, start_station_latitude, start_station_longitude, end_station_latitude, end_station_longitude, duration_sec, osmid_origin, osmid_destination  \
                         FROM table_record', sanfranciscobay_database)
 
     # requests regarding the population
@@ -737,9 +732,11 @@ def real_data_tests_sanfranciscobay_database(ed, ld):
         dpp = len(df_dyn_d)/population
         print(dpp)
         print('dynamism')
+        print(len(df_dyn_d))
         dynamism(df_dyn_d, ed, ld)
         #ratio between real vs estimated travel time
-        #ratio_eta_real_time("San Francisco Bay Area, California", df_dyn_d)
+        print('ratio eta vs real')
+        ratio_eta_real_time("San Francisco Bay Area, California", df_dyn_d)
 
     #change the formulas (for measures of features), and put it in appendix
 

@@ -451,10 +451,10 @@ class Network:
 
         #minx, miny, maxx, maxy = self.polygon.bounds
 
-        minx = 90
-        miny = 90
-        maxx = -90
-        maxy = -90
+        minx = 9000
+        miny = 9000
+        maxx = -9000
+        maxy = -9000
 
         for node in self.G_drive.nodes(): 
 
@@ -472,7 +472,6 @@ class Network:
 
             if (lat > maxy):
                 maxy = lat
-
 
         lats = np.linspace(miny, maxy, num=rows+1)
         lngs = np.linspace(minx, maxx, num=columns+1)

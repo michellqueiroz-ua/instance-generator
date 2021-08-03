@@ -94,13 +94,13 @@ def heatmap_osmnx(place_name, database):
 
     #Then plot a graph where node size and node color are related to the number of visits
     nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'OGcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,fig_height=8,fig_width=8,node_size=nodes['OGcount'], node_color=nc)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['OGcount'], node_color=nc)
 
     plt.savefig(os.getcwd()+'/heatmap_origin_points.png')
     plt.close(fig)
 
     nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'DEcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,fig_height=8,fig_width=8,node_size=nodes['DEcount'], node_color=nc)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['DEcount'], node_color=nc)
 
     plt.savefig(os.getcwd()+'/heatmap_destination_points.png')
     plt.close(fig)
@@ -168,12 +168,11 @@ def ratio_eta_real_time(place_name, df_ratio):
     ratios = []
     for id1, row1 in df_ratio.iterrows():
 
-        origin_point = (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])
-        node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        #origin_point = (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])
+        node_origin = row1['osmid_origin']
 
-
-        destination_point = (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])
-        node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        #destination_point = (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])
+        node_destination = row1['osmid_destination']
 
         eta = inst.network._return_estimated_travel_time_drive(int(node_origin), int(node_destination))
         real = row1['Trip_Seconds']
@@ -182,9 +181,15 @@ def ratio_eta_real_time(place_name, df_ratio):
         ratios.append(ratio)
         #print(real) 
 
-    print(ratios)
+    #print(ratios)
+    mean = sum(ratios) / len(ratios)
+    variance = sum([((x - mean) ** 2) for x in ratios]) / len(ratios)
+    res = variance ** 0.5
+
+    print('mean ratio', mean)
+    print('std ratio', res)
     
-def geographic_dispersion(place_name, inst1):
+def geographic_dispersion(place_name, inst1, day):
 
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
@@ -200,10 +205,10 @@ def geographic_dispersion(place_name, inst1):
     directory = os.fsencode(csv_directory)
 
 
-    ttm_file_inst1 = 'travel_time_matrix_'+filename1
-    ttmfilename1 = os.fsdecode(ttm_file_inst1)
-    ttm1 = pd.read_csv(ttm_directory+'/'+ttmfilename1)
-    ttm1.set_index(['osmid_origin'], inplace=True)
+    #ttm_file_inst1 = 'travel_time_matrix_'+filename1
+    #ttmfilename1 = os.fsdecode(ttm_file_inst1)
+    #ttm1 = pd.read_csv(ttm_directory+'/'+ttmfilename1)
+    #ttm1.set_index(['osmid_origin'], inplace=True)
 
 
     #mu
@@ -220,7 +225,7 @@ def geographic_dispersion(place_name, inst1):
     #nyc -> compute for the 5 nearest zones
     earliest_departure = 'pu_time_sec'
     #latest_arrival = 'do_time_sec'
-    time_gap = 10
+    time_gap = 600
     #node_origin = 
     #node_destination = 
     
@@ -239,32 +244,32 @@ def geographic_dispersion(place_name, inst1):
                 if (row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                     #ltro.append(row2['originnode_drive'])
-                    origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
-                    node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    #origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
+                    node_origin = row2'osmid_origin']
         
                     ltro.append(node_origin)
 
                 if (latest_arrival2 >= row1[earliest_departure] - time_gap) and (latest_arrival2 <= row1[earliest_departure] + time_gap):
                     #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
                     #ltro.append(row2['destinationnode_drive'])
-                    destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
-                    node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    #destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
+                    node_destination = row2['osmid_destination']
                     
                     ltro.append(node_destination)
 
                 if (latest_arrival2 >= latest_arrival1 - time_gap) and (latest_arrival2 <= latest_arrival1 + time_gap):
                     #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
                     #ltrd.append(row2['destinationnode_drive'])
-                    destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
-                    node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    #destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
+                    node_destination = row2['osmid_destination']
 
                     ltro.append(node_destination)
 
                 if (row2[earliest_departure] >= latest_arrival1 - time_gap) and (row2[earliest_departure] <= latest_arrival1 + time_gap):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                     #ltrd.append(row2['originnode_drive'])
-                    origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
-                    node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    #origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
+                    node_origin = row2'osmid_origin']
 
                     ltro.append(node_origin)
 
@@ -277,8 +282,9 @@ def geographic_dispersion(place_name, inst1):
         ltrdt = []
         
         #org_row1 = int(row1['originnode_drive'])
-        origin_point = (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])
-        org_row1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        #origin_point = (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])
+        #org_row1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        org_row1 = row1['osmid_origin']
         
         for x in ltro:
 
@@ -286,9 +292,10 @@ def geographic_dispersion(place_name, inst1):
             ltrot.append(tuplx)
 
         #dest_row1 = int(row1['destinationnode_drive'])
-        destination_point = (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])
-        dest_row1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
-        
+        #destination_point = (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])
+        #dest_row1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        dest_row1 = row1['osmid_destination']
+
         for y in ltrd:
 
             tuply = (y, inst.network._return_estimated_travel_time_drive(int(dest_row1), int(y)))
@@ -361,11 +368,13 @@ def similarity(place_name, inst1, inst2):
         #o1 = req1['originnode_drive']
         #d1 = req1['destinationnode_drive']
 
-        origin_point = (req1['Pickup_Centroid_Latitude'], req1['Pickup_Centroid_Longitude'])
-        o1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        #origin_point = (req1['Pickup_Centroid_Latitude'], req1['Pickup_Centroid_Longitude'])
+        #o1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
         
-        destination_point = (req1['Dropoff_Centroid_Latitude'], req1['Dropoff_Centroid_Longitude'])
-        d1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        #destination_point = (req1['Dropoff_Centroid_Latitude'], req1['Dropoff_Centroid_Longitude'])
+        #d1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        o1 = req1['osmid_origin']
+        d1 = req1['osmid_destination']
         
 
         for id2, req2 in inst2.iterrows():
@@ -373,11 +382,13 @@ def similarity(place_name, inst1, inst2):
             #o2 = req2['originnode_drive']
             #d2 = req2['destinationnode_drive']
 
-            origin_point = (req2['Pickup_Centroid_Latitude'], req2['Pickup_Centroid_Longitude'])
-            o2 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+            #origin_point = (req2['Pickup_Centroid_Latitude'], req2['Pickup_Centroid_Longitude'])
+            #o2 = ox.get_nearest_node(inst.network.G_drive, origin_point)
         
-            destination_point = (req2['Dropoff_Centroid_Latitude'], req2['Dropoff_Centroid_Longitude'])
-            d2 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+            #destination_point = (req2['Dropoff_Centroid_Latitude'], req2['Dropoff_Centroid_Longitude'])
+            #d2 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+            o2 = req2['osmid_origin'] 
+            d2 = req2['osmid_destination']
 
             oott = inst.network._return_estimated_travel_time_drive(int(o1), int(o2))  
             ddtt = inst.network._return_estimated_travel_time_drive(int(d1), int(d2)) 
@@ -590,9 +601,9 @@ def real_data_tests_chicago_database(ed, ld):
 
     #understand peak hours // off - peak 
     #Observar se os requests seguem normal distribution during peak hours and uniform during off peak. Pegar sample dos horários e plotar
-    df_pu = pd.read_sql_query('SELECT pu_time_sec AS time, count(*) AS PUcount \
+    df_pu = pd.read_sql_query('SELECT h AS time, count(*) AS PUcount \
                         FROM table_record \
-                        GROUP BY pu_time_sec', chicago_database)
+                        GROUP BY h', chicago_database)
     print(df_pu.head())
     print(len(df_pu))
 
@@ -627,7 +638,7 @@ def real_data_tests_chicago_database(ed, ld):
 
     #speed
     df_speed = pd.read_sql_query('SELECT speed FROM table_record', chicago_database)
-    df['speed'] = df['speed']*3.6
+    df_speed['speed'] = df_speed['speed']*3.6
     z_scores = zscore(df_speed)
     abs_z_scores = np.abs(z_scores)
     filtered_entries = (abs_z_scores < 3).all(axis=1)
@@ -636,7 +647,7 @@ def real_data_tests_chicago_database(ed, ld):
     print(df_speed['speed'].mean())
     print(df_speed['speed'].std())
 
-    ax = df_dist['speed'].hist(bins=30, figsize=(15,5))
+    ax = df_speed['speed'].hist(bins=30, figsize=(15,5))
     ax.set_yscale('log')
     ax.set_xlabel("trip distance (kmh)")
     ax.set_ylabel("count")
@@ -656,10 +667,10 @@ def real_data_tests_chicago_database(ed, ld):
                 d1 = '09/{0:0=2d}/2019'.format(day)
                 d2 = '09/{0:0=2d}/2019'.format(day2)
 
-                df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude  \
+                df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
                         FROM table_record', chicago_database)
 
-                df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude \
+                df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
                         FROM table_record', chicago_database)
 
                 df_1 = df_1.loc[(df_1['pickup_day'] == d1) & (df_1['pu_time_sec'] >= ed) & (df_1['pu_time_sec'] <= ld)]
@@ -696,10 +707,10 @@ def real_data_tests_chicago_database(ed, ld):
                     df_2 = df_2.sample(n = row_nr, replace = False)
 
                 print(len(df_1), len(df_2))
-                #similarities.append(similarity("Chicago, Illinois", df_1, df_2))
+                similarities.append(similarity("Chicago, Illinois", df_1, df_2))
 
     #geographic dispersion
-    df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude  \
+    df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
                         FROM table_record', chicago_database)
 
     #print(df_loc.columns)
@@ -717,9 +728,9 @@ def real_data_tests_chicago_database(ed, ld):
         #print(df_gd_d_loc.head())
         
         print('geographic dispersion')
-        #geographic_dispersion("Chicago, Illinois", df_gd_d)
+        geographic_dispersion("Chicago, Illinois", df_gd_d, day)
 
-    df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude \
+    df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
                         FROM table_record', chicago_database)
 
     # requests regarding the population
@@ -749,17 +760,22 @@ def real_data_tests_chicago_database(ed, ld):
         dpp = len(df_dyn_d)/population
         print(dpp)
         print('dynamism')
+        print(len(df_dyn_d))
         dynamism(df_dyn_d, ed, ld)
         #ratio between real vs estimated travel time
-        #ratio_eta_real_time("Chicago, Illinois", df_dyn_d)
+        print('ratio eta vs real')
+        ratio_eta_real_time("Chicago, Illinois", df_dyn_d)
 
     #change the formulas (for measures of features), and put it in appendix
 
     print('average number of trips per day between ' + str(ed) + ' and ' + str(ld))
     print(avg_trips)
 
+    #heatmap
+    heatmap_osmnx("Chicago, Illinois", chicago_database)
+
     #fitting
-    df_fit = pd.read_sql_query('SELECT pu_time_sec, do_time_sec, Trip_Miles FROM table_record', chicago_database)
+    df_fit = pd.read_sql_query('SELECT pu_time_sec, Trip_Miles FROM table_record', chicago_database)
     dists = df_fit["Trip_Miles"].values
     Fitter_best_fitting_distribution(dists)
     powelaw_best_fitting_distribution(dists)

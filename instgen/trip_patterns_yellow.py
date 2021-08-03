@@ -102,13 +102,13 @@ def heatmap_osmnx(place_name, database):
 
     #Then plot a graph where node size and node color are related to the number of visits
     nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'OGcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,fig_height=8,fig_width=8,node_size=nodes['OGcount'], node_color=nc)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['OGcount'], node_color=nc)
 
     plt.savefig(os.getcwd()+'/heatmap_origin_points.png')
     plt.close(fig)
 
     nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'DEcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,fig_height=8,fig_width=8,node_size=nodes['DEcount'], node_color=nc)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['DEcount'], node_color=nc)
 
     plt.savefig(os.getcwd()+'/heatmap_destination_points.png')
     plt.close(fig)
@@ -123,7 +123,7 @@ def remove_false_records(df):
 
     return df
 
-def ratio_eta_real_time(place_name, df_ratio, df_loc):
+def ratio_eta_real_time(place_name, df_ratio):
 
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
@@ -137,16 +137,19 @@ def ratio_eta_real_time(place_name, df_ratio, df_loc):
     ratios = []
     for id1, row1 in df_ratio.iterrows():
 
-        longitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'longitude']
-        latitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'latitude']
-        origin_point = (latitude, longitude)
-        node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        #longitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'longitude']
+        #latitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'latitude']
+        #origin_point = (latitude, longitude)
+        #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
 
 
-        longitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'longitude']
-        latitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'latitude']
-        destination_point = (latitude, longitude)
-        node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        #longitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'longitude']
+        #latitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'latitude']
+        #destination_point = (latitude, longitude)
+        #node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        node_origin = row1['osmid_origin']
+
+        node_destination = row1['osmid_destination']
 
         eta = inst.network._return_estimated_travel_time_drive(int(node_origin), int(node_destination))
         real = row1['do_time_sec'] - row1['pu_time_sec']
@@ -155,9 +158,15 @@ def ratio_eta_real_time(place_name, df_ratio, df_loc):
         ratios.append(ratio)
         #print(real) 
 
-    print(ratios)
+    #print(ratios)
+    mean = sum(ratios) / len(ratios)
+    variance = sum([((x - mean) ** 2) for x in ratios]) / len(ratios)
+    res = variance ** 0.5
+
+    print('mean ratio', mean)
+    print('std ratio', res)
     
-def geographic_dispersion(place_name, inst1, df_loc):
+def geographic_dispersion(place_name, inst1, df_loc, day):
 
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
@@ -173,10 +182,10 @@ def geographic_dispersion(place_name, inst1, df_loc):
     directory = os.fsencode(csv_directory)
 
 
-    ttm_file_inst1 = 'travel_time_matrix_'+filename1
-    ttmfilename1 = os.fsdecode(ttm_file_inst1)
-    ttm1 = pd.read_csv(ttm_directory+'/'+ttmfilename1)
-    ttm1.set_index(['osmid_origin'], inplace=True)
+    #ttm_file_inst1 = 'travel_time_matrix_'+filename1
+    #ttmfilename1 = os.fsdecode(ttm_file_inst1)
+    #ttm1 = pd.read_csv(ttm_directory+'/'+ttmfilename1)
+    #ttm1.set_index(['osmid_origin'], inplace=True)
 
     
     #mu
@@ -195,7 +204,7 @@ def geographic_dispersion(place_name, inst1, df_loc):
     #nyc -> compute for the 5 nearest zones
     earliest_departure = 'pu_time_sec'
     latest_arrival = 'do_time_sec'
-    time_gap = 10
+    time_gap = 600
     #node_origin = 
     #node_destination = 
     
@@ -212,37 +221,41 @@ def geographic_dispersion(place_name, inst1, df_loc):
                 if (row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                     #ltro.append(row2['originnode_drive'])
-                    longitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'longitude']
-                    latitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'latitude']
-                    origin_point = (latitude, longitude)
-                    node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    #longitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'longitude']
+                    #latitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'latitude']
+                    #origin_point = (latitude, longitude)
+                    #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    node_origin = row2'osmid_origin']
                     ltro.append(node_origin)
 
                 if (row2[latest_arrival] >= row1[earliest_departure] - time_gap) and (row2[latest_arrival] <= row1[earliest_departure] + time_gap):
                     #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
                     #ltro.append(row2['destinationnode_drive'])
-                    longitude = df_loc.loc[df_loc['LocationID'] == row2['DOLocationID'], 'longitude']
-                    latitude = df_loc.loc[df_loc['LocationID'] == row2['DOLocationID'], 'latitude']
-                    destination_point = (latitude, longitude)
-                    node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    #longitude = df_loc.loc[df_loc['LocationID'] == row2['DOLocationID'], 'longitude']
+                    #latitude = df_loc.loc[df_loc['LocationID'] == row2['DOLocationID'], 'latitude']
+                    #destination_point = (latitude, longitude)
+                    #node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    node_destination = row2['osmid_destination']
                     ltro.append(node_destination)
 
                 if (row2[latest_arrival] >= row1[latest_arrival] - time_gap) and (row2[latest_arrival] <= row1[latest_arrival] + time_gap):
                     #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
                     #ltrd.append(row2['destinationnode_drive'])
-                    longitude = df_loc.loc[df_loc['LocationID'] == row2['DOLocationID'], 'longitude']
-                    latitude = df_loc.loc[df_loc['LocationID'] == row2['DOLocationID'], 'latitude']
-                    destination_point = (latitude, longitude)
-                    node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    #longitude = df_loc.loc[df_loc['LocationID'] == row2['DOLocationID'], 'longitude']
+                    #latitude = df_loc.loc[df_loc['LocationID'] == row2['DOLocationID'], 'latitude']
+                    #destination_point = (latitude, longitude)
+                    #node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+                    node_destination = row2['osmid_destination']
                     ltro.append(node_destination)
 
                 if (row2[earliest_departure] >= row1[latest_arrival] - time_gap) and (row2[earliest_departure] <= row1[latest_arrival] + time_gap):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                     #ltrd.append(row2['originnode_drive'])
-                    longitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'longitude']
-                    latitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'latitude']
-                    origin_point = (latitude, longitude)
-                    node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    #longitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'longitude']
+                    #latitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'latitude']
+                    #origin_point = (latitude, longitude)
+                    #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+                    node_origin = row2'osmid_origin']
                     ltro.append(node_origin)
 
         #ltro = list(dict.fromkeys(ltro))
@@ -254,22 +267,24 @@ def geographic_dispersion(place_name, inst1, df_loc):
         ltrdt = []
         
         #org_row1 = int(row1['originnode_drive'])
-        longitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'longitude']
-        latitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'latitude']
-        origin_point = (latitude, longitude)
-        org_row1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
-        
+        #longitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'longitude']
+        #latitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'latitude']
+        #origin_point = (latitude, longitude)
+        #org_row1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        org_row1 = row1['osmid_origin']
+
         for x in ltro:
 
             tuplx = (x, inst.network._return_estimated_travel_time_drive(int(org_row1), int(x)))
             ltrot.append(tuplx)
 
         #dest_row1 = int(row1['destinationnode_drive'])
-        longitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'longitude']
-        latitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'latitude']
-        destination_point = (latitude, longitude)
-        dest_row1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
-        
+        #longitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'longitude']
+        #latitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'latitude']
+        #destination_point = (latitude, longitude)
+        #dest_row1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        dest_row1 = row1['osmid_destination']
+
         for y in ltrd:
 
             tuply = (y, inst.network._return_estimated_travel_time_drive(int(dest_row1), int(y)))
@@ -596,9 +611,9 @@ def real_data_tests_nyc_database(ed, ld):
     
     #understand peak hours // off - peak 
     #Observar se os requests seguem normal distribution during peak hours and uniform during off peak. Pegar sample dos horários e plotar
-    df_pu = pd.read_sql_query('SELECT pu_time_sec AS time, count(*) AS PUcount \
+    df_pu = pd.read_sql_query('SELECT h AS time, count(*) AS PUcount \
                         FROM table_record \
-                        GROUP BY pu_time_sec', nyc_database)
+                        GROUP BY h', nyc_database)
     print(df_pu.head())
     print(len(df_pu))
 
@@ -628,7 +643,7 @@ def real_data_tests_nyc_database(ed, ld):
 
     #speed
     df_speed = pd.read_sql_query('SELECT speed FROM table_record', nyc_database)
-    df['speed'] = df['speed']*3.6
+    df_speed['speed'] = df_speed['speed']*3.6
     z_scores = zscore(df_speed)
     abs_z_scores = np.abs(z_scores)
     filtered_entries = (abs_z_scores < 3).all(axis=1)
@@ -637,7 +652,7 @@ def real_data_tests_nyc_database(ed, ld):
     print(df_speed['speed'].mean())
     print(df_speed['speed'].std())
 
-    ax = df_dist['speed'].hist(bins=30, figsize=(15,5))
+    ax = df_speed['speed'].hist(bins=30, figsize=(15,5))
     ax.set_yscale('log')
     ax.set_xlabel("trip distance (kmh)")
     ax.set_ylabel("count")
@@ -658,10 +673,10 @@ def real_data_tests_nyc_database(ed, ld):
 
                 print(d1)
 
-                df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, PULocationID, DOLocationID \
+                df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, PULocationID, DOLocationID, osmid_origin, osmid_destination \
                         FROM table_record', nyc_database)
 
-                df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, PULocationID, DOLocationID \
+                df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, PULocationID, DOLocationID, osmid_origin, osmid_destination \
                         FROM table_record', nyc_database)
 
                 print(df_1.head())
@@ -696,7 +711,7 @@ def real_data_tests_nyc_database(ed, ld):
 
     
     #geographic dispersion
-    df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, PULocationID, DOLocationID \
+    df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, PULocationID, DOLocationID, osmid_origin, osmid_destination \
                         FROM table_record', nyc_database)
 
     print(df_loc.columns)
@@ -712,9 +727,9 @@ def real_data_tests_nyc_database(ed, ld):
         df_gd_d = df_gd.loc[(df_gd['pickup_day'] == sd) & (df_gd['pu_time_sec'] >= ed) & (df_gd['pu_time_sec'] <= ld)]
         
         print('geographic dispersion')
-        #geographic_dispersion("New York City, New York", df_gd_d, df_loc)
+        geographic_dispersion("New York City, New York", df_gd_d, df_loc, day)
 
-    df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, PULocationID, DOLocationID \
+    df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, PULocationID, DOLocationID, osmid_origin, osmid_destination \
                         FROM table_record', nyc_database)
 
     # requests regarding the population
@@ -746,16 +761,17 @@ def real_data_tests_nyc_database(ed, ld):
         dpp = len(df_dyn_d)/population
         #print(dpp)
         print('dynamism')
+        print(len(df_dyn_d))
         dynamism(df_dyn_d, ed, ld)
         #ratio between real vs estimated travel time
-        #ratio_eta_real_time("New York City, New York", df_dyn_d, df_loc)
+        print('ratio eta vs real')
+        ratio_eta_real_time("New York City, New York", df_dyn_d)
 
     #change the formulas (for measures of features), and put it in appendix
     avg_trips = avg_trips/7
     print('average number of trips per day between ' + str(ed) + ' and ' + str(ld))
     print(avg_trips)
     
-
 if __name__ == '__main__':
     
     ed = 420*60
