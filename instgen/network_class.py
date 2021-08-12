@@ -97,8 +97,8 @@ class Network:
         #returns estimated distance in meters between origin_node to destination_node
         distance_drive = -1
         try:
-            distance_drive = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
-            #distance_drive = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
+            #distance_drive = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
+            distance_drive = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
 
             if str(distance_drive) != 'nan':
                 distance_drive = int(distance_drive)
@@ -115,7 +115,7 @@ class Network:
         try:
             
             travel_time = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='travel_time')
-            #distance = self.shortest_path_drive.loc[int(origin_node), str(destination_node)]
+            #travel_time = self.shortest_path_drive.loc[int(origin_node), str(destination_node)]
             
             if str(travel_time) != 'nan':
                 eta = int(travel_time)
@@ -172,7 +172,8 @@ class Network:
                     u = int(origin_stop['osmid_drive'])
                     v = int(destination_stop['osmid_drive'])
                     
-                    od_travel_time = self._return_estimated_travel_time_drive(u, v)
+                    #od_travel_time = self._return_estimated_travel_time_drive(u, v)
+                    od_travel_time = self._return_estimated_distance_drive(u,v)
 
                     #calculating travel time and storing in travel_time matrix
                     if not math.isnan(od_travel_time):
@@ -344,7 +345,7 @@ class Network:
             #distancepts = math.sqrt( ((pnt.x-pnt_osmid.x)**2)+((pnt.y-pnt_osmid.y)**2) )
 
             distancepts = geopy.distance.distance(pnt2, pnt_osmid2).m
-            if distancepts < 200:
+            if distancepts < 500:
                 if polygon.contains(pnt):
                     return pnt
             #else:
@@ -548,7 +549,7 @@ class Network:
         if len(zones) > 0:
             zones.set_index(['id'], inplace=True)
 
-        plt.show()
+        #plt.show()
         plt.close(fig)
         return zones
 

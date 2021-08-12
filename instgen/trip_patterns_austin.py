@@ -31,6 +31,8 @@ import osmnx as ox
 
 def powelaw_best_fitting_distribution(dists):
     
+    print(' ')
+    print('power law ')
     results = powerlaw.Fit(dists)
 
     #print(results.power_law.alpha)
@@ -38,16 +40,16 @@ def powelaw_best_fitting_distribution(dists):
     #print(results.truncated_power_law.parameter1_name)
     #print(results.truncated_power_law.parameter2_name)
     #print(results.truncated_power_law.parameter3_name)
-    print(fit.supported_distributions)
+    print(results.supported_distributions)
     R, p = results.distribution_compare('power_law', 'truncated_power_law')
     print(R, p)
 
 def Fitter_best_fitting_distribution(dists):
-    f = Fitter(dists)
+    f = Fitter(dists, timeout=180)
 
     f.fit()
-    f.summary()
-    f.get_best(method = 'sumsquare_error')
+    print(f.summary(plot=True))
+    print(f.get_best(method = 'sumsquare_error'))
 
 def heatmap_osmnx(place_name, database):
 
@@ -68,7 +70,17 @@ def heatmap_osmnx(place_name, database):
     df_de = pd.read_sql_query('SELECT osmid_destination AS osmid, count(*) AS DEcount \
                         FROM table_record \
                         GROUP BY osmid_destination', database)
+    
+    print('before')
+    print(df_og.head())
 
+    df_og['osmid'] = df_og['osmid'].astype(int)
+    df_de['osmid'] = df_de['osmid'].astype(int)
+    df_og.set_index(['osmid'], inplace=True)
+    df_de.set_index(['osmid'], inplace=True)
+
+    print('after')
+    print(df_og.head())
     for node in inst.network.G_drive.nodes():
 
         try:
@@ -81,7 +93,7 @@ def heatmap_osmnx(place_name, database):
 
         try:
             
-            inst.network.G_drive.nodes[node]['DEcount'] = df_og.loc[node, 'DEcount']
+            inst.network.G_drive.nodes[node]['DEcount'] = df_de.loc[node, 'DEcount']
         
         except KeyError:
 
@@ -96,18 +108,20 @@ def heatmap_osmnx(place_name, database):
     print('OGCount')
     print(nodes['OGcount'])
 
+    curr_folder = os.getcwd()
+
     #Then plot a graph where node size and node color are related to the number of visits
     nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'OGcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['OGcount'], node_color=nc)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['OGcount'], node_color=nc, show=False,filepath='heatmap_origin_points.png', save=True)
 
-    plt.savefig(os.getcwd()+'/heatmap_origin_points.png')
-    plt.close(fig)
+    #plt.savefig('heatmap_origin_points.png')
+    #plt.close(fig)
 
     nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'DEcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['DEcount'], node_color=nc)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['DEcount'], node_color=nc, show=False, filepath='heatmap_destination_points.png', save=True)
 
-    plt.savefig(os.getcwd()+'/heatmap_destination_points.png')
-    plt.close(fig)
+    #plt.savefig('heatmap_destination_points.png')
+    #plt.close(fig)
 
 def remove_false_records(df):
 
@@ -139,7 +153,7 @@ def distance(place_name, df_dist, df_loc):
         origin_point = (latitude, longitude)
         #print(origin_point)
         node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
-        df_dist.loc[idxs, 'osmid_origin'] = node_origin 
+        df_dist.loc[idxs, 'osmid_origin'] = int(node_origin) 
         
         r2 = df_loc.loc[df_loc['Kiosk ID'] == row['Return_Kiosk_ID']]
         latitude = float(r2['latitude'].values[0])
@@ -147,7 +161,7 @@ def distance(place_name, df_dist, df_loc):
         destination_point = (latitude, longitude)
         #print(destination_point)
         node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
-        df_dist.loc[idxs, 'osmid_destination'] = node_destination 
+        df_dist.loc[idxs, 'osmid_destination'] = int(node_destination) 
 
         df_dist.loc[idxs, 'trip_distance'] = inst.network._return_estimated_distance_drive(int(node_origin), int(node_destination))
 

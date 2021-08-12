@@ -97,8 +97,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
     shortest_path_drive = []
     shortest_dist_drive = []
     
-    ray.shutdown()
-    ray.init(num_cpus=cpu_count())
+    
    
     save_dir_csv = os.path.join(save_dir, 'csv')
     if not os.path.isdir(save_dir_csv):
@@ -115,24 +114,24 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
     #calculates the shortest paths between all nodes walk (takes long time)
 
     if os.path.isfile(path_dist_csv_file_walk):
-        print('is file dist walk')
+        print('is file dist walk x')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
     else:
+
+        ray.shutdown()
+        ray.init(num_cpus=cpu_count())
 
         print('calculating distance matrix walk network')
         count_divisions = 0
 
         chunksize = 100
         list_nodes = list(G_walk.nodes)
-       
         test_bus_stops_ids = bus_stops['osmid_walk'].tolist()
-
         #remove duplicates from list
         bus_stops_ids = [] 
         [bus_stops_ids.append(x) for x in test_bus_stops_ids if x not in bus_stops_ids] 
         c_bus_stops_ids = list(divide_chunks(bus_stops_ids, chunksize))
-        
         G_walk_id = ray.put(G_walk)
 
         #calculate shortest path between nodes in the walking network to the bus stops
@@ -159,7 +158,8 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 j+=1
                 del d
 
-            shortest_path_walk = pd.DataFrame(shortest_path_length_walk)
+            xt = pd.DataFrame(shortest_path_length_walk)
+            shortest_path_walk = shortest_path_walk.append(xt, ignore_index=True)
             del shortest_path_length_walk
             del results
             gc.collect()
@@ -169,20 +169,22 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
     
     unreachable_nodes = []
 
-    if os.path.isfile(path_dist_csv_file_drive):
-        print('is file dist drive')
+    '''
+    if os.path.isfile(path_tt_csv_file_drive):
+        print('is file tt drive')
         shortest_path_drive = pd.read_csv(path_tt_csv_file_drive)
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
 
-        shortest_dist_drive = pd.read_csv(path_dist_csv_file_drive)
-        shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
     else:
 
-        print('calculating shortest paths drive network')
+        ray.shutdown()
+        ray.init(num_cpus=cpu_count())
 
-        '''
-        calculate shortest path using travel time considering max speed allowed on roads
-        '''
+        print('calculating shortest paths tt drive network')
+
+        
+        #calculate shortest path using travel time considering max speed allowed on roads
+        
 
         chunksize = 100
         list_nodes = list(G_drive.nodes)
@@ -220,13 +222,37 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 del d
 
             xt = pd.DataFrame(shortest_path_length_drive)
-            shortest_path_drive.append(xt, ignore_index=True)
+            shortest_path_drive = shortest_path_drive.append(xt, ignore_index=True)
             del shortest_path_length_drive
             del results
             gc.collect()
 
         shortest_path_drive.to_csv(path_tt_csv_file_drive)
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
+    '''
+
+
+    if os.path.isfile(path_dist_csv_file_drive):
+        print('is file dist drive')
+
+        shortest_dist_drive = pd.read_csv(path_dist_csv_file_drive)
+        shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
+    else:
+
+        ray.shutdown()
+        ray.init(num_cpus=cpu_count())
+
+        print('calculating shortest paths drive network')
+
+        '''
+        calculate shortest path using travel time considering max speed allowed on roads
+        '''
+
+        chunksize = 100
+        list_nodes = list(G_drive.nodes)
+        c_list_nodes = list(divide_chunks(list_nodes, chunksize))
+        G_drive_id = ray.put(G_drive)
+        #start = time.process_time()
 
         #distance
         for l in c_list_nodes:
@@ -258,7 +284,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 del d
 
             xt = pd.DataFrame(shortest_path_length_drive)
-            shortest_dist_drive.append(xt, ignore_index=True)    
+            shortest_dist_drive = shortest_dist_drive.append(xt, ignore_index=True)    
             del shortest_path_length_drive
             del results
             gc.collect()

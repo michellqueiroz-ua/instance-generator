@@ -213,6 +213,10 @@ def download_network_information(
     
     network = Network(place_name, G_drive, G_walk, polygon, bus_stations)
 
+    
+    del G_drive
+    del G_walk
+
     print('Downloading zones from location')
     #zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BBx, BBy)
     #create graph to plot zones here
@@ -220,7 +224,7 @@ def download_network_information(
     print('number of zones', len(zones))
 
     print('Downloading schools from location')
-    schools = retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base)
+    schools = retrieve_schools(network.G_walk, network.G_drive, place_name, save_dir, output_folder_base)
     schools = schools.reset_index(drop=True)
     #create graph to plot zones here           
     print('number of schools', len(schools))
@@ -228,6 +232,11 @@ def download_network_information(
     network.zones = zones
     network.schools = schools
     
+    print(dir())
+    del zones 
+    del schools 
+    del retrieve_schools
+    del get_bus_stations_matrix_csv
     
     #R = 1000
     #pt = polygon.centroid
@@ -250,8 +259,9 @@ def download_network_information(
     shortest_path_drive = []
     shortest_dist_drive = []
     unreachable_nodes = []
-    #shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(G_walk, G_drive, network.bus_stations, save_dir, output_folder_base)
+    shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(network.G_walk, network.G_drive, network.bus_stations, save_dir, output_folder_base)
 
+    del _get_distance_matrix
     #network.G_drive.remove_nodes_from(unreachable_nodes)
     
     #get fixed lines
@@ -264,7 +274,7 @@ def download_network_information(
     
     if get_fixed_lines is not None:
         if get_fixed_lines == 'osm':
-            pt_fixed_lines = get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_folder_base)
+            pt_fixed_lines = get_fixed_lines_osm(network.G_walk, network.G_drive, polygon, save_dir, output_folder_base)
         elif get_fixed_lines == 'deconet':
                 
                 folder_path_deconet = output_folder_base+'/'+'deconet'
@@ -288,6 +298,7 @@ def download_network_information(
 
         num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
+        del filter_bus_stations
         network.bus_stations = network.bus_stations.reset_index(drop=True)
 
         for lp in range(len(network.linepieces)):
@@ -331,10 +342,11 @@ def download_network_information(
         print(len(network.nodes_covered_fixed_lines))
 
     else:
-        pass
-        #num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
+        
+        num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
-        #network.bus_stations = network.bus_stations.reset_index(drop=True)
+        del filter_bus_stations
+        network.bus_stations = network.bus_stations.reset_index(drop=True)
         
     network.bus_stations_ids = []
     for index, stop_node in network.bus_stations.iterrows():
