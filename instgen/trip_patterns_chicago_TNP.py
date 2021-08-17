@@ -123,7 +123,7 @@ def new_heatmap(place_name, database):
     #img = hm.heatmap(pts_de, scheme='classic', dotsize=75, opacity=128, area=((minx, miny), (maxx, maxy)))
     #img.save("heatmap_de.png")
 
-    print(' len points ', len(pts_ogx))
+
     #plt.hist2d(pts_ogx,pts_ogy, bins=[np.arange(minx,maxx,5),np.arange(miny,maxy,5)])
     plt.hist2d(pts_ogx,pts_ogy, bins=25)
     plt.savefig('heatmap_origin.png')
@@ -133,7 +133,7 @@ def new_heatmap(place_name, database):
     plt.hist2d(pts_dex,pts_dey, bins=25)
     plt.savefig('heatmap_destination.png')
     plt.close()
-
+    
     curr_folder = os.getcwd()
 
     fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8), dpi=128, show=False, filepath='heatmap_origin_points.png', save=True)
@@ -653,16 +653,16 @@ def dynamism(inst1, ed, ld):
     
 def real_data_tests_chicago_database(ed, ld):
 
-    if database_exists('sqlite:///chicago_database.db'):
+    if database_exists('sqlite:///chicago_database_tnp.db'):
         
-        chicago_database = sqla.create_engine('sqlite:///chicago_database.db')
+        chicago_database = sqla.create_engine('sqlite:///chicago_database_tnp.db')
 
     else:
 
-        chicago_database = sqla.create_engine('sqlite:///chicago_database.db')
+        chicago_database = sqla.create_engine('sqlite:///chicago_database_tnp.db')
         j, chunksize = 1, 100000
         #for month in range(9,10):
-        fp = "Taxi_Trips_-_2019.csv"
+        fp = "Transportation_Network_Providers_-_Trips.csv"
         for df in pd.read_csv(fp, chunksize=chunksize, iterator=True):
             df = df.rename(columns={c: c.replace(' ', '_') for c in df.columns})
             
@@ -936,7 +936,7 @@ def real_data_tests_chicago_database(ed, ld):
     df_fit = df_fit[filtered_entries]
 
     dists = df_fit["Trip_Miles"].values
-    #Fitter_best_fitting_distribution(dists)
+    Fitter_best_fitting_distribution(dists)
     #powelaw_best_fitting_distribution(dists)
     
     #rank model

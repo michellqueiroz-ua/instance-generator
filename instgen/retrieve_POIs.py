@@ -3,6 +3,8 @@ from multiprocessing import cpu_count
 import os
 import osmnx as ox
 import pandas as pd
+import networkx as nx
+import numpy as np
 import ray
 import warnings
 import gc
@@ -334,6 +336,7 @@ def attribute_density_zones(inst, pois):
 
     inst.network.zones['density_pois'] = (inst.network.zones['number_pois']/total_sum)*100
     print(inst.network.zones['density_pois'].head())
+    print(inst.network.zones['density_pois'].sum())
 
 #def inter_opp_zones(zones, idz):
 
@@ -355,11 +358,11 @@ def calc_rank_between_zones(inst):
         rank['zone_id'] = idu
         for idv, zonev in inst.network.zones.iterrows():
             rank[idv] = 0
-            duv = inst.network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(zonev['center_osmid'])]
+            duv = inst.network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonev['center_osmid']))]
             for idw, zonew in inst.network.zones.iterrows():
 
                 if ((idw != idu) and (idw != idv)):
-                    duw = inst.network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(zonew['center_osmid'])]
+                    duw = inst.network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonew['center_osmid']))]
                     if duw < duv:
                         rank[idv] += inst.network.zones.loc[idw, 'number_pois']
 
@@ -371,6 +374,7 @@ def calc_rank_between_zones(inst):
     #path_pois_file = os.path.join(save_dir_csv, place_name+'.pois.csv') 
     #zone_ranks.to_csv(path_pois_file)
     zone_ranks.set_index(['zone_id'], inplace=True)
+    print(zone_ranks.head())
     #zone_ranks["sum"] = zone_ranks.sum(axis=1)
 
     return zone_ranks
@@ -385,13 +389,25 @@ def calc_probability_travel_between_zones(inst, zone_ranks, alpha):
         puv = {}
         puv['zone_id'] = idu
         for idv, zonev in zone_ranks.iterrows():
+            
+            if idu != idv:
+                p1 = zone_ranks.loc[int(idu), int(idv)]
 
-            p1 = zone_ranks.loc[int(idu), str(idv)]
-            p2 = zone_ranks[str(idv)].sum()
+                r2 = 0
+                for idw, zonew in zone_ranks.iterrows():
+                    p2 = zone_ranks.loc[int(idw), int(idv)]
+                    if p2 != 0:
+                        r2 += p2 ** alpha
 
-            r1 = p1 ** alpha
-            r2 = p2 ** alpha
-            puv[idv] = r1/r2
+                if p1 != 0:
+                    r1 = p1 ** alpha
+                    
+                    puv[idv] = r1/r2
+                else:
+                    puv[idv] = 0
+            else:
+                puv[idv] = 0
+
 
         zone_probabilities.append(puv)
         del puv
