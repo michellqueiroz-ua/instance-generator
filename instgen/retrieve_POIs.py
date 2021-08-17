@@ -5,23 +5,33 @@ import osmnx as ox
 import pandas as pd
 import ray
 import warnings
+import gc
+from shapely.geometry import Point
 
+
+def divide_chunks(l, n):
+      
+    # looping till length l
+    for i in range(0, len(l), n): 
+        yield l[i:i + n]
 
 @ray.remote
-def get_poi(G_walk, G_drive, index, poi):
+def get_poi(G_walk, G_drive, index, all_pois):
 
-    
+    poi = all_pois.loc[index]
     poi_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
     
-    u, v, key = ox.get_nearest_edge(G_walk, poi_point)
-    poi_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
+    #u, v, key = ox.get_nearest_edge(G_walk, poi_point)
+    #poi_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
     
-    u, v, key = ox.get_nearest_edge(G_drive, poi_point)
-    poi_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
+    #u, v, key = ox.get_nearest_edge(G_drive, poi_point)
+    #poi_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
     
+    poi_node_drive = ox.get_nearest_node(G_drive, poi_point)
+
     d = {
         #'station_id': index,
-        'osmid_walk': poi_node_walk,
+        #'osmid_walk': poi_node_walk,
         'osmid_drive': poi_node_drive,
         'lat': poi.geometry.centroid.y,
         'lon': poi.geometry.centroid.x
@@ -44,6 +54,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
 
+    pois = pd.DataFrame()
     path_pois = os.path.join(save_dir_csv, output_folder_base+'.pois.csv')
 
     if os.path.isfile(path_pois):
@@ -55,113 +66,16 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
 
         #retrieve pois
         tags = {
-            'amenity':'bar',
-            'amenity':'cafe',
-            'amenity':'restaurant',
-            'amenity':'pub',
-            'amenity':'fast_food',
-            'amenity':'college',
-            'amenity':'driving_school',
-            'amenity':'kindergarten',
-            'amenity':'language_school',
-            'amenity':'library',
-            'amenity':'toy_library',
-            'amenity':'school',
-            'amenity':'university',
-            'amenity':'bicycle_rental',
-            'amenity':'bank',
-            'amenity':'bicycle_rental',
-            'amenity':'baby_hatch',
-            'amenity':'clinic',
-            'amenity':'dentist',
-            'amenity':'doctors',
-            'amenity':'hospital',
-            'amenity':'nursing_home',
-            'amenity':'social_facility',
-            'amenity':'veterinary',
-            'amenity':'arts_centre',
-            'amenity':'brothel',
-            'amenity':'casino',
-            'amenity':'cinema',
-            'amenity':'community_centre',
-            'amenity':'conference_centre',
-            'amenity':'events_venue',
-            'amenity':'gambling',
-            'amenity':'love_hotel',
-            'amenity':'night_club',
-            'amenity':'planetarium',
-            'amenity':'social_centre',
-            'amenity':'stripclub',
-            'amenity':'swingerclub',
-            'amenity':'theatre',
-            'amenity':'courthouse',
-            'amenity':'embassy',
-            'amenity':'police',
-            'amenity':'ranger_station',
-            'amenity':'townhall',
-            'amenity':'internet_cafe',
-            'amenity':'marketplace',
-            'building':'apartments',
-            'building':'detached',
-            'building':'dormitory',
-            'building':'hotel',
-            'building':'house',
-            'building':'residential',
-            'building':'semidetached_house',
-            'building':'commercial',
-            'building':'industrial',
-            'building':'office',
-            'building':'retail',
-            'building':'supermarket',
-            'building':'warehouse',
-            'building':'cathedral',
-            'building':'chapel',
-            'building':'church',
-            'building':'monastery',
-            'building':'mosque',
-            'building':'government',
-            'building':'train_station',
-            'building':'stadium',
-            'historic':'castle',
-            'leisure':'fitness_centre',
-            'leisure':'park',
-            'leisure':'sports_centre',
-            'leisure':'swimming_pool',
-            'leisure':'stadium',
-            'man_made':'obelisk',
-            'man_made':'observatory',
-            'office':'accountant',
-            'office':'advertising_agency',
-            'office':'architect',
-            'office':'charity',
-            'office':'company',
-            'office':'consulting',
-            'office':'courier',
-            'office':'coworking',
-            'office':'educational_institution',
-            'office':'employment_agency',
-            'office':'engineer',
-            'office':'estate_agent',
-            'office':'financial',
-            'office':'financial_advisor',
-            'office':'forestry',
-            'office':'foundation',
-            'office':'government',
-            'office':'graphic_design',
-            'office':'insurance',
-            'office':'it',
-            'office':'lawyer',
-            'office':'logistics',
-            'office':'moving_company',
-            'office':'newspaper',
-            'office':'ngo',
-            'office':'political_party',
-            'office':'property_management',
-            'office':'research',
-            'office':'tax_advisor',
-            'office':'telecommunication',
-            'office':'visa',
-            'office':'water_utility',
+            'amenity':['bar','cafe','restaurant','pub','fast_food','college','driving_school','kindergarten','language_school','library','toy_library','school','university','bicycle_rental','baby_hatch','clinic','dentist','doctors','hospital','nursing_home','social_facility','veterinary','arts_centre','brothel','casino','cinema','community_centre','conference_centre','events_venue','gambling','love_hotel','night_club','planetarium','social_centre','stripclub','swingerclub','theatre','courthouse','embassy','police','ranger_station','townhall','internet_cafe','marketplace'],
+            }
+        
+        '''   
+            'building':['apartments','detached','dormitory','hotel','house','residential','semidetached_house','commercial','industrial','office','retail','supermarket','warehouse','cathedral','chapel','church','monastery','mosque','government','train_station','stadium'],
+                    'historic':'castle',
+            'leisure':['fitness_centre','park','sports_centre','swimming_pool','stadium'],
+            'man_made':['obelisk','observatory'],
+        tags2 = { 
+            'office':['accountant','advertising_agency','architect','charity','company','consulting','courier','coworking','educational_institution','employment_agency','engineer','estate_agent','financial','financial_advisor','forestry','foundation','government','graphic_design','insurance','it','lawyer','logistics','moving_company','newspaper','ngo','political_party','property_management','research','tax_advisor','telecommunication','visa','water_utility'],
             'shop':'alcohol',
             'shop':'bakery', 
             'shop':'beverages', 
@@ -330,17 +244,34 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
             'tourism':'theme_park',
             'tourism':'zoo',
         }
-        
+        '''
+
         all_pois = ox.geometries_from_place(place_name, tags=tags)
 
         print('number pois: ', len(all_pois))
         G_walk_id = ray.put(G_walk)
         G_drive_id = ray.put(G_drive)
-        pois = ray.get([get_poi.remote(G_walk_id, G_drive_id, index, poi) for index, poi in all_pois.iterrows()]) 
+
+        all_pois_index = all_pois.index.tolist()
+        chunksize = 100
+        chunks_pois = list(divide_chunks(all_pois_index, chunksize))
         
+        count = 0
+        for cpois in chunks_pois:
+            print(count)
+            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, all_pois) for index_poi in cpois]) 
+            count += 1
+
+            xt = pd.DataFrame(poisx)
+            pois = pois.append(xt, ignore_index=True)
+            
+            gc.collect()
+
         ray.shutdown()
 
         pois = pd.DataFrame(pois)
+
+        pois.to_csv(path_pois)
         
     return pois
 
@@ -381,12 +312,14 @@ def plot_pois(network, save_dir_images):
     plt.savefig(pois_folder+'/pois_drive.png')
     plt.close(fig)
 
-def attribute_density_zones(inst):
+def attribute_density_zones(inst, pois):
+
     
     inst.network.zones['number_pois'] = 0
     
-    for idx2, poi in inst.network.pois.iterrows():
-        pnt = (poi['lat'], poi['lon'])
+    for idx2, poi in pois.iterrows():
+        #pnt = (poi['lat'], poi['lon'])
+        pnt = Point(poi['lon'], poi['lat'])
         for idx, zone in inst.network.zones.iterrows():
 
             zone_polygon = zone['polygon']
@@ -400,6 +333,7 @@ def attribute_density_zones(inst):
     print('total_sum: ', total_sum)
 
     inst.network.zones['density_pois'] = (inst.network.zones['number_pois']/total_sum)*100
+    print(inst.network.zones['density_pois'].head())
 
 #def inter_opp_zones(zones, idz):
 

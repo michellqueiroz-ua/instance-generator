@@ -28,8 +28,35 @@ import powerlaw
 from pathlib import Path
 from instance_class import Instance
 
+from retrieve_POIs import get_POIs_matrix_csv
+from retrieve_POIs import attribute_density_zones
+from retrieve_POIs import calc_rank_between_zones
+from retrieve_POIs import calc_probability_travel_between_zones
+
+#import heatmap
+
+def rank_model(place_name):
+
+    output_folder_base = place_name
+    save_dir = os.getcwd()+'/'+place_name
+    pickle_dir = os.path.join(save_dir, 'pickle')
+    network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+
+    network_directory = os.getcwd()+'/'+place_name
+
+    if Path(network_class_file).is_file():
+        inst = Instance(folder_to_network=place_name)
+
+    pois = get_POIs_matrix_csv(inst.network.G_walk, inst.network.G_drive, place_name, save_dir, output_folder_base)
+    attribute_density_zones(inst, pois)
+    zone_ranks = calc_rank_between_zones(inst)
+    alpha = 0.86
+    calc_probability_travel_between_zones(inst, zone_ranks, alpha)
+
+
 def add_osmid_nodes(place_name, df):
 
+    #print('add osmid nodes')
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
     network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
@@ -48,6 +75,52 @@ def add_osmid_nodes(place_name, df):
         df.loc[id1, 'osmid_destination'] = ox.get_nearest_node(inst.network.G_drive, destination_point)
 
     return df
+
+def new_heatmap(place_name, database):
+
+    save_dir = os.getcwd()+'/'+place_name
+    pickle_dir = os.path.join(save_dir, 'pickle')
+    network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+
+    network_directory = os.getcwd()+'/'+place_name
+
+    if Path(network_class_file).is_file():
+        inst = Instance(folder_to_network=place_name)
+    
+    
+    #group by IDs and count
+    df_og = pd.read_sql_query('SELECT Pickup_Centroid_Latitude, Pickup_Centroid_Longitude FROM table_record', database)
+    
+    df_de = pd.read_sql_query('SELECT Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude FROM table_record', database)
+
+    pts_og = []    
+    for idx, row in df_og.iterrows():
+
+        pt = (row['Pickup_Centroid_Longitude'], row['Pickup_Centroid_Latitude'])
+        pts_og.append(pt)
+
+    pts_de = []   
+    for idx, row in df_de.iterrows():
+
+        pt = (row['Dropoff_Centroid_Longitude'], row['Dropoff_Centroid_Latitude'])
+        pts_de.append(pt)
+
+
+    hm = heatmap.Heatmap()
+    img = hm.heatmap(pts_og)
+    img.save("heatmap_og.png")
+
+    hm = heatmap.Heatmap()
+    img = hm.heatmap(pts_de)
+    img.save("heatmap_de.png")
+
+    curr_folder = os.getcwd()
+
+
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8), dpi=128, show=False, filepath='heatmap_origin_points.png', save=True)
+
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8), dpi=128, show=False, filepath='heatmap_destination_points.png', save=True)
+
 
 def heatmap_osmnx(place_name, database):
 
@@ -68,6 +141,17 @@ def heatmap_osmnx(place_name, database):
     df_de = pd.read_sql_query('SELECT osmid_destination AS osmid, count(*) AS DEcount \
                         FROM table_record \
                         GROUP BY osmid_destination', database)
+    
+    #print('before')
+    #print(df_og.head())
+
+    df_og['osmid'] = df_og['osmid'].astype(int)
+    df_de['osmid'] = df_de['osmid'].astype(int)
+    df_og.set_index(['osmid'], inplace=True)
+    df_de.set_index(['osmid'], inplace=True)
+
+    #print('after')
+    #print(df_og.head())
 
     for node in inst.network.G_drive.nodes():
 
@@ -81,7 +165,7 @@ def heatmap_osmnx(place_name, database):
 
         try:
             
-            inst.network.G_drive.nodes[node]['DEcount'] = df_og.loc[node, 'DEcount']
+            inst.network.G_drive.nodes[node]['DEcount'] = df_de.loc[node, 'DEcount']
         
         except KeyError:
 
@@ -93,18 +177,23 @@ def heatmap_osmnx(place_name, database):
     #Make geodataframes from graph data
     nodes, edges = ox.graph_to_gdfs(inst.network.G_drive, nodes=True, edges=True)
 
+    print('OGCount')
+    print(nodes['OGcount'])
+
+    curr_folder = os.getcwd()
+
     #Then plot a graph where node size and node color are related to the number of visits
-    nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'OGcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['OGcount'], node_color=nc)
+    nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'OGcount',num_bins=40)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['OGcount'], node_color=nc, show=False,filepath='heatmap_origin_points.png', save=True)
 
-    plt.savefig(os.getcwd()+'/heatmap_origin_points.png')
-    plt.close(fig)
+    #plt.savefig('heatmap_origin_points.png')
+    #plt.close(fig)
 
-    nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'DEcount',num_bins = 10)
-    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['DEcount'], node_color=nc)
+    nc = ox.plot.get_node_colors_by_attr(inst.network.G_drive,'DEcount',num_bins=40)
+    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8),node_size=nodes['DEcount'], node_color=nc, show=False, filepath='heatmap_destination_points.png', save=True)
 
-    plt.savefig(os.getcwd()+'/heatmap_destination_points.png')
-    plt.close(fig)
+    #plt.savefig('heatmap_destination_points.png')
+    #plt.close(fig)
 
 def remove_false_records(df):
 
@@ -127,7 +216,7 @@ def remove_false_records(df):
     df.dropna(subset=['Trip_Seconds'], inplace=True)
     df['Trip_Seconds'] = df['Trip_Seconds'].astype(int)
     #print(df['Trip_Seconds'].head())
-    #df = df.loc[(df['Trip_Seconds'] > 0)]
+    df = df.loc[(df['Trip_Seconds'] > 0)]
 
     df['Pickup_Centroid_Latitude'].replace('', np.nan, inplace=True)
     df['Pickup_Centroid_Longitude'].replace('', np.nan, inplace=True)
@@ -149,16 +238,16 @@ def powelaw_best_fitting_distribution(dists):
     #print(results.truncated_power_law.parameter1_name)
     #print(results.truncated_power_law.parameter2_name)
     #print(results.truncated_power_law.parameter3_name)
-    print(fit.supported_distributions)
+    print(results.supported_distributions)
     R, p = results.distribution_compare('power_law', 'truncated_power_law')
     print(R, p)
 
 def Fitter_best_fitting_distribution(dists):
-    f = Fitter(dists)
+    f = Fitter(dists, timeout=180)
 
     f.fit()
-    f.summary()
-    f.get_best(method = 'sumsquare_error')
+    print(f.summary(plot=True))
+    print(f.get_best(method = 'sumsquare_error'))
 
 def ratio_eta_real_time(place_name, df_ratio):
 
@@ -187,9 +276,10 @@ def ratio_eta_real_time(place_name, df_ratio):
 
         real = row1['Trip_Seconds']
 
-        ratio = real/eta
-        ratios.append(ratio)
-        #print(real) 
+        if eta > 0:
+            ratio = real/eta
+            ratios.append(ratio)
+            #print(real) 
 
     #print(ratios)
     mean = sum(ratios) / len(ratios)
@@ -578,6 +668,8 @@ def real_data_tests_chicago_database(ed, ld):
 
             df['spriod'] = [x[20:22] for x in df['Trip_Start_Timestamp']]
 
+            df['h'].replace('', np.nan, inplace=True)
+            df.dropna(subset=['h'], inplace=True)
             df['ih'] = df['h'].astype(int)
             for idx, row in df.iterrows():
                 if row['spriod'] == 'PM':
@@ -607,6 +699,8 @@ def real_data_tests_chicago_database(ed, ld):
 
             df['epriod'] = [x[20:22] for x in df['Trip_End_Timestamp']]
 
+            df['dh'].replace('', np.nan, inplace=True)
+            df.dropna(subset=['dh'], inplace=True)
             df['idh'] = df['dh'].astype(int)
             for idx, row in df.iterrows():
                 if row['epriod'] == 'PM':
@@ -675,10 +769,13 @@ def real_data_tests_chicago_database(ed, ld):
     #speed
     df_speed = pd.read_sql_query('SELECT speed FROM table_record', chicago_database)
     df_speed['speed'] = df_speed['speed']*3.6
-    #z_scores = zscore(df_speed)
-    #abs_z_scores = np.abs(z_scores)
-    #filtered_entries = (abs_z_scores < 3).all(axis=1)
-    #df_speed = df_speed[filtered_entries]
+    df_speed['speed'].replace([np.inf, -np.inf], np.nan, inplace=True)
+    df_speed.dropna(subset=['speed'], inplace=True)
+    
+    z_scores = zscore(df_speed)
+    abs_z_scores = np.abs(z_scores)
+    filtered_entries = (abs_z_scores < 3).all(axis=1)
+    df_speed = df_speed[filtered_entries]
     print(df_speed['speed'].describe())
     print(df_speed['speed'].mean())
     print(df_speed['speed'].std())
@@ -766,7 +863,7 @@ def real_data_tests_chicago_database(ed, ld):
         print('geographic dispersion: ', len(df_gd_d))
         geographic_dispersion("Chicago, Illinois", df_gd_d, day)
 
-    df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
+    df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
                         FROM table_record', chicago_database)
 
     # requests regarding the population
@@ -809,12 +906,18 @@ def real_data_tests_chicago_database(ed, ld):
 
     #heatmap
     heatmap_osmnx("Chicago, Illinois", chicago_database)
+    #new_heatmap("Chicago, Illinois", chicago_database)
 
     #fitting
+    '''
     df_fit = pd.read_sql_query('SELECT pu_time_sec, Trip_Miles FROM table_record', chicago_database)
     dists = df_fit["Trip_Miles"].values
     Fitter_best_fitting_distribution(dists)
     powelaw_best_fitting_distribution(dists)
+    '''
+    
+    #rank model
+    rank_model("Chicago, Illinois")
 
 if __name__ == '__main__':
     
