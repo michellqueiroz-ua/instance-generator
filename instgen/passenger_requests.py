@@ -533,13 +533,41 @@ def _generate_requests(
 
                 if inst.GA.nodes[att]['type'] == 'location':
 
+                    random_zone_id = -1
+
                     if 'subset_zones' in inst.GA.nodes[att]:
 
                         zone = inst.GA.nodes[att]['subset_zones']
 
                         if zone is False:
 
-                            point = inst.network._get_random_coord(inst.network.polygon)
+                            if 'rank_model' in inst.GA.nodes[att]:
+
+                                type_coord = inst.GA.nodes[att]['rank_model']
+                                zones = inst.network.zones.index.tolist()
+                                
+
+                                if type_coord == 'origin':
+                                    
+                                    probabilities = inst.network.zones['density_pois'].tolist()
+                                    random_zone_id = np.random.choice(a=zones, size=1, p=probabilities)
+                                    print(random_zone_id)
+                                    polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
+                                    point = inst.network._get_random_coord(polygon_zone)
+
+                                elif type_coord == 'destination':
+                                    
+                                    att_start = inst.GA.nodes[att]['start_point']
+                                    zone_start = int(attributes[att_start+'zone'])
+                                    probabilities = inst.network.zone_ranks.loc[zone_start].tolist()
+                                    random_zone_id = np.random.choice(a=zones, size=1, p=probabilities)
+
+
+                            else:
+
+                                point = inst.network._get_random_coord(inst.network.polygon)
+                            
+
                             point = (point.y, point.x)
 
                         else:
@@ -549,7 +577,8 @@ def _generate_requests(
                             if 'weights' in inst.GA.nodes[att]:
 
                                 random_zone_id = random.choices(zones, weights=inst.GA.nodes[att]['weights'], k=1)
-                                polygon_zone = inst.network.zones.loc[random_zone_id[0]]['polygon']
+                                random_zone_id = random_zone_id[0]
+                                polygon_zone = inst.network.zones.loc[random_zone_id]['polygon']
 
                             else:
 
@@ -596,6 +625,8 @@ def _generate_requests(
 
                     attributes[att+'node_drive'] = int(node_drive)
                     attributes[att+'node_walk'] = int(node_walk)
+
+                    attributes[att+'zone'] = int(random_zone_id)
 
                 
                 if 'pdf' in inst.GA.nodes[att]:

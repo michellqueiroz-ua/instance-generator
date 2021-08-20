@@ -738,6 +738,19 @@ def input_json(filename_json):
 
                 GA.nodes[name]['constraints'] = attribute['constraints']
 
+            if 'rank_model' in attribute:
+
+                GA.nodes[name]['rank_model'] = attribute['rank_model']
+
+                if GA.nodes[name]['rank_model'] == 'destination':
+
+                    if 'start_point' in attribute:
+
+                        GA.nodes[name]['rank_model']['start_point'] = attribute['start_point']
+
+                    else:
+                        raise TypeError('start_point must be given for destination point in rank model')
+
             if 'weights' in attribute:
 
                 if (isinstance(attribute['weights'], (list))): 

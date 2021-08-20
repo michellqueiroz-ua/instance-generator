@@ -67,201 +67,59 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         print('creating file POIs')
 
         #retrieve pois
-        tags = {
+        tags_amenity = {
             'amenity':['bar','cafe','restaurant','pub','fast_food','college','driving_school','kindergarten','language_school','library','toy_library','school','university','bicycle_rental','baby_hatch','clinic','dentist','doctors','hospital','nursing_home','social_facility','veterinary','arts_centre','brothel','casino','cinema','community_centre','conference_centre','events_venue','gambling','love_hotel','night_club','planetarium','social_centre','stripclub','swingerclub','theatre','courthouse','embassy','police','ranger_station','townhall','internet_cafe','marketplace'],
             }
-        
-        '''   
+
+        tags_building = {
             'building':['apartments','detached','dormitory','hotel','house','residential','semidetached_house','commercial','industrial','office','retail','supermarket','warehouse','cathedral','chapel','church','monastery','mosque','government','train_station','stadium'],
-                    'historic':'castle',
+            'historic':'castle',
+            }
+
+        tags_leisure = {
             'leisure':['fitness_centre','park','sports_centre','swimming_pool','stadium'],
             'man_made':['obelisk','observatory'],
-        tags2 = { 
-            'office':['accountant','advertising_agency','architect','charity','company','consulting','courier','coworking','educational_institution','employment_agency','engineer','estate_agent','financial','financial_advisor','forestry','foundation','government','graphic_design','insurance','it','lawyer','logistics','moving_company','newspaper','ngo','political_party','property_management','research','tax_advisor','telecommunication','visa','water_utility'],
-            'shop':'alcohol',
-            'shop':'bakery', 
-            'shop':'beverages', 
-            'shop':'brewing_supplies', 
-            'shop':'butcher', 
-            'shop':'cheese', 
-            'shop':'chocolate', 
-            'shop':'coffee', 
-            'shop':'confectionery', 
-            'shop':'convenience', 
-            'shop':'deli', 
-            'shop':'dairy', 
-            'shop':'farm', 
-            'shop':'frozen_food',
-            'shop':'greengrocer', 
-            'shop':'health_food', 
-            'shop':'ice_cream', 
-            'shop':'pasta', 
-            'shop':'pastry', 
-            'shop':'spices', 
-            'shop':'tea', 
-            'shop':'department_store', 
-            'shop':'general', 
-            'shop':'kiosk', 
-            'shop':'mall',  
-            'shop':'supermarket', 
-            'shop':'baby_goods', 
-            'shop':'bag', 
-            'shop':'boutique', 
-            'shop':'clothes', 
-            'shop':'fabric', 
-            'shop':'fashion_accessories',
-            'shop':'jewelry',
-            'shop':'leather',
-            'shop':'sewing',
-            'shop':'shoes',
-            'shop':'tailor',
-            'shop':'watches',      
-            'shop':'wool',
-            'shop':'charity',
-            'shop':'second_hand',
-            'shop':'variety_store',
-            'shop':'beauty',
-            'shop':'chemist',
-            'shop':'cosmetics',
-            'shop':'erotic',
-            'shop':'hairdresser',
-            'shop':'hairdresser_supply',
-            'shop':'hearing_aids',
-            'shop':'herbalist',
-            'shop':'massage',
-            'shop':'medical_supply',
-            'shop':'nutrition_supplements',
-            'shop':'optician',
-            'shop':'perfumery',
-            'shop':'tattoo',
-            'shop':'agrarian',
-            'shop':'appliance',
-            'shop':'bathroom_furnishing',
-            'shop':'doityourself',
-            'shop':'electrical',
-            'shop':'energy',
-            'shop':'fireplace',
-            'shop':'florist',
-            'shop':'garden_centre',
-            'shop':'garden_furniture',
-            'shop':'gas',
-            'shop':'glaziery',
-            'shop':'groundskeeping',
-            'shop':'hardware',
-            'shop':'houseware',
-            'shop':'locksmith',
-            'shop':'paint',
-            'shop':'security',
-            'shop':'trade',
-            'shop':'antiques',
-            'shop':'bed',
-            'shop':'candles',
-            'shop':'carpet',
-            'shop':'curtain',
-            'shop':'doors',
-            'shop':'flooring',
-            'shop':'furniture',
-            'shop':'household_linen',
-            'shop':'interior_decoration',
-            'shop':'kitchen',
-            'shop':'lighting',
-            'shop':'tiles',
-            'shop':'window_blind',
-            'shop':'computer',
-            'shop':'electronics',
-            'shop':'hifi',
-            'shop':'mobile_phone',
-            'shop':'radiotechnics',
-            'shop':'vacuum_cleaner',
-            'shop':'atv',
-            'shop':'bicycle',
-            'shop':'boat',
-            'shop':'car',
-            'shop':'car_repair',
-            'shop':'car_parts',
-            'shop':'caravan',
-            'shop':'fuel',
-            'shop':'fishing',
-            'shop':'golf',
-            'shop':'hunting',
-            'shop':'jetski',
-            'shop':'military_surplus',
-            'shop':'motorcycle',
-            'shop':'outdoor',
-            'shop':'scuba_diving',
-            'shop':'ski',
-            'shop':'snowmobile',
-            'shop':'sports',
-            'shop':'swimming_pool',
-            'shop':'trailer',
-            'shop':'tyres',
-            'shop':'art',
-            'shop':'collector',
-            'shop':'craft',
-            'shop':'frame',
-            'shop':'games',
-            'shop':'model',
-            'shop':'music',
-            'shop':'musical_instrument',
-            'shop':'photo',
-            'shop':'camera',
-            'shop':'trophy',
-            'shop':'video',
-            'shop':'video_games',
-            'shop':'anime',
-            'shop':'books',
-            'shop':'gift',
-            'shop':'lottery',
-            'shop':'newsagent',
-            'shop':'stationery',
-            'shop':'ticket',
-            'shop':'bookmaker',
-            'shop':'cannabis',
-            'shop':'copyshop',
-            'shop':'dry_cleaning',
-            'shop':'e-cigarette',
-            'shop':'funeral_directors',
-            'shop':'laundry',
-            'shop':'money_lender',
-            'shop':'party',
-            'shop':'pawnbroker',
-            'shop':'pet',
-            'shop':'pet_grooming',
-            'shop':'pest_control',
-            'shop':'pyrotechnics',
-            'shop':'religion',
-            'shop':'storage_rental',
-            'shop':'tobacco',
-            'shop':'toys',
-            'shop':'travel_agency',
-            'shop':'weapons',
-            'shop':'outpost',
-            'tourism':'aquarium',
-            'tourism':'artwork',
-            'tourism':'attraction',
-            'tourism':'gallery',
-            'tourism':'hostel',
-            'tourism':'motel',
-            'tourism':'museum',
-            'tourism':'theme_park',
-            'tourism':'zoo',
         }
-        '''
 
-        all_pois = ox.geometries_from_place(place_name, tags=tags)
+        tags_office = {
+            'office':['accountant','advertising_agency','architect','charity','company','consulting','courier','coworking','educational_institution','employment_agency','engineer','estate_agent','financial','financial_advisor','forestry','foundation','government','graphic_design','insurance','it','lawyer','logistics','moving_company','newspaper','ngo','political_party','property_management','research','tax_advisor','telecommunication','visa','water_utility'],
+        }
 
-        print('number pois: ', len(all_pois))
+        tags_shop = {
+            'shop':['alcohol','bakery','beverages','brewing_supplies','butcher','cheese','chocolate','coffee','confectionery','convenience','deli','dairy','farm','frozen_food','greengrocer','health_food','ice_cream','pasta','pastry','spices','tea','department_store','general','kiosk','mall','supermarket','baby_goods','bag','boutique','clothes','fabric','fashion_accessories','jewelry','leather','sewing','shoes','tailor','watches','wool','charity','second_hand','variety_store','beauty','chemist','cosmetics','erotic','hairdresser','hairdresser_supply','hearing_aids','herbalist','massage','medical_supply','nutrition_supplements','optician','perfumery','tattoo','agrarian','appliance','bathroom_furnishing','doityourself','electrical','energy','fireplace','florist','garden_centre','garden_furniture','gas','glaziery','groundskeeping','hardware','houseware','locksmith','paint','security','trade','antiques','bed','candles','carpet','curtain','doors','flooring','furniture','household_linen','interior_decoration','kitchen','lighting','tiles','window_blind','computer','electronics','hifi','mobile_phone','radiotechnics','vacuum_cleaner','atv','bicycle','boat','car','car_repair','car_parts','caravan','fuel','fishing','golf','hunting','jetski','military_surplus','motorcycle','outdoor','scuba_diving','ski','snowmobile','sports','swimming_pool','trailer','tyres','art','collector','craft','frame','games','model','music','musical_instrument','photo','camera','trophy','video','video_games','anime','books','gift','lottery','newsagent','stationery','ticket','bookmaker','cannabis','copyshop','dry_cleaning','e-cigarette','funeral_directors','laundry','money_lender','party','pawnbroker','pet','pet_grooming','pest_control','pyrotechnics','religion','storage_rental','tobacco','toys','travel_agency','weapons','outpost'],
+        }
+        
+        tags_tourism = { 
+            'tourism':['aquarium','artwork','attraction','gallery','hostel','motel','museum','theme_park','zoo'],
+        }
+        
+
+        pois_amenity = ox.geometries_from_place(place_name, tags=tags_amenity)
+        pois_building = ox.geometries_from_place(place_name, tags=tags_building)
+        pois_leisure = ox.geometries_from_place(place_name, tags=tags_leisure)
+        pois_office = ox.geometries_from_place(place_name, tags=tags_office)
+        pois_shop = ox.geometries_from_place(place_name, tags=tags_shop)
+        pois_tourism = ox.geometries_from_place(place_name, tags=tags_tourism)
+
+        sum_pois = len(pois_amenity) + len(pois_building) + len(pois_leisure) + len(pois_office) + len(pois_shop) + len(pois_tourism)
+        print('number pois: ', sum_pois)
+
         G_walk_id = ray.put(G_walk)
         G_drive_id = ray.put(G_drive)
-
-        all_pois_index = all_pois.index.tolist()
+        pois_amenity_id = ray.put(pois_amenity)
+        pois_building_id = ray.put(pois_building)
+        pois_leisure_id = ray.put(pois_leisure)
+        pois_office_id = ray.put(pois_office)
+        pois_shop_id = ray.put(pois_shop)
+        pois_tourism_id = ray.put(pois_tourism)
         chunksize = 100
-        chunks_pois = list(divide_chunks(all_pois_index, chunksize))
-        
+
+        pois_amenity_index = pois_amenity.index.tolist()
+        chunks_pois = list(divide_chunks(pois_amenity_index, chunksize))
         count = 0
         for cpois in chunks_pois:
-            print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, all_pois) for index_poi in cpois]) 
+            #print(count)
+            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_amenity_id) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -269,6 +127,72 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
             
             gc.collect()
 
+        pois_building_index = pois_building.index.tolist()
+        chunks_pois = list(divide_chunks(pois_building_index, chunksize))
+        count = 0
+        for cpois in chunks_pois:
+            #print(count)
+            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_building_id) for index_poi in cpois]) 
+            count += 1
+
+            xt = pd.DataFrame(poisx)
+            pois = pois.append(xt, ignore_index=True)
+            
+            gc.collect()
+
+        pois_leisure_index = pois_leisure.index.tolist()
+        chunks_pois = list(divide_chunks(pois_leisure_index, chunksize))
+        count = 0
+        for cpois in chunks_pois:
+            #print(count)
+            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_leisure_id) for index_poi in cpois]) 
+            count += 1
+
+            xt = pd.DataFrame(poisx)
+            pois = pois.append(xt, ignore_index=True)
+            
+            gc.collect()
+
+        pois_office_index = pois_office.index.tolist()
+        chunks_pois = list(divide_chunks(pois_office_index, chunksize))
+        count = 0
+        for cpois in chunks_pois:
+            #print(count)
+            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_office_id) for index_poi in cpois]) 
+            count += 1
+
+            xt = pd.DataFrame(poisx)
+            pois = pois.append(xt, ignore_index=True)
+            
+            gc.collect()
+
+        pois_shop_index = pois_shop.index.tolist()
+        chunks_pois = list(divide_chunks(pois_shop_index, chunksize))
+        count = 0
+        for cpois in chunks_pois:
+            #print(count)
+            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_shop_id) for index_poi in cpois]) 
+            count += 1
+
+            xt = pd.DataFrame(poisx)
+            pois = pois.append(xt, ignore_index=True)
+            
+            gc.collect()
+
+        pois_tourism_index = pois_tourism.index.tolist()
+        chunks_pois = list(divide_chunks(pois_tourism_index, chunksize))
+        count = 0
+        for cpois in chunks_pois:
+            #print(count)
+            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_tourism_id) for index_poi in cpois]) 
+            count += 1
+
+            xt = pd.DataFrame(poisx)
+            pois = pois.append(xt, ignore_index=True)
+            
+            gc.collect()
+        
+        
         ray.shutdown()
 
         pois = pd.DataFrame(pois)
@@ -316,7 +240,6 @@ def plot_pois(network, save_dir_images):
 
 def attribute_density_zones(inst, pois):
 
-    
     inst.network.zones['number_pois'] = 0
     
     for idx2, poi in pois.iterrows():
@@ -336,7 +259,7 @@ def attribute_density_zones(inst, pois):
 
     inst.network.zones['density_pois'] = (inst.network.zones['number_pois']/total_sum)*100
     print(inst.network.zones['density_pois'].head())
-    print(inst.network.zones['density_pois'].sum())
+    #print(inst.network.zones['density_pois'].sum())
 
 #def inter_opp_zones(zones, idz):
 
@@ -374,7 +297,7 @@ def calc_rank_between_zones(inst):
     #path_pois_file = os.path.join(save_dir_csv, place_name+'.pois.csv') 
     #zone_ranks.to_csv(path_pois_file)
     zone_ranks.set_index(['zone_id'], inplace=True)
-    print(zone_ranks.head())
+    #print(zone_ranks.head())
     #zone_ranks["sum"] = zone_ranks.sum(axis=1)
 
     return zone_ranks
@@ -417,7 +340,67 @@ def calc_probability_travel_between_zones(inst, zone_ranks, alpha):
 
     zone_probabilities["sum"] = zone_probabilities.sum(axis=1)
 
-    for idx, zone in zone_probabilities.iterrows():
+    #for idx, zone in zone_probabilities.iterrows():
 
-        print(idx, ": ", zone['sum'])
-        
+        #print(idx, ": ", zone['sum'])
+
+        #print(idx, ": ", zone_probabilities[int(idx)].sum())
+ 
+@ray.remote
+def get_zone(zones, pt):   
+
+    for idx, zone in zones.iterrows():
+
+        zone_polygon = zone['polygon']
+    
+        if zone_polygon.contains(pt): 
+
+            return idx
+
+    return np.nan
+
+def rank_of_displacements(inst, zone_ranks, df):
+
+
+    df['zone_origin'] = np.nan
+    df['zone_destination'] = np.nan
+
+    ray.shutdown()
+    ray.init(num_cpus=cpu_count())
+    zones_id = ray.put(inst.network.zones)
+    zone_origins = ray.get([get_zone.remote(zones_id, Point(trip['Pickup_Centroid_Longitude'], trip['Pickup_Centroid_Latitude'])) for idx2, trip in df.iterrows()]) 
+
+    #ßprint(zone_origins)
+    ray.shutdown()
+    ray.init(num_cpus=cpu_count())
+    zones_id = ray.put(inst.network.zones)
+    zone_destinations = ray.get([get_zone.remote(zones_id, Point(trip['Dropoff_Centroid_Longitude'], trip['Dropoff_Centroid_Latitude'])) for idx2, trip in df.iterrows()]) 
+    
+    j = 0
+    for idx2, trip in df.iterrows():
+    
+        df.loc[idx2, 'zone_origin'] = zone_origins[j]
+        df.loc[idx2, 'zone_destination'] = zone_destinations[j]
+        j += 1
+
+    print(df['zone_origin'].head()) 
+    print(df['zone_destination'].head()) 
+
+    df.dropna(subset=['zone_origin'], inplace=True)
+    df.dropna(subset=['zone_destination'], inplace=True)
+
+    df['rank_trip'] = np.nan
+    for idx, trip in df.iterrows():
+
+        idu = int(trip['zone_origin'])
+        idv = int(trip['zone_destination'])
+        #print(zone_ranks.loc[idu, idv])
+        df.loc[idx, 'rank_trip'] = float(zone_ranks.loc[idu, idv])
+
+    print(df['rank_trip'].head())
+    df.dropna(subset=['rank_trip'], inplace=True)
+
+    gc.collect()
+    ray.shutdown()
+
+    return df

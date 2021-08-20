@@ -12,6 +12,10 @@ from shapely.geometry import Polygon
 from geopy.distance import geodesic
 import geopy.distance
 
+import pyproj
+from functools import partial
+from shapely import ops
+
             
 class Network:
 
@@ -492,10 +496,25 @@ class Network:
                 east = lngs[lng+1]
                 west = lngs[lng]
 
-                
-
                 polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
-                
+
+                '''
+                geom_area = ops.transform(
+                partial(
+                    pyproj.transform,
+                    pyproj.Proj('EPSG:4326'),
+                    pyproj.Proj(
+                        proj='aea',
+                        lat_1=polygon.bounds[1],
+                        lat_2=polygon.bounds[3]
+                    )
+                ),
+                polygon)
+
+                # Print the area in km^2
+                print(geom_area.area/1000000)
+                '''
+                #print(zone_id)
 
                 strname = 'zone'+str(zone_id)
 
@@ -507,7 +526,6 @@ class Network:
                 #osmid nearest node drive
                 osmid_drive = ox.get_nearest_node(self.G_drive, zone_center_point)
 
-               
                 pnt = Point(self.G_drive.nodes[osmid_drive]['x'],  self.G_drive.nodes[osmid_drive]['y'])
 
                 if polygon.contains(pnt):
@@ -519,6 +537,7 @@ class Network:
                     ax.scatter(polygon.centroid.x, polygon.centroid.y, c='green', s=8, marker=",")
 
                     #plot here the center point zone in the walk network
+                    '''
                     nc = ['r' if (node == osmid_walk) else '#336699' for node in self.G_walk.nodes()]
                     ns = [16 if (node == osmid_walk) else 1 for node in self.G_walk.nodes()]
                     zone_filename = str(zone_id)+'_'+strname+'_walk.png'
@@ -531,6 +550,7 @@ class Network:
                     zone_filename = str(zone_id)+'_'+strname+'_drive.png'
                     fig3, ax3 = ox.plot_graph(self.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
                     plt.close(fig3)
+                    '''
 
                     d = {
                         "name": strname,
@@ -550,6 +570,7 @@ class Network:
             zones.set_index(['id'], inplace=True)
 
         #plt.show()
+        #plt.savefig('zone_grid_division.png')
         plt.close(fig)
         return zones
 
