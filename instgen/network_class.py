@@ -355,6 +355,8 @@ class Network:
             #else:
             #    print(distancepts)
 
+
+
         return (-1, -1)
 
     def _get_random_coord_circle(self, R, clat, clon):
@@ -404,7 +406,50 @@ class Network:
 
         return (-1, -1)
 
+    def _get_random_coord_radius(self, lat, lon, radius, polygon):
 
+        R = 6378.1 #Radius of the Earth
+
+        counter = 0
+        number = 1
+        while counter < 1000:
+            degree = random.randint(0, 360)
+            brng = math.radians(degree)
+            #Bearing is degrees converted to radians.
+            d = radius/1000 #Distance in km
+
+            lat1 = math.radians(lat) #Current lat point converted to radians
+            lon1 = math.radians(lon) #Current long point converted to radians
+
+            lat2 = math.asin( math.sin(lat1)*math.cos(d/R) +
+                 math.cos(lat1)*math.sin(d/R)*math.cos(brng))
+
+            lon2 = lon1 + math.atan2(math.sin(brng)*math.sin(d/R)*math.cos(lat1),
+                         math.cos(d/R)-math.sin(lat1)*math.sin(lat2))
+
+            lat2 = math.degrees(lat2)
+            lon2 = math.degrees(lon2)
+
+            pnt = Point(lon2, lat2)
+            
+            distancepts = geopy.distance.distance((lat, lon), (lat2, lon2)).m
+            #print(radius)
+            #print(distancepts)
+
+            #o1 = ox.get_nearest_node(self.G_drive, (lat2, lon2))
+            #o2 = ox.get_nearest_node(self.G_drive, (lat, lon))
+            
+            if polygon.contains(pnt):
+                #print('heeeere')
+                #print('heeeere')
+                #rint('heeeere')
+                #print('heeeere')
+                return pnt
+            else:
+                counter += 1
+
+        return Point(-1, -1)
+        
     def set_zone_bbox(self, zone_id, dist_lat, dist_lon):
 
         '''

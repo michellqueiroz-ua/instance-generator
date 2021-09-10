@@ -26,6 +26,7 @@ from streamlit import caching
 import sys
 import time
 import warnings
+import gc
 
 
 try:
@@ -216,6 +217,7 @@ def download_network_information(
     
     del G_drive
     del G_walk
+    gc.collect()
 
     print('Downloading zones from location')
     #zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BBx, BBy)
@@ -234,9 +236,10 @@ def download_network_information(
     
     print(dir())
     del zones 
-    del schools 
-    del retrieve_schools
-    del get_bus_stations_matrix_csv
+    del schools
+    gc.collect() 
+    #del retrieve_schools
+    #del get_bus_stations_matrix_csv
     
     #R = 1000
     #pt = polygon.centroid
@@ -261,7 +264,7 @@ def download_network_information(
     unreachable_nodes = []
     shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(network.G_walk, network.G_drive, network.bus_stations, save_dir, output_folder_base)
 
-    del _get_distance_matrix
+    #del _get_distance_matrix
     #network.G_drive.remove_nodes_from(unreachable_nodes)
     
     #get fixed lines
@@ -298,7 +301,7 @@ def download_network_information(
 
         num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
-        del filter_bus_stations
+        #del filter_bus_stations
         network.bus_stations = network.bus_stations.reset_index(drop=True)
 
         for lp in range(len(network.linepieces)):
@@ -345,7 +348,7 @@ def download_network_information(
         
         num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
-        del filter_bus_stations
+        #del filter_bus_stations
         network.bus_stations = network.bus_stations.reset_index(drop=True)
         
     network.bus_stations_ids = []

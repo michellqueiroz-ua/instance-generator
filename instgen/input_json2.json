@@ -4,32 +4,26 @@
 	"problem": "DARP",
 	"max_speed_factor": 0.5,
 	"replicas": 1,
-	"records": 500,
+	"records": 675439,
 	"instance_filename": ["network", "problem", "records"],
 	"parameters":[
 		{
 			"name": "min_early_departure",
 			"type": "integer",
-			"value": 5,
+			"value": 0,
 			"time_unit": "h"
 		},
 		{
 			"name": "max_early_departure",
 			"type": "integer",
-			"value": 11,
+			"value": 23,
 			"time_unit": "h"
 		},
 		{
 			"name": "min_distance",
 			"type": "integer",
-			"value": 2,
-			"length_unit": "km"
-		},
-		{
-			"name": "max_distance",
-			"type": "integer",
-			"value": 5,
-			"length_unit": "km"
+			"value": 500,
+			"length_unit": "m"
 		},
 		{
 			"name": "graphml",
@@ -42,9 +36,9 @@
 			"name": "earliest_departure",
 			"type": "integer",
 			"time_unit": "s",
-			"pdf": [ {	"type": "normal",
-						"mean": 30600,
-						"std": 3600
+			"pdf": [ {	"type": "uniform",
+						"min": 25200,
+						"max": 36000
 					} ],
 			"constraints": [ "earliest_departure >= 0", 
 							"earliest_departure >= min_early_departure",
@@ -60,30 +54,6 @@
 						"max": 900
 					} ],
 			"output_csv": false
-		},
-		{
-			"name": "latest_departure",
-			"type": "integer",
-			"time_unit": "s",
-			"expression": "earliest_departure + time_window_length"
-		},
-		{
-			"name": "earliest_Pdeparture",
-			"type": "integer",
-			"time_unit": "s",
-			"pdf": [ {	"type": "poisson",
-						"lam": 25200
-					} ],
-			"constraints": [ "earliest_Pdeparture >= 0", 
-							"earliest_Pdeparture >= min_early_departure",
-							 "earliest_Pdeparture <= max_early_departure"
-						   ]
-		},
-		{
-			"name": "earliest_arrival",
-			"type": "integer",
-			"time_unit": "s",
-			"expression": "latest_arrival - time_window_length"
 		},
 		{
 			"name": "latest_arrival",
@@ -107,49 +77,16 @@
 			"expression": "earliest_departure - lead_time",
 			"static_probability": 0.5
 		},
-		{
-			"name": "max_walking",
-			"type": "integer",
-			"time_unit": "s",
-			"pdf": [ {	"type": "uniform",
-						"min": 550,
-						"max": 600
-					} ],
-			"output_csv": false
-		},
-		{
-			"name": "walk_speed",
-			"type": "real",
-			"speed_unit": "mps",
-			"pdf": [ {	"type": "uniform",
-						"min": 1.38889,
-						"max": 1.38889
-					} ],
-			"output_csv": false
-		},
 		{  
 			"name": "origin",
-			"type": "location"
+			"type": "location",
+			"rank_model": "origin"
 		},
-		{ 
-			"name": "stops_orgn",
-			"type": "array_primitives",
-			"expression": "stops(origin)",
-			"constraints": ["len(stops_orgn) > 0"]
-		}, 
 		{  
 			"name": "destination",
-			"type": "location"
-		},
-		{ 
-			"name": "stops_dest",
-			"type": "array_primitives",
-			"expression": "stops(destination)",
-			"constraints": ["len(stops_dest) > 0", "not (set(stops_orgn) & set(stops_dest))"]
-		},
-		{
-			"name": "school",
-			"type": "location"
+			"type": "location",
+			"rank_model": "destination",
+			"start_point": "origin"
 		},
 		{
 			"name": "direct_travel_time",
@@ -165,40 +102,6 @@
 			"expression": "dist_drive(origin,destination)",
 			"constraints": ["direct_distance >= min_distance"],
 			"output_csv": false
-		},
-		{
-			"name": "time_walking",
-			"type": "integer",
-			"time_unit": "s",
-			"expression": "walk(origin,destination)",
-			"constraints": ["time_walking > max_walking"],
-			"output_csv": false
-		},
-		{
-			"name": "ambulatory",
-			"type": "integer",
-			"pdf": [ {	"type": "uniform",
-						"min": 0,
-						"max": 1
-					} ],
-			"weights": ["randomized_weights"]
-		},
-		{
-			"name": "accompanying",
-			"type": "integer",
-			"pdf": [ {	"type": "uniform",
-						"min": 0,
-						"max": 2
-					} ],
-			"weights": [70, 20, 10]
-		},
-		{
-			"name": "inbound_outbound",
-			"type": "integer",
-			"pdf": [ {	"type": "uniform",
-						"min": 0,
-						"max": 1
-					} ]
 		}
 	],
 	"travel_time_matrix": ["bus_stations"]

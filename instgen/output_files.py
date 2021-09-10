@@ -115,7 +115,7 @@ class JsonConverter(object):
 
                 if request.get(att) is not None:
                     
-                    if inst.GA.nodes[att]['output_csv'] is True:
+                    #if inst.GA.nodes[att]['output_csv'] is True:
                         d[att] = request.get(att)
                                    
                         if ((att == 'origin') or (att == 'destination')):
@@ -280,13 +280,14 @@ class JsonConverter(object):
                     file.write('\n')
                 '''
 
+                '''
                 for row in travel_time_matrix_darp:
                     for element in row:
                         file.write(str(int(element)))
                         file.write('\t')
                     file.write('\n')
-
-
+                '''
+                
             #request information
             requests = self.json_data.get('requests')
             num_requests = len(requests)

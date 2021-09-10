@@ -18,6 +18,7 @@ from retrieve_network import download_network_information
 from shapely.geometry import Point
 from shapely.geometry import Polygon
 from streamlit import caching
+import gc
 
 def get_multiplier_time_unit(time_unit):
 
@@ -79,7 +80,7 @@ def input_json(filename_json):
         
         save_dir = os.getcwd()+'/'+place_name
         pickle_dir = os.path.join(save_dir, 'pickle')
-        network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+        network_class_file = pickle_dir+'/'+place_name+'.network2.class.pkl'
 
 
         if Path(network_class_file).is_file():
@@ -746,7 +747,9 @@ def input_json(filename_json):
 
                     if 'start_point' in attribute:
 
-                        GA.nodes[name]['rank_model']['start_point'] = attribute['start_point']
+                        GA.nodes[name]['start_point'] = attribute['start_point']
+                        #adds an specific dependency between the two nodes
+                        GA.add_edge(attribute['start_point'], name)
 
                     else:
                         raise TypeError('start_point must be given for destination point in rank model')
@@ -890,6 +893,9 @@ def input_json(filename_json):
     fig, ax = ox.plot_graph(inst.network.G_walk, show=False, close=False,  figsize=(8, 8), node_color='#000000', node_size=12, bgcolor="#ffffff", edge_color="#999999", edge_alpha=None, dpi=1440)
     plt.savefig(network_folder+'/network_walk')
 
+    del inst.network.G_walk
+    del inst.network.shortest_path_walk
+    gc.collect()
     inst.generate_requests()
 
     caching.clear_cache()

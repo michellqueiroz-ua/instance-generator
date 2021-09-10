@@ -39,6 +39,10 @@ from retrieve_POIs import rank_of_displacements
 from scipy.stats.kde import gaussian_kde
 
 import ray
+import gc
+
+from matplotlib.colors import LogNorm
+import pickle
 
 
 def rank_model(place_name, df):
@@ -60,12 +64,21 @@ def rank_model(place_name, df):
 
     pois = get_POIs_matrix_csv(inst.network.G_walk, inst.network.G_drive, place_name, save_dir, output_folder_base)
     attribute_density_zones(inst, pois)
-    zone_ranks = calc_rank_between_zones(inst)
-    alpha = 0.86
-    calc_probability_travel_between_zones(inst, zone_ranks, alpha)
+    #del attribute_density_zones
 
+    zone_ranks = calc_rank_between_zones(inst)
+    del pois
+    #del calc_rank_between_zones
+    gc.collect()
+
+    alpha = 0.84
+    print('zone_probabilities')
+    zone_probabilities = calc_probability_travel_between_zones(inst, zone_ranks, alpha)
+    #del calc_probability_travel_between_zones
+    gc.collect()
     #df = pd.read_sql_query('SELECT Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude FROM table_record', database)
     
+    '''
     print('rank displacements')           
     df = rank_of_displacements(inst, zone_ranks, df)
 
@@ -86,11 +99,12 @@ def rank_model(place_name, df):
     y = pdf(x)
     plt.scatter(x, y)
     plt.savefig('scatter_rank_trips.png')
+    '''
 
     #dumping updated network file
-    
     print(inst.network.zones['density_pois'].head())
     inst.network.zone_ranks = zone_ranks
+    inst.network.zone_probabilities = zone_probabilities
     
     pickle_dir = os.path.join(save_dir, 'pickle')
     network_class_file = pickle_dir+'/'+output_folder_base+'.network2.class.pkl'
@@ -169,6 +183,9 @@ def new_heatmap(place_name, dfc):
 
     df_de = dfc
 
+    pts_bhx = []
+    pts_bhy = []   
+
     pts_og = []
     pts_ogx = []
     pts_ogy = []    
@@ -178,6 +195,9 @@ def new_heatmap(place_name, dfc):
         pts_og.append(pt)
         pts_ogx.append(row['Pickup_Centroid_Longitude'])
         pts_ogy.append(row['Pickup_Centroid_Latitude'])
+
+        pts_bhx.append(row['Pickup_Centroid_Longitude'])
+        pts_bhy.append(row['Pickup_Centroid_Latitude'])
 
     pts_de = []
     pts_dex = []   
@@ -189,6 +209,9 @@ def new_heatmap(place_name, dfc):
         pts_dex.append(row['Dropoff_Centroid_Longitude'])
         pts_dey.append(row['Dropoff_Centroid_Latitude'])
 
+        pts_bhx.append(row['Dropoff_Centroid_Longitude'])
+        pts_bhy.append(row['Dropoff_Centroid_Latitude'])
+
     minx, miny, maxx, maxy = inst.network.polygon.bounds
     #hm = Heatmap(libpath="cHeatmap.cpython-38-x86_64-linux-gnu.so")
     #img = hm.heatmap(pts_og, scheme='classic', dotsize=75, opacity=128, area=((minx, miny), (maxx, maxy)))
@@ -199,24 +222,37 @@ def new_heatmap(place_name, dfc):
     #img.save("heatmap_de.png")
 
     print(' len points ', len(pts_ogx))
+    print(' len points ', len(pts_bhx))
     #plt.hist2d(pts_ogx,pts_ogy, bins=[np.arange(minx,maxx,5),np.arange(miny,maxy,5)])
-    h = plt.hist2d(pts_ogx,pts_ogy, bins=25)
+    '''
+    h = plt.hist2d(pts_ogx,pts_ogy, bins=25, norm=LogNorm(), cmap='jet')
     plt.colorbar(h[3])
+    plt.xlabel('longitude')
+    plt.ylabel('latitude')
     plt.savefig('heatmap_origin.png')
     plt.close()
 
     #plt.hist2d(pts_dex,pts_dey, bins=[np.arange(minx,maxx,10),np.arange(miny,maxy,10)])
-    h = plt.hist2d(pts_dex,pts_dey, bins=25)
+    h = plt.hist2d(pts_dex,pts_dey, bins=25, norm=LogNorm(), cmap='jet')
     plt.colorbar(h[3])
+    plt.xlabel('longitude')
+    plt.ylabel('latitude')
     plt.savefig('heatmap_destination.png')
     plt.close()
+    '''
 
-    curr_folder = os.getcwd()
+    h = plt.hist2d(pts_bhx,pts_bhy, bins=25, norm=LogNorm(), cmap='jet')
+    plt.colorbar(h[3])
+    plt.xlabel('longitude')
+    plt.ylabel('latitude')
+    plt.savefig('heatmap_both.png')
+    plt.close()
 
-    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8), dpi=128, show=False, filepath='heatmap_origin_points.png', save=True)
+    #curr_folder = os.getcwd()
 
-    fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8), dpi=128, show=False, filepath='heatmap_destination_points.png', save=True)
+    #fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8), dpi=128, show=False, filepath='heatmap_origin_points.png', save=True)
 
+    #fig, ax = ox.plot_graph(inst.network.G_drive,figsize=(8, 8), dpi=128, show=False, filepath='heatmap_destination_points.png', save=True)
 
 def heatmap_osmnx(place_name, database):
 
@@ -339,6 +375,7 @@ def powelaw_best_fitting_distribution(dists):
     print(R, p)
 
 def Fitter_best_fitting_distribution(dists):
+    #f = Fitter(dists, timeout=180, distributions= get_common_distributions())
     f = Fitter(dists, timeout=180)
 
     f.fit()
@@ -430,6 +467,7 @@ def geographic_dispersion(place_name, inst1, day):
 
         ltro = []
         ltrd = []
+        print(idx1)
         for idx2, row2 in inst1.iterrows():
 
             if idx2 != idx1:
@@ -530,10 +568,11 @@ def geographic_dispersion(place_name, inst1, day):
     #omega = ttm1['mean'].mean()
     
 
-    print(mudarp)
-    print(omegadarp)
+    #print(mudarp)
+    #print(omegadarp)
     gd = mudarp + omegadarp
     print(gd)
+    return gd
 
 def similarity(place_name, inst1, inst2):
 
@@ -638,7 +677,7 @@ def similarity(place_name, inst1, inst2):
     #M = nx.bipartite.minimum_weight_full_matching(G, weight='weight')
 
     si1i2 = 0
-    print(len(M))
+    #print(len(M))
     #print(M)
     count = 0
     for e in M:
@@ -828,6 +867,7 @@ def real_data_tests_chicago_database2(ed, ld):
 
     #understand peak hours // off - peak 
     #Observar se os requests seguem normal distribution during peak hours and uniform during off peak. Pegar sample dos horários e plotar
+    '''
     df_pu = pd.read_sql_query('SELECT ih AS time, count(*) AS PUcount \
                         FROM table_record \
                         GROUP BY ih', chicago_database)
@@ -837,24 +877,28 @@ def real_data_tests_chicago_database2(ed, ld):
     ax = df_pu.plot(x='time', y='PUcount', kind='line', style="-o", figsize=(15,5))
     plt.savefig('pickup_trips_time.png')
     plt.close()
+
+
+    '''
     #plt.show()
 
-    dfc = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination, Trip_Miles, speed FROM table_record', chicago_database)
+
+    dfc = pd.read_sql_query('SELECT ih, pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination, Trip_Miles, speed FROM table_record', chicago_database)
     dfc['speed'] = dfc['speed']*3.6
     dfc['speed'].replace([np.inf, -np.inf], np.nan, inplace=True)
     dfc.dropna(subset=['speed'], inplace=True)
 
-    cols = ['Trip_Miles', 'speed']
+    cols = ['Trip_Miles', 'speed', 'Trip_Seconds']
 
     print('len before:', len(dfc))
     for col in cols:
         col_zscore = col + '_zscore'
         dfc[col_zscore] = (dfc[col] - dfc[col].mean())/dfc[col].std(ddof=0)
 
-    zcols = ['Trip_Miles_zscore', 'speed_zscore']
+    zcols = ['Trip_Miles_zscore', 'speed_zscore', 'Trip_Seconds_zscore']
 
-    print(dfc['Trip_Miles_zscore'].head())
-    print(dfc['speed_zscore'].head())
+    #print(dfc['Trip_Miles_zscore'].head())
+    #print(dfc['speed_zscore'].head())
     for zcol in zcols:
         dfc = dfc.loc[(dfc[zcol] < 3)]
 
@@ -865,12 +909,61 @@ def real_data_tests_chicago_database2(ed, ld):
     #print(filtered_entries)
     #dfc['Trip_Miles'] = dfc['Trip_Miles'][filtered_entries]
 
+    #fitting pickups and dropoff times
+
+
+
+    final_dfc = pd.DataFrame()
+    for day in range(1,31):
+
+        weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
+        if day not in weekends_holidays:
+            d1 = '09/{0:0=2d}/2019'.format(day)
+
+            dfct = dfc.loc[(dfc['pickup_day'] == d1)]
+            final_dfc = final_dfc.append(dfct, ignore_index=True)
+            #print(len(dfct))
+
+    dfc = final_dfc
+    print('len after 3:', len(dfc))
+
+
+    dfc2 = dfc
+    #dfc2.groupby(['ih']).size().reset_index(name='PUcount')
+    #dfc2 = dfc2.groupby(['ih']).agg(['mean', 'count'])
+    dfc2 = dfc2.groupby('ih').count()
+    #print(dfc2)
+    ax = dfc2.plot(y='pickup_day', kind='line', style="-o", figsize=(15,5))
+    plt.xlabel('hour')
+    plt.ylabel('number of trips')
+    plt.savefig('pickup_trips_time_weekend.png')
+    plt.close()
+
+
+    dfc = dfc.loc[(dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
+    print('len after2:', len(dfc))
+
     
+    '''
+    print('weekends')
+    for day in range(1,31):
+
+        weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
+        if day in weekends_holidays:
+            d1 = '09/{0:0=2d}/2019'.format(day)
+
+            dfcw = dfc.loc[(dfc['pickup_day'] == d1)]
+            print(len(dfcw))
+    '''
+
+    pus = dfc["pu_time_sec"].values
+    #Fitter_best_fitting_distribution(pus)
+    #print('out fitter1')
 
     #distance
     #df_dist = df_dist.loc[(df_dist['Trip_Miles'] > 500)]
     #print(len(df_dist))
-    print(dfc['Trip_Miles'])
+    #print(dfc['Trip_Miles'])
     #z_scores = zscore(df_dist)
     #abs_z_scores = np.abs(z_scores)
     #filtered_entries = (abs_z_scores < 3).all(axis=1)
@@ -908,84 +1001,90 @@ def real_data_tests_chicago_database2(ed, ld):
     plt.close()
     #plt.show()
 
-
+    
     #similarity
     #ed = 420
     #ld = 540
+
+    '''
     similarities = []
-    for day in range(1,2):
-        for day2 in range(1,2):
-            if day2 > day:
+    for day in range(1,31):
+        weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
+        if day not in weekends_holidays:
+            for day2 in range(1,31):
 
-                d1 = '09/{0:0=2d}/2019'.format(day)
-                d2 = '09/{0:0=2d}/2019'.format(day2)
+                if day2 not in weekends_holidays:
+                    if day2 > day:
 
-                #df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
-                        #FROM table_record', chicago_database)
+                        d1 = '09/{0:0=2d}/2019'.format(day)
+                        d2 = '09/{0:0=2d}/2019'.format(day2)
 
-                #df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
-                        #FROM table_record', chicago_database)
+                        #df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
+                                #FROM table_record', chicago_database)
 
-                df_1 = dfc.loc[(dfc['pickup_day'] == d1) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
+                        #df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
+                                #FROM table_record', chicago_database)
 
-                df_2 = dfc.loc[(dfc['pickup_day'] == d2) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
+                        df_1 = dfc.loc[(dfc['pickup_day'] == d1) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
 
-                '''
-                df_1['Pickup_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_1['Pickup_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_1['Dropoff_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_1['Dropoff_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_1.dropna(subset=['Pickup_Centroid_Latitude'], inplace=True)
-                df_1.dropna(subset=['Pickup_Centroid_Longitude'], inplace=True)
-                df_1.dropna(subset=['Dropoff_Centroid_Latitude'], inplace=True)
-                df_1.dropna(subset=['Dropoff_Centroid_Longitude'], inplace=True)
+                        df_2 = dfc.loc[(dfc['pickup_day'] == d2) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
 
-                df_2['Pickup_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_2['Pickup_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_2['Dropoff_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_2['Dropoff_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_2.dropna(subset=['Pickup_Centroid_Latitude'], inplace=True)
-                df_2.dropna(subset=['Pickup_Centroid_Longitude'], inplace=True)
-                df_2.dropna(subset=['Dropoff_Centroid_Latitude'], inplace=True)
-                df_2.dropna(subset=['Dropoff_Centroid_Longitude'], inplace=True)
-                '''
+                        #what if there are different numbers of requests?
+                        #sample randomly
+                        row_nr = min(len(df_1), len(df_2))
+                        print(len(df_1), len(df_2))
+                        if (len(df_2) < len(df_1)):
+                            df_1 = df_1.sample(n = row_nr, replace = False)
+                        else:
+                            df_2 = df_2.sample(n = row_nr, replace = False)
 
-                #what if there are different numbers of requests?
-                #sample randomly
-                row_nr = min(len(df_1), len(df_2))
-                print(len(df_1), len(df_2))
-                if (len(df_2) < len(df_1)):
-                    df_1 = df_1.sample(n = row_nr, replace = False)
-                else:
-                    df_2 = df_2.sample(n = row_nr, replace = False)
+                        print(len(df_1), len(df_2))
+                        similarities.append(similarity("Chicago, Illinois", df_1, df_2))
+    
+    print(similarities)
+    meansim = sum(similarities) / len(similarities)
+    print('mean similarities', meansim)
+    '''
 
-                print(len(df_1), len(df_2))
-                similarities.append(similarity("Chicago, Illinois", df_1, df_2))
-
+    
     #geographic dispersion
     #df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
     #                    FROM table_record', chicago_database)
 
     #print(df_loc.columns)
     #print(df_gd.columns)
-    for day in range(1,2):
+    '''
+    gds = []
+    for day in range(1,31):
 
-        sd = '09/{0:0=2d}/2019'.format(day)
-        #ed = ed
-        #ld = 540*60
+        weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
+        if day not in weekends_holidays:
+            sd = '09/{0:0=2d}/2019'.format(day)
+            #ed = ed
+            #ld = 540*60
 
-        #print(sd)
-        
-        df_gd_d = dfc.loc[(dfc['pickup_day'] == sd) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
-        #df_gd_d_loc = pd.merge(df_gd_d, df_loc)
-        #print(df_gd_d_loc.head())
-        
-        print('geographic dispersion: ', len(df_gd_d))
-        geographic_dispersion("Chicago, Illinois", df_gd_d, day)
+            #print(sd)
+            
+            df_gd_d = dfc.loc[(dfc['pickup_day'] == sd)]
+            #df_gd_d_loc = pd.merge(df_gd_d, df_loc)
+            #print(df_gd_d_loc.head())
+            
+            print(sd)
+            print('geographic dispersion: ', len(df_gd_d))
+            gd = geographic_dispersion("Chicago, Illinois", df_gd_d, day)
+            gds.append(gd)
+
+
+    meangd = sum(gds) / len(gds)
+    print('mean gds', meangd)
+    variance = sum([((x - meangd) ** 2) for x in gds]) / len(gds)
+    res = variance ** 0.5
+    print('std gds', res)
+    '''
 
     #df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
     #                    FROM table_record', chicago_database)
-
+    '''
     # requests regarding the population
     population = 2710000
 
@@ -1019,12 +1118,15 @@ def real_data_tests_chicago_database2(ed, ld):
         print('ratio eta vs real')
         ratio_eta_real_time("Chicago, Illinois", df_dyn_d)
 
+     
     #change the formulas (for measures of features), and put it in appendix
 
     print('average number of trips per day between ' + str(ed) + ' and ' + str(ld))
     print(avg_trips)
+    ''' 
 
     #heatmap
+    print('heatmap')
     #heatmap_osmnx("Chicago, Illinois", chicago_database)
     new_heatmap("Chicago, Illinois", dfc)
 
@@ -1037,311 +1139,23 @@ def real_data_tests_chicago_database2(ed, ld):
     #df_fit = df_fit[filtered_entries]
 
     dists = dfc["Trip_Miles"].values
-    #Fitter_best_fitting_distribution(dists)
-    print('out Fitter')
+    Fitter_best_fitting_distribution(dists)
+    print('out fitter2')
     #powelaw_best_fitting_distribution(dists)
     
     #rank model
-    rank_model("Chicago, Illinois", dfc)
-
-def real_data_tests_chicago_database(ed, ld):
-
-    if database_exists('sqlite:///chicago_database_tnp.db'):
-        
-        chicago_database = sqla.create_engine('sqlite:///chicago_database_tnp.db')
-
-    else:
-
-        chicago_database = sqla.create_engine('sqlite:///chicago_database_tnp.db')
-        j, chunksize = 1, 100000
-        #for month in range(9,10):
-        fp = "Taxi_Trips_-_2019.csv"
-        for df in pd.read_csv(fp, chunksize=chunksize, iterator=True):
-            df = df.rename(columns={c: c.replace(' ', '_') for c in df.columns})
-            
-            #print(df.columns)
-            df['Trip_Start_Timestamp'] = df['Trip_Start_Timestamp'].astype(str)
-            df['Trip_End_Timestamp'] = df['Trip_End_Timestamp'].astype(str)
-
-            df['pickup_day'] = [x[0:10] for x in df['Trip_Start_Timestamp']]
-            df['dropoff_day'] = [x[0:10] for x in df['Trip_End_Timestamp']]
-            df['pickup_time'] = [x[11:19] for x in df['Trip_Start_Timestamp']]
-            df['dropoff_time'] = [x[11:19] for x in df['Trip_End_Timestamp']]
-
-            #pickup time min
-            df['h'] = [x[11:13] for x in df['Trip_Start_Timestamp']]
-            #df['h'] = [x[11:13] for x in df['Trip_Start_Timestamp']]
-
-            df['min'] = [x[14:16] for x in df['Trip_Start_Timestamp']]
-            #df['min'] = [x[14:16] for x in df['Trip_Start_Timestamp']]
-
-            df['sec'] = [x[17:19] for x in df['Trip_Start_Timestamp']]
-            #df['sec'] = [x[17:19] for x in df['Trip_Start_Timestamp']]
-
-            df['spriod'] = [x[20:22] for x in df['Trip_Start_Timestamp']]
-
-            df['h'].replace('', np.nan, inplace=True)
-            df.dropna(subset=['h'], inplace=True)
-            df['ih'] = df['h'].astype(int)
-            for idx, row in df.iterrows():
-                if row['spriod'] == 'PM':
-                    if row['ih'] != 12:
-                        df.loc[idx, 'ih'] = row['ih'] + 12
-                elif row['spriod'] == 'AM':
-                    if row['ih'] == 12:
-                        df.loc[idx, 'ih'] = 0
-            df['imin'] = df['min'].astype(int)
-            df['isec'] = df['sec'].astype(int)
-
-            #df['ih'] = df['ih'] * 3600
-            #df['imin'] = df['imin'] * 60
-            
-            df['pu_time_sec'] = (df['ih'] * 3600) + (df['imin'] * 60) + df['isec']
-            df['pu_time_sec'] = df['pu_time_sec'].astype(int)
-
-            #dropoff time min
-            df['dh'] = [x[11:13] for x in df['Trip_End_Timestamp']]
-            #df['dh'] = [x[11:13] for x in df['Trip_End_Timestamp']]
-
-            df['dmin'] = [x[14:16] for x in df['Trip_End_Timestamp']]
-            #df['dmin'] = [x[14:16] for x in df['Trip_End_Timestamp']]
-
-            df['dsec'] = [x[17:19] for x in df['Trip_End_Timestamp']]
-            #df['dsec'] = [x[17:19] for x in df['Trip_End_Timestamp']]
-
-            df['epriod'] = [x[20:22] for x in df['Trip_End_Timestamp']]
-
-            df['dh'].replace('', np.nan, inplace=True)
-            df.dropna(subset=['dh'], inplace=True)
-            df['idh'] = df['dh'].astype(int)
-            for idx, row in df.iterrows():
-                if row['epriod'] == 'PM':
-                    if row['idh'] != 12:
-                        df.loc[idx, 'idh'] = row['idh'] + 12
-                elif row['epriod'] == 'AM':
-                    if row['idh'] == 12:
-                        df.loc[idx, 'idh'] = 0
-            df['idmin'] = df['dmin'].astype(int)
-            df['idsec'] = df['dsec'].astype(int)
-
-            #df['idh'] = df['idh'] 
-            #df['idmin'] = df['idmin'] 
-            
-            df['do_time_sec'] = (df['idh'] * 3600) + (df['idmin'] * 60) + df['idsec']
-            df['do_time_sec'] = df['do_time_sec'].astype(int)
-
-            df['Trip_Miles'].astype(float)
-
-            df = remove_false_records(df)
-
-            df['Trip_Miles'] = 1.609*df['Trip_Miles']*1000 #milest to meters
-            df['speed'] = df['Trip_Miles']/df['Trip_Seconds']
-            df = add_osmid_nodes("Chicago, Illinois", df)
-            df.index += j
-            df.to_sql('table_record', chicago_database, if_exists='append')
-            j = df.index[-1] + 1
-        del df
-
-    #understand peak hours // off - peak 
-    #Observar se os requests seguem normal distribution during peak hours and uniform during off peak. Pegar sample dos horários e plotar
-    df_pu = pd.read_sql_query('SELECT ih AS time, count(*) AS PUcount \
-                        FROM table_record \
-                        GROUP BY ih', chicago_database)
-    print(df_pu.head())
-    print(len(df_pu))
-
-    ax = df_pu.plot(x='time', y='PUcount', kind='line', style="-o", figsize=(15,5))
-    plt.savefig('pickup_trips_time.png')
-    plt.close()
-    #plt.show()
-
-    
-    df_dist = pd.read_sql_query('SELECT Trip_Miles FROM table_record', chicago_database)
-
-    #distance
-    df_dist = df_dist.loc[(df_dist['Trip_Miles'] > 500)]
-    #print(len(df_dist))
-    print(df_dist['Trip_Miles'])
-    z_scores = zscore(df_dist)
-    abs_z_scores = np.abs(z_scores)
-    filtered_entries = (abs_z_scores < 3).all(axis=1)
-    df_dist = df_dist[filtered_entries]
-    #df_dist = df_dist.loc[df_dist['Trip_Miles'] > 0]
-    print(df_dist['Trip_Miles'].describe())
-    print(df_dist['Trip_Miles'].mean())
-    print(df_dist['Trip_Miles'].std())
-    #print(len(df_dist))
-
-    ax = df_dist['Trip_Miles'].hist(bins=30, figsize=(15,5))
-    ax.set_yscale('log')
-    ax.set_xlabel("trip distance (meters)")
-    ax.set_ylabel("count")
-    plt.savefig('Trip_Miles.png')
-    plt.close()
-    #plt.show()
-
-    #speed
-    df_speed = pd.read_sql_query('SELECT speed FROM table_record', chicago_database)
-    df_speed['speed'] = df_speed['speed']*3.6
-    df_speed['speed'].replace([np.inf, -np.inf], np.nan, inplace=True)
-    df_speed.dropna(subset=['speed'], inplace=True)
-    
-    z_scores = zscore(df_speed)
-    abs_z_scores = np.abs(z_scores)
-    filtered_entries = (abs_z_scores < 3).all(axis=1)
-    df_speed = df_speed[filtered_entries]
-    print(df_speed['speed'].describe())
-    print(df_speed['speed'].mean())
-    print(df_speed['speed'].std())
-
-    ax = df_speed['speed'].hist(bins=30, figsize=(15,5))
-    ax.set_yscale('log')
-    ax.set_xlabel("trip distance (kmh)")
-    ax.set_ylabel("count")
-    plt.savefig('speed.png')
-    plt.close()
-    #plt.show()
-
-
-    #similarity
-    #ed = 420
-    #ld = 540
-    similarities = []
-    for day in range(1,2):
-        for day2 in range(1,2):
-            if day2 > day:
-
-                d1 = '09/{0:0=2d}/2019'.format(day)
-                d2 = '09/{0:0=2d}/2019'.format(day2)
-
-                df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
-                        FROM table_record', chicago_database)
-
-                df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
-                        FROM table_record', chicago_database)
-
-                df_1 = df_1.loc[(df_1['pickup_day'] == d1) & (df_1['pu_time_sec'] >= ed) & (df_1['pu_time_sec'] <= ld)]
-
-                df_2 = df_2.loc[(df_2['pickup_day'] == d2) & (df_2['pu_time_sec'] >= ed) & (df_2['pu_time_sec'] <= ld)]
-
-                '''
-                df_1['Pickup_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_1['Pickup_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_1['Dropoff_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_1['Dropoff_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_1.dropna(subset=['Pickup_Centroid_Latitude'], inplace=True)
-                df_1.dropna(subset=['Pickup_Centroid_Longitude'], inplace=True)
-                df_1.dropna(subset=['Dropoff_Centroid_Latitude'], inplace=True)
-                df_1.dropna(subset=['Dropoff_Centroid_Longitude'], inplace=True)
-
-                df_2['Pickup_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_2['Pickup_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_2['Dropoff_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_2['Dropoff_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_2.dropna(subset=['Pickup_Centroid_Latitude'], inplace=True)
-                df_2.dropna(subset=['Pickup_Centroid_Longitude'], inplace=True)
-                df_2.dropna(subset=['Dropoff_Centroid_Latitude'], inplace=True)
-                df_2.dropna(subset=['Dropoff_Centroid_Longitude'], inplace=True)
-                '''
-
-                #what if there are different numbers of requests?
-                #sample randomly
-                row_nr = min(len(df_1), len(df_2))
-                print(len(df_1), len(df_2))
-                if (len(df_2) < len(df_1)):
-                    df_1 = df_1.sample(n = row_nr, replace = False)
-                else:
-                    df_2 = df_2.sample(n = row_nr, replace = False)
-
-                print(len(df_1), len(df_2))
-                similarities.append(similarity("Chicago, Illinois", df_1, df_2))
-
-    #geographic dispersion
-    df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
-                        FROM table_record', chicago_database)
-
-    #print(df_loc.columns)
-    print(df_gd.columns)
-    for day in range(1,2):
-
-        sd = '09/{0:0=2d}/2019'.format(day)
-        #ed = ed
-        #ld = 540*60
-
-        #print(sd)
-        
-        df_gd_d = df_gd.loc[(df_gd['pickup_day'] == sd) & (df_gd['pu_time_sec'] >= ed) & (df_gd['pu_time_sec'] <= ld)]
-        #df_gd_d_loc = pd.merge(df_gd_d, df_loc)
-        #print(df_gd_d_loc.head())
-        
-        print('geographic dispersion: ', len(df_gd_d))
-        geographic_dispersion("Chicago, Illinois", df_gd_d, day)
-
-    df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
-                        FROM table_record', chicago_database)
-
-    # requests regarding the population
-    population = 2710000
-
-    #montly per pop
-    mpp = len(df_dyn)/population
-    print(mpp)
-
-    #dynamism
-    #average number of trips per day at a given time slot
-    avg_trips = 0
-    for day in range(1,3):
-
-        sd = '09/{0:0=2d}/2019'.format(day)
-        #ed = 420
-        #ld = 540
-
-        print(sd)
-        
-        df_dyn_d = df_dyn.loc[(df_dyn['pickup_day'] == sd) & (df_dyn['pu_time_sec'] >= ed) & (df_dyn['pu_time_sec'] <= ld)]
-
-        if len(df_dyn_d) > 0:
-            avg_trips += len(df_dyn_d)
-        
-        #daily per pop
-        dpp = len(df_dyn_d)/population
-        print(dpp)
-        print('dynamism')
-        print(len(df_dyn_d))
-        dynamism(df_dyn_d, ed, ld)
-        #ratio between real vs estimated travel time
-        print('ratio eta vs real')
-        ratio_eta_real_time("Chicago, Illinois", df_dyn_d)
-
-    #change the formulas (for measures of features), and put it in appendix
-
-    print('average number of trips per day between ' + str(ed) + ' and ' + str(ld))
-    print(avg_trips)
-
-    #heatmap
-    #heatmap_osmnx("Chicago, Illinois", chicago_database)
-    new_heatmap("Chicago, Illinois", chicago_database)
-
-    #fitting
-    df_fit = pd.read_sql_query('SELECT pu_time_sec, Trip_Miles FROM table_record', chicago_database)
-
-    z_scores = zscore(df_fit)
-    abs_z_scores = np.abs(z_scores)
-    filtered_entries = (abs_z_scores < 3).all(axis=1)
-    df_fit = df_fit[filtered_entries]
-
-    dists = df_fit["Trip_Miles"].values
-    #Fitter_best_fitting_distribution(dists)
-    print('out Fitter')
-    #powelaw_best_fitting_distribution(dists)
-    
-    #rank model
-    rank_model("Chicago, Illinois", chicago_database)
+    #rank_model("Chicago, Illinois", dfc)
 
 if __name__ == '__main__':
     
-    ed = 420*60
-    ld = 540*60
+    #7 and 10 am
+    ed = 25200
+    ld = 36000
+
+    #16 and 20 am
+    #ed = 57600
+    #ld = 72000
+
     real_data_tests_chicago_database2(ed, ld)
 
     
