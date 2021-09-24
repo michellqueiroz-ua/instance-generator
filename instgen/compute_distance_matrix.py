@@ -69,7 +69,7 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
                 
                 dist_uv = -1
                 try:
-                    dist_uv = int(results[j][v])
+                    dist_uv = float(results[j][v])
                 except KeyError:
                     pass
                 if dist_uv != -1:
@@ -147,7 +147,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                     
                     dist_uv = -1
                     try:
-                        dist_uv = int(results[j][v])
+                        dist_uv = float(results[j][v])
                     except KeyError:
                         pass
                     if dist_uv != -1:
@@ -268,7 +268,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                     
                     dist_uv = -1
                     try:
-                        dist_uv = int(results[j][v])
+                        dist_uv = float(results[j][v])
                     except KeyError:
                         pass
                     if dist_uv != -1:

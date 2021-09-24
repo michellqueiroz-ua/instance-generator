@@ -97,10 +97,10 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BB
                             zone_center_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
                             
                             #osmid nearest node walk
-                            osmid_walk = ox.get_nearest_node(G_walk, zone_center_point) 
+                            osmid_walk = ox.nearest_nodes(G_walk, zone_center_point[1], zone_center_point[0]) 
 
                             #osmid nearest node drive
-                            osmid_drive = ox.get_nearest_node(G_drive, zone_center_point)
+                            osmid_drive = ox.nearest_nodes(G_drive, zone_center_point[1], zone_center_point[0])
 
                             #plot here the center point zone in the walk network
                             nc = ['r' if (node == osmid_walk) else '#336699' for node in G_walk.nodes()]

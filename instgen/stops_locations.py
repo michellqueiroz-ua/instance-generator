@@ -368,8 +368,8 @@ def cluster_travel_demand(param, network, num_points=20, request_density_treshol
                 dimensions.append(uminy)
                 origin_point = (uminx, uminy)
                 origin_point_inv = (uminy, uminx)
-                osmid_origin_walk = ox.get_nearest_node(network.G_walk, origin_point_inv)
-                osmid_origin_drive = ox.get_nearest_node(network.G_drive, origin_point_inv)
+                osmid_origin_walk = ox.nearest_nodes(network.G_walk, origin_point_inv[1], origin_point_inv[0])
+                osmid_origin_drive = ox.nearest_nodes(network.G_drive, origin_point_inv[1], origin_point_inv[0])
                 #ax.scatter(uminx, uminy, c='red')
                 
                 uminx, uminy, umaxx, umaxy = unit['destination_polygon'].bounds
@@ -377,8 +377,8 @@ def cluster_travel_demand(param, network, num_points=20, request_density_treshol
                 dimensions.append(uminy)
                 destination_point = (uminx, uminy)
                 destination_point_inv = (uminy, uminx)
-                osmid_destination_walk = ox.get_nearest_node(network.G_walk, destination_point_inv)
-                osmid_destination_drive = ox.get_nearest_node(network.G_drive, destination_point_inv)
+                osmid_destination_walk = ox.nearest_nodes(network.G_walk, destination_point_inv[1], destination_point_inv[0])
+                osmid_destination_drive = ox.nearest_nodes(network.G_drive, destination_point_inv[1], destination_point_inv[0])
                 #ax.scatter(uminx, uminy, c='red')
 
                 #print(osmid_origin_walk, osmid_destination_walk)

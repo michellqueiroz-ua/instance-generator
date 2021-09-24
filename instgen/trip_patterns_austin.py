@@ -152,7 +152,7 @@ def distance(place_name, df_dist, df_loc):
         longitude = float(r1['longitude'].values[0])
         origin_point = (latitude, longitude)
         #print(origin_point)
-        node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        node_origin = ox.nearest_nodes(inst.network.G_drive, origin_point[1], origin_point[0])
         df_dist.loc[idxs, 'osmid_origin'] = int(node_origin) 
         
         r2 = df_loc.loc[df_loc['Kiosk ID'] == row['Return_Kiosk_ID']]
@@ -160,7 +160,7 @@ def distance(place_name, df_dist, df_loc):
         longitude = float(r2['longitude'].values[0])
         destination_point = (latitude, longitude)
         #print(destination_point)
-        node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        node_destination = ox.nearest_nodes(inst.network.G_drive, destination_point[1], destination_point[0])
         df_dist.loc[idxs, 'osmid_destination'] = int(node_destination) 
 
         df_dist.loc[idxs, 'trip_distance'] = inst.network._return_estimated_distance_drive(int(node_origin), int(node_destination))

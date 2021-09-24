@@ -49,10 +49,10 @@ def retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base):
 
                 school_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
 
-                u, v, key = ox.get_nearest_edge(G_walk, school_point)
+                u, v, key = ox.nearest_edges(G_walk, school_point[1], school_point[0])
                 school_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
             
-                u, v, key = ox.get_nearest_edge(G_drive, school_point)
+                u, v, key = ox.nearest_edges(G_drive, school_point[1], school_point[0])
                 school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
             
                 d = {

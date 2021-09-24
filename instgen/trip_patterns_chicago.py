@@ -102,7 +102,7 @@ def rank_model(place_name, df):
 @ray.remote
 def get_osmid_node(G, idx, point):
 
-    osmid_node = ox.get_nearest_node(G, point)
+    osmid_node = ox.nearest_nodes(G, point[1], point[0])
 
     return (idx, osmid_node)
 

@@ -35,7 +35,7 @@ from retrieve_POIs import attribute_density_zones
 from retrieve_POIs import calc_rank_between_zones
 from retrieve_POIs import calc_probability_travel_between_zones
 from retrieve_POIs import rank_of_displacements
-
+from multiprocessing import cpu_count
 from scipy.stats.kde import gaussian_kde
 
 import ray
@@ -112,14 +112,12 @@ def rank_model(place_name, df):
     output_network_class = open(network_class_file, 'wb')
     pickle.dump(inst.network, output_network_class, pickle.HIGHEST_PROTOCOL)
     
-
 @ray.remote
 def get_osmid_node(G, idx, point):
 
-    osmid_node = ox.get_nearest_node(G, point)
+    osmid_node = ox.nearest_nodes(G, point[1], point[0])
 
     return (idx, osmid_node)
-
 
 def add_osmid_nodes(place_name, df):
 
@@ -378,9 +376,16 @@ def Fitter_best_fitting_distribution(dists):
     #f = Fitter(dists, timeout=180, distributions= get_common_distributions())
     f = Fitter(dists, timeout=180)
 
+    bins = 100
+    density = True 
+
     f.fit()
-    print(f.summary(plot=True))
+    #print(f.summary(plot=True))
+    _summary, _data = f.summary(plot=True)
+
     print(f.get_best(method = 'sumsquare_error'))
+
+    return _data
 
 def ratio_eta_real_time(place_name, df_ratio):
 
@@ -421,12 +426,115 @@ def ratio_eta_real_time(place_name, df_ratio):
 
     print('mean ratio', mean)
     print('std ratio', res)
+
+@ray.remote
+def GD_single(network, inst1, idx1, row1, earliest_departure, time_gap):
+
+    ltro = []
+    ltrd = []
     
+    #print(count)
+    for idx2, row2 in inst1.iterrows():
+
+        if idx2 != idx1:
+
+            latest_arrival1 = row1[earliest_departure] + row1['Trip_Seconds']
+            latest_arrival2 = row2[earliest_departure] + row2['Trip_Seconds']
+            #print(row2['earliest_departure'])
+            if ((row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap)):
+                #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
+                #ltro.append(row2['originnode_drive'])
+                #origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
+                node_origin = row2['osmid_origin']
+    
+                ltro.append(node_origin)
+
+            if ((latest_arrival2 >= row1[earliest_departure] - time_gap) and (latest_arrival2 <= row1[earliest_departure] + time_gap)):
+                #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
+                #ltro.append(row2['destinationnode_drive'])
+                #destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
+                node_destination = row2['osmid_destination']
+                
+                ltro.append(node_destination)
+
+            if ((latest_arrival2 >= latest_arrival1 - time_gap) and (latest_arrival2 <= latest_arrival1 + time_gap)):
+                #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
+                #ltrd.append(row2['destinationnode_drive'])
+                #destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
+                node_destination = row2['osmid_destination']
+
+                ltro.append(node_destination)
+
+            if ((row2[earliest_departure] >= latest_arrival1 - time_gap) and (row2[earliest_departure] <= latest_arrival1 + time_gap)):
+                #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
+                #ltrd.append(row2['originnode_drive'])
+                #origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
+                node_origin = row2['osmid_origin']
+
+                ltro.append(node_origin)
+
+    #count += 1
+    #ltro = list(dict.fromkeys(ltro))
+    #ltrd = list(dict.fromkeys(ltrd))
+    #print(ltro)
+    #print(ltrd)
+
+    ltrot = []
+    ltrdt = []
+    
+    #org_row1 = int(row1['originnode_drive'])
+    #origin_point = (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])
+    #org_row1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+    org_row1 = row1['osmid_origin']
+    
+    for x in ltro:
+
+        #tuplx = (x, inst.network._return_estimated_travel_time_drive(int(org_row1), int(x)))
+        tuplx = (x, network._return_estimated_distance_drive(int(org_row1), int(x)))
+        ltrot.append(tuplx)
+
+    #dest_row1 = int(row1['destinationnode_drive'])
+    #destination_point = (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])
+    #dest_row1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+    dest_row1 = row1['osmid_destination']
+
+    for y in ltrd:
+
+        #tuply = (y, inst.network._return_estimated_travel_time_drive(int(dest_row1), int(y)))
+        tuply = (y, network._return_estimated_distance_drive(int(dest_row1), int(y)))
+        ltrdt.append(tuply)
+
+
+    #ordenar as tuplas
+    ltrot.sort(key = lambda x: x[1]) 
+    ltrdt.sort(key = lambda x: x[1])
+    
+    #pegar a media das 5 primeiras
+    n_neig = 5
+    avgo = 0
+    for i in range(min(n_neig, len(ltrot))):
+        avgo += ltrot[i][1]
+    
+    if len(ltrot) > 0:
+        avgo = avgo/min(n_neig, len(ltrot))
+
+    avgd = 0
+    for j in range(min(n_neig, len(ltrdt))):
+        avgd += ltrdt[j][1]
+    #adicionar numa variavel de soma
+    if len(ltrdt) > 0:
+        avgd = avgd/min(n_neig, len(ltrdt))
+    
+    #print(avgo, avgd)
+    #print(avgd)
+    #sumnn += avgo + avgd
+    return avgo + avgd
+
 def geographic_dispersion(place_name, inst1, day):
 
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
-    network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+    network_class_file = pickle_dir+'/'+place_name+'.network2.class.pkl'
 
     network_directory = os.getcwd()+'/'+place_name
 
@@ -463,11 +571,13 @@ def geographic_dispersion(place_name, inst1, day):
     #node_destination = 
     
     sumnn = 0
+    count = 0
+    '''
     for idx1, row1 in inst1.iterrows():
 
         ltro = []
         ltrd = []
-        print(idx1)
+        print(count)
         for idx2, row2 in inst1.iterrows():
 
             if idx2 != idx1:
@@ -475,7 +585,7 @@ def geographic_dispersion(place_name, inst1, day):
                 latest_arrival1 = row1[earliest_departure] + row1['Trip_Seconds']
                 latest_arrival2 = row2[earliest_departure] + row2['Trip_Seconds']
                 #print(row2['earliest_departure'])
-                if (row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap):
+                if ((row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap)):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                     #ltro.append(row2['originnode_drive'])
                     #origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
@@ -483,7 +593,7 @@ def geographic_dispersion(place_name, inst1, day):
         
                     ltro.append(node_origin)
 
-                if (latest_arrival2 >= row1[earliest_departure] - time_gap) and (latest_arrival2 <= row1[earliest_departure] + time_gap):
+                if ((latest_arrival2 >= row1[earliest_departure] - time_gap) and (latest_arrival2 <= row1[earliest_departure] + time_gap)):
                     #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
                     #ltro.append(row2['destinationnode_drive'])
                     #destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
@@ -491,7 +601,7 @@ def geographic_dispersion(place_name, inst1, day):
                     
                     ltro.append(node_destination)
 
-                if (latest_arrival2 >= latest_arrival1 - time_gap) and (latest_arrival2 <= latest_arrival1 + time_gap):
+                if ((latest_arrival2 >= latest_arrival1 - time_gap) and (latest_arrival2 <= latest_arrival1 + time_gap)):
                     #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
                     #ltrd.append(row2['destinationnode_drive'])
                     #destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
@@ -499,7 +609,7 @@ def geographic_dispersion(place_name, inst1, day):
 
                     ltro.append(node_destination)
 
-                if (row2[earliest_departure] >= latest_arrival1 - time_gap) and (row2[earliest_departure] <= latest_arrival1 + time_gap):
+                if ((row2[earliest_departure] >= latest_arrival1 - time_gap) and (row2[earliest_departure] <= latest_arrival1 + time_gap)):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                     #ltrd.append(row2['originnode_drive'])
                     #origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
@@ -507,6 +617,7 @@ def geographic_dispersion(place_name, inst1, day):
 
                     ltro.append(node_origin)
 
+        count += 1
         #ltro = list(dict.fromkeys(ltro))
         #ltrd = list(dict.fromkeys(ltrd))
         #print(ltro)
@@ -561,18 +672,93 @@ def geographic_dispersion(place_name, inst1, day):
         #print(avgo, avgd)
         #print(avgd)
         sumnn += avgo + avgd
+    '''
+
+    ray.shutdown()
+    ray.init(num_cpus=cpu_count())
+    del inst.network.G_walk
+    del inst.network.shortest_path_walk
+    gc.collect()
+    inst1_id = ray.put(inst1)
+    network_id = ray.put(inst.network)
+    
+    values = ray.get([GD_single.remote(network_id, inst1_id, idx1, row1, earliest_departure, time_gap)  for idx1, row1 in inst1.iterrows()]) 
+
+    #calc sum here
+    for value in values:
+        sumnn += value
 
     omegadarp = sumnn/(len(inst1)*2)
     #ttm1['mean'] = ttm1.mean(axis=1)
     #varchi = 0.7
     #omega = ttm1['mean'].mean()
     
-
     #print(mudarp)
     #print(omegadarp)
     gd = mudarp + omegadarp
     print(gd)
     return gd
+
+@ray.remote
+def single_edge(network, inst1, id1, o1, d1, req1, id2, req2, thtt, thts, the, earliest_departure, number_reqs):
+
+    #o2 = req2['originnode_drive']
+    #d2 = req2['destinationnode_drive']
+
+    #origin_point = (req2['Pickup_Centroid_Latitude'], req2['Pickup_Centroid_Longitude'])
+    #o2 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+
+    #destination_point = (req2['Dropoff_Centroid_Latitude'], req2['Dropoff_Centroid_Longitude'])
+    #d2 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+    o2 = req2['osmid_origin'] 
+    d2 = req2['osmid_destination']
+
+    #oott = inst.network._return_estimated_travel_time_drive(int(o1), int(o2))  
+    #ddtt = inst.network._return_estimated_travel_time_drive(int(d1), int(d2)) 
+
+    #oott2 = inst.network._return_estimated_travel_time_drive(int(o2), int(o1))  
+    #ddtt2 = inst.network._return_estimated_travel_time_drive(int(d2), int(d1))
+
+    oott = network._return_estimated_distance_drive(int(o1), int(o2))  
+    ddtt = network._return_estimated_distance_drive(int(d1), int(d2)) 
+
+    oott2 = network._return_estimated_distance_drive(int(o2), int(o1))  
+    ddtt2 = network._return_estimated_distance_drive(int(d2), int(d1))   
+
+    phi = min(oott + ddtt, oott2 + ddtt2)
+
+    n1 = int(id1)
+    n2 = int(id2+number_reqs)
+    #print(n1, n2)
+    if phi < thtt:
+        #print("here")
+        #tau = abs(req1['time_stamp'] - req2['time_stamp'])
+
+        eu1 = abs(req1[earliest_departure])
+        eu2 = abs(req2[earliest_departure])
+        vartheta = abs(eu1 - eu2)
+
+        #print(tau, vartheta)
+
+        if (vartheta < the):
+
+            #G.add_edge(n1, n2, weight=100)
+            return (n1, n2, 100)
+
+        else:
+
+            #if (tau < thts) or (vartheta < the):
+                #print("here")
+                #G.add_edge(n1, n2, weight=75)
+
+            #else:
+                #print("here")
+            #G.add_edge(n1, n2, weight=50)
+            return (n1, n2, 50)
+    else:
+
+        #G.add_edge(n1, n2, weight=0)
+        return (n1, n2, 0)
 
 def similarity(place_name, inst1, inst2):
 
@@ -597,23 +783,13 @@ def similarity(place_name, inst1, inst2):
     for i in range(number_reqs*2):
         G.add_node(int(i))
 
-    #top_nodes = [i for i in range(number_reqs)]
-    #bottom_nodes = [i+500 for i in range(number_reqs)]
-    
+    count = 0
     for id1, req1 in inst1.iterrows():
 
-        #o1 = req1['originnode_drive']
-        #d1 = req1['destinationnode_drive']
-
-        #origin_point = (req1['Pickup_Centroid_Latitude'], req1['Pickup_Centroid_Longitude'])
-        #o1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
-        
-        #destination_point = (req1['Dropoff_Centroid_Latitude'], req1['Dropoff_Centroid_Longitude'])
-        #d1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
         o1 = req1['osmid_origin']
         d1 = req1['osmid_destination']
         
-
+        print(count)
         for id2, req2 in inst2.iterrows():
 
             #o2 = req2['originnode_drive']
@@ -671,8 +847,38 @@ def similarity(place_name, inst1, inst2):
             else:
 
                 G.add_edge(n1, n2, weight=0)
+        
+        count += 1
 
+    '''
+    del inst.network.G_walk
+    del inst.network.shortest_path_walk
+    
+    for id1, req1 in inst1.iterrows():
 
+        print('id1', id1)
+        o1 = req1['osmid_origin']
+        d1 = req1['osmid_destination']
+
+        ray.shutdown()
+        ray.init(num_cpus=cpu_count())
+        gc.collect()
+        inst1_id = ray.put(inst1)
+        network_id = ray.put(inst.network)
+        
+        edges = ray.get([single_edge.remote(network_id, inst1_id, id1, o1, d1, req1, id2, req2, thtt, thts, the, earliest_departure, number_reqs)  for id2, req2 in inst2.iterrows()]) 
+        #print(edges)
+
+        for edge in edges:
+            G.add_edge(edge[0], edge[1], weight=edge[2])
+
+        del inst1_id
+        del network_id
+        del edges
+        gc.collect()
+    '''
+
+    print('left')
     M = nx.max_weight_matching(G, weight='weight', maxcardinality=True)
     #M = nx.bipartite.minimum_weight_full_matching(G, weight='weight')
 
@@ -681,11 +887,7 @@ def similarity(place_name, inst1, inst2):
     #print(M)
     count = 0
     for e in M:
-        #print(e)
-        #print(e[0])
-        #print(e[1])
-        #print(e)
-        #print(e)
+
         peso = G.edges[int(e[0]), int(e[1])]['weight']
         #if peso > 1: 
         si1i2 += peso
@@ -736,10 +938,10 @@ def dynamism(inst1, ed, ld):
                  SIGMA.append(0)
 
     #print(SIGMA)
-    lambdax = 0
-    for sk in SIGMA:
+    #lambdax = 0
+    #for sk in SIGMA:
 
-        lambdax += sk
+    #    lambdax += sk
 
     NEGSIGMA = []
     for k in range(len(DELTA)):
@@ -753,10 +955,10 @@ def dynamism(inst1, ed, ld):
             NEGSIGMA.append(theta)
 
     #print(NEGSIGMA)
-    eta = 0
-    for nsk in NEGSIGMA:
+    #eta = 0
+    #for nsk in NEGSIGMA:
 
-        eta += nsk
+    #    eta += nsk
 
     rho = 1 - (sum(SIGMA)/sum(NEGSIGMA)) 
 
@@ -767,7 +969,7 @@ def dynamism(inst1, ed, ld):
     #print(eta)
     print(rho)
 
-def real_data_tests_chicago_database2(ed, ld):
+def real_data_tests_chicago_database2(time_intervals):
 
     if database_exists('sqlite:///chicago_database_tnp.db'):
         
@@ -881,184 +1083,163 @@ def real_data_tests_chicago_database2(ed, ld):
 
     '''
     #plt.show()
+    data_dist = []
+    for ti in time_intervals:
+
+        #print(time_intervals)
+        day = ti[0]
+        ed = ti[1]
+        ld = ti[2]
+
+        dfc = pd.read_sql_query('SELECT ih, pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination, Trip_Miles, speed FROM table_record', chicago_database)
+        dfc['speed'] = dfc['speed']*3.6
+        dfc['speed'].replace([np.inf, -np.inf], np.nan, inplace=True)
+        dfc.dropna(subset=['speed'], inplace=True)
+
+        cols = ['Trip_Miles', 'speed', 'Trip_Seconds']
+        #dfc = dfc.loc[(dfc['Trip_Miles'] > 2000)]
+
+        print('len before:', len(dfc))
+        for col in cols:
+            col_zscore = col + '_zscore'
+            dfc[col_zscore] = (dfc[col] - dfc[col].mean())/dfc[col].std(ddof=0)
+
+        zcols = ['Trip_Miles_zscore', 'speed_zscore', 'Trip_Seconds_zscore']
+
+        for zcol in zcols:
+            dfc = dfc.loc[(dfc[zcol] < 3)]
+
+        print('len after:', len(dfc))
+        
+        #fitting pickups and dropoff times
+        #pus = dfc["pu_time_sec"].values
+        #Fitter_best_fitting_distribution(pus)
+        #print('out fitter1')
+
+        final_dfc = pd.DataFrame()
+        for day in range(1,31):
+
+            weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
+
+            if day == 0:
+                if day not in weekends_holidays:
+                    d1 = '09/{0:0=2d}/2019'.format(day)
+
+                    dfct = dfc.loc[(dfc['pickup_day'] == d1)]
+                    final_dfc = final_dfc.append(dfct, ignore_index=True)
+            else:
+
+                if day in weekends_holidays:
+                    d1 = '09/{0:0=2d}/2019'.format(day)
+
+                    dfct = dfc.loc[(dfc['pickup_day'] == d1)]
+                    final_dfc = final_dfc.append(dfct, ignore_index=True)
 
 
-    dfc = pd.read_sql_query('SELECT ih, pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination, Trip_Miles, speed FROM table_record', chicago_database)
-    dfc['speed'] = dfc['speed']*3.6
-    dfc['speed'].replace([np.inf, -np.inf], np.nan, inplace=True)
-    dfc.dropna(subset=['speed'], inplace=True)
-
-    cols = ['Trip_Miles', 'speed', 'Trip_Seconds']
-
-    print('len before:', len(dfc))
-    for col in cols:
-        col_zscore = col + '_zscore'
-        dfc[col_zscore] = (dfc[col] - dfc[col].mean())/dfc[col].std(ddof=0)
-
-    zcols = ['Trip_Miles_zscore', 'speed_zscore', 'Trip_Seconds_zscore']
-
-    #print(dfc['Trip_Miles_zscore'].head())
-    #print(dfc['speed_zscore'].head())
-    for zcol in zcols:
-        dfc = dfc.loc[(dfc[zcol] < 3)]
-
-    print('len after:', len(dfc))
-    #z_scores = zscore(dfc['Trip_Miles'])
-    #abs_z_scores = np.abs(z_scores)
-    #filtered_entries = (abs_z_scores < 3).all(axis=0)
-    #print(filtered_entries)
-    #dfc['Trip_Miles'] = dfc['Trip_Miles'][filtered_entries]
-
-    #fitting pickups and dropoff times
+        dfc = final_dfc
+        print('len after 2:', len(dfc))
 
 
-
-    final_dfc = pd.DataFrame()
-    for day in range(1,31):
-
-        weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
-        if day not in weekends_holidays:
-            d1 = '09/{0:0=2d}/2019'.format(day)
-
-            dfct = dfc.loc[(dfc['pickup_day'] == d1)]
-            final_dfc = final_dfc.append(dfct, ignore_index=True)
-            #print(len(dfct))
-
-    dfc = final_dfc
-    print('len after 3:', len(dfc))
+        dfc2 = dfc
+        #dfc2.groupby(['ih']).size().reset_index(name='PUcount')
+        #dfc2 = dfc2.groupby(['ih']).agg(['mean', 'count'])
+        dfc2 = dfc2.groupby('ih').count()
+        #print(dfc2)
+        ax = dfc2.plot(y='pickup_day', kind='line', style="-o", figsize=(15,5))
+        plt.xlabel('hour')
+        plt.ylabel('number of trips')
+        plt.savefig('pickup_trips_time_weekend.png')
+        plt.close()
 
 
-    dfc2 = dfc
-    #dfc2.groupby(['ih']).size().reset_index(name='PUcount')
-    #dfc2 = dfc2.groupby(['ih']).agg(['mean', 'count'])
-    dfc2 = dfc2.groupby('ih').count()
-    #print(dfc2)
-    ax = dfc2.plot(y='pickup_day', kind='line', style="-o", figsize=(15,5))
-    plt.xlabel('hour')
-    plt.ylabel('number of trips')
-    plt.savefig('pickup_trips_time_weekend.png')
-    plt.close()
+        dfc = dfc.loc[(dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
+        print('len after 3:', len(dfc))
 
+        
+        #distance
+        print(dfc['Trip_Miles'].describe())
+        print(dfc['Trip_Miles'].mean())
+        print(dfc['Trip_Miles'].std())
 
-    dfc = dfc.loc[(dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
-    print('len after2:', len(dfc))
+        ax = dfc['Trip_Miles'].hist(bins=30, figsize=(15,5))
+        ax.set_yscale('log')
+        ax.set_xlabel("trip distance (meters)")
+        ax.set_ylabel("count")
+        plt.savefig('Trip_Miles.png')
+        plt.close()
 
-    
-    '''
-    print('weekends')
-    for day in range(1,31):
+        #speed
+        #df_speed = pd.read_sql_query('SELECT speed FROM table_record', chicago_database)
+        print(dfc['speed'].describe())
+        print(dfc['speed'].mean())
+        print(dfc['speed'].std())
 
-        weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
-        if day in weekends_holidays:
-            d1 = '09/{0:0=2d}/2019'.format(day)
+        ax = dfc['speed'].hist(bins=30, figsize=(15,5))
+        ax.set_yscale('log')
+        ax.set_xlabel("trip distance (kmh)")
+        ax.set_ylabel("count")
+        plt.savefig('speed.png')
+        plt.close()
+        #plt.show()
 
-            dfcw = dfc.loc[(dfc['pickup_day'] == d1)]
-            print(len(dfcw))
-    '''
+        
+        #similarity
+        #ed = 420
+        #ld = 540
 
-    pus = dfc["pu_time_sec"].values
-    #Fitter_best_fitting_distribution(pus)
-    #print('out fitter1')
-
-    #distance
-    #df_dist = df_dist.loc[(df_dist['Trip_Miles'] > 500)]
-    #print(len(df_dist))
-    #print(dfc['Trip_Miles'])
-    #z_scores = zscore(df_dist)
-    #abs_z_scores = np.abs(z_scores)
-    #filtered_entries = (abs_z_scores < 3).all(axis=1)
-    #df_dist = df_dist[filtered_entries]
-    #df_dist = df_dist.loc[df_dist['Trip_Miles'] > 0]
-    print(dfc['Trip_Miles'].describe())
-    print(dfc['Trip_Miles'].mean())
-    print(dfc['Trip_Miles'].std())
-    #print(len(df_dist))
-
-    ax = dfc['Trip_Miles'].hist(bins=30, figsize=(15,5))
-    ax.set_yscale('log')
-    ax.set_xlabel("trip distance (meters)")
-    ax.set_ylabel("count")
-    plt.savefig('Trip_Miles.png')
-    plt.close()
-    #plt.show()
-
-    #speed
-    #df_speed = pd.read_sql_query('SELECT speed FROM table_record', chicago_database)
-
-    #z_scores = zscore(df_speed)
-    #abs_z_scores = np.abs(z_scores)
-    #filtered_entries = (abs_z_scores < 3).all(axis=1)
-    #df_speed = df_speed[filtered_entries]
-    print(dfc['speed'].describe())
-    print(dfc['speed'].mean())
-    print(dfc['speed'].std())
-
-    ax = dfc['speed'].hist(bins=30, figsize=(15,5))
-    ax.set_yscale('log')
-    ax.set_xlabel("trip distance (kmh)")
-    ax.set_ylabel("count")
-    plt.savefig('speed.png')
-    plt.close()
-    #plt.show()
-
-    
-    #similarity
-    #ed = 420
-    #ld = 540
-
-    '''
-    similarities = []
-    for day in range(1,31):
-        weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
-        if day not in weekends_holidays:
+        '''
+        similarities = []
+        for day in range(1,31):
+            
             for day2 in range(1,31):
+                
+                if day2 > day:
 
-                if day2 not in weekends_holidays:
-                    if day2 > day:
+                    d1 = '09/{0:0=2d}/2019'.format(day)
+                    d2 = '09/{0:0=2d}/2019'.format(day2)
 
-                        d1 = '09/{0:0=2d}/2019'.format(day)
-                        d2 = '09/{0:0=2d}/2019'.format(day2)
+                    #df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
+                            #FROM table_record', chicago_database)
 
-                        #df_1 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
-                                #FROM table_record', chicago_database)
+                    #df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
+                            #FROM table_record', chicago_database)
 
-                        #df_2 = pd.read_sql_query('SELECT pickup_day, pu_time_sec, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
-                                #FROM table_record', chicago_database)
+                    df_1 = dfc.loc[(dfc['pickup_day'] == d1) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
 
-                        df_1 = dfc.loc[(dfc['pickup_day'] == d1) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
+                    df_2 = dfc.loc[(dfc['pickup_day'] == d2) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
 
-                        df_2 = dfc.loc[(dfc['pickup_day'] == d2) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
+                    #what if there are different numbers of requests?
+                    #sample randomly
+                    print(d1)
+                    print(d2)
+                    row_nr = min(len(df_1), len(df_2))
+                    print(len(df_1), len(df_2))
+                    if (len(df_2) < len(df_1)):
+                        df_1 = df_1.sample(n = row_nr, replace = False)
+                    else:
+                        df_2 = df_2.sample(n = row_nr, replace = False)
 
-                        #what if there are different numbers of requests?
-                        #sample randomly
-                        row_nr = min(len(df_1), len(df_2))
-                        print(len(df_1), len(df_2))
-                        if (len(df_2) < len(df_1)):
-                            df_1 = df_1.sample(n = row_nr, replace = False)
-                        else:
-                            df_2 = df_2.sample(n = row_nr, replace = False)
-
-                        print(len(df_1), len(df_2))
-                        similarities.append(similarity("Chicago, Illinois", df_1, df_2))
+                    print('equal lengths:', len(df_1), len(df_2))
+                    simvalued1d2 = similarity("Chicago, Illinois", df_1, df_2) 
+                    print('similarity: ', simvalued1d2)
+                    similarities.append(simvalued1d2)
     
-    print(similarities)
-    meansim = sum(similarities) / len(similarities)
-    print('mean similarities', meansim)
-    '''
+        print(similarities)
+        meansim = sum(similarities) / len(similarities)
+        print('mean similarities', meansim)
+        '''
+        
+        #df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
+        #                    FROM table_record', chicago_database)
 
-    
-    #geographic dispersion
-    #df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
-    #                    FROM table_record', chicago_database)
-
-    #print(df_loc.columns)
-    #print(df_gd.columns)
-    '''
-    gds = []
-    for day in range(1,31):
-
-        weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
-        if day not in weekends_holidays:
+        #print(df_loc.columns)
+        #print(df_gd.columns)
+        
+        #geographic dispersion
+        '''
+        gds = []
+        for day in range(1,31):
+            
             sd = '09/{0:0=2d}/2019'.format(day)
             #ed = ed
             #ld = 540*60
@@ -1075,71 +1256,75 @@ def real_data_tests_chicago_database2(ed, ld):
             gds.append(gd)
 
 
-    meangd = sum(gds) / len(gds)
-    print('mean gds', meangd)
-    variance = sum([((x - meangd) ** 2) for x in gds]) / len(gds)
-    res = variance ** 0.5
-    print('std gds', res)
-    '''
+        meangd = sum(gds) / len(gds)
+        print('mean gds', meangd)
+        variance = sum([((x - meangd) ** 2) for x in gds]) / len(gds)
+        res = variance ** 0.5
+        print('std gds', res)
+        '''
 
-    #df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
-    #                    FROM table_record', chicago_database)
-    '''
-    # requests regarding the population
-    population = 2710000
+        #df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
+        #                    FROM table_record', chicago_database)
+        '''
+        # requests regarding the population
+        population = 2710000
 
-    #montly per pop
-    mpp = len(dfc)/population
-    print(mpp)
+        #montly per pop
+        mpp = len(dfc)/population
+        print(mpp)
 
-    #dynamism
-    #average number of trips per day at a given time slot
-    avg_trips = 0
-    for day in range(1,3):
+        #dynamism
+        #average number of trips per day at a given time slot
+        avg_trips = 0
+        for day in range(1,31):
 
-        sd = '09/{0:0=2d}/2019'.format(day)
-        #ed = 420
-        #ld = 540
+            sd = '09/{0:0=2d}/2019'.format(day)
+            #ed = 420
+            #ld = 540
 
-        print(sd)
-        
-        df_dyn_d = dfc.loc[(dfc['pickup_day'] == sd) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
+            print(sd)
+            
+            df_dyn_d = dfc.loc[(dfc['pickup_day'] == sd) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
 
-        if len(df_dyn_d) > 0:
-            avg_trips += len(df_dyn_d)
-        
-        #daily per pop
-        dpp = len(df_dyn_d)/population
-        print(dpp)
-        print('dynamism')
-        print(len(df_dyn_d))
-        dynamism(df_dyn_d, ed, ld)
-        #ratio between real vs estimated travel time
-        print('ratio eta vs real')
-        ratio_eta_real_time("Chicago, Illinois", df_dyn_d)
+            if len(df_dyn_d) > 0:
+                avg_trips += len(df_dyn_d)
+            
+            #daily per pop
+            #dpp = len(df_dyn_d)/population
+            #print(dpp)
+            print('len ', len(df_dyn_d))
+            print('dynamism')
+            
+            dynamism(df_dyn_d, ed, ld)
+            #ratio between real vs estimated travel time
+            #print('ratio eta vs real')
+            #ratio_eta_real_time("Chicago, Illinois", df_dyn_d)
 
-     
-    #change the formulas (for measures of features), and put it in appendix
+        #change the formulas (for measures of features), and put it in appendix
+        print('average number of trips per day between ' + str(ed) + ' and ' + str(ld))
+        print(avg_trips)
+        ''' 
+        #heatmap
+        print('heatmap')
+        #heatmap_osmnx("Chicago, Illinois", chicago_database)
+        #new_heatmap("Chicago, Illinois", dfc)
 
-    print('average number of trips per day between ' + str(ed) + ' and ' + str(ld))
-    print(avg_trips)
-    ''' 
+        #fitting
+        #df_fit = pd.read_sql_query('SELECT pu_time_sec, Trip_Miles FROM table_record', chicago_database)
 
-    #heatmap
-    print('heatmap')
-    #heatmap_osmnx("Chicago, Illinois", chicago_database)
-    new_heatmap("Chicago, Illinois", dfc)
+        #z_scores = zscore(df_fit)
+        #abs_z_scores = np.abs(z_scores)
+        #filtered_entries = (abs_z_scores < 3).all(axis=1)
+        #df_fit = df_fit[filtered_entries]
 
-    #fitting
-    #df_fit = pd.read_sql_query('SELECT pu_time_sec, Trip_Miles FROM table_record', chicago_database)
+        dists = dfc["Trip_Miles"].values
+        data_dist.append(Fitter_best_fitting_distribution(dists))
 
-    #z_scores = zscore(df_fit)
-    #abs_z_scores = np.abs(z_scores)
-    #filtered_entries = (abs_z_scores < 3).all(axis=1)
-    #df_fit = df_fit[filtered_entries]
 
-    dists = dfc["Trip_Miles"].values
-    Fitter_best_fitting_distribution(dists)
+    for d1 in data_dist:
+        plt.hist(d1 , bins=bins, density=density, histtype="step")
+    plt.savefig('fitting_dist_curve.png')
+    plt.close()
     print('out fitter2')
     #powelaw_best_fitting_distribution(dists)
     
@@ -1148,15 +1333,26 @@ def real_data_tests_chicago_database2(ed, ld):
 
 if __name__ == '__main__':
     
-    #7 and 10 am
+    time_intervals = []
+    #7 and 10 am weekday
     ed = 25200
     ld = 36000
+    day = 0
+    time_intervals.append((day,ed,ld))
 
-    #16 and 20 am
-    #ed = 57600
-    #ld = 72000
+    #16 and 20 am weekday
+    ed = 57600
+    ld = 72000
+    day = 0
+    time_intervals.append((day,ed,ld))
 
-    real_data_tests_chicago_database2(ed, ld)
+    #16 and 20 am weekend
+    ed = 57600
+    ld = 72000
+    day = 1
+    time_intervals.append((day,ed,ld))
+
+    real_data_tests_chicago_database2(time_intervals)
 
     
 

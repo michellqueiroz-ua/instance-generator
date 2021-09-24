@@ -369,11 +369,11 @@ def get_nodes_osm(G_walk, G_drive, lat, lon):
     node_point = (lat, lon)
     #network_nodes.loc[index, 'lat']
                 
-    u, v, key = ox.get_nearest_edge(G_walk, node_point)
+    u, v, key = ox.nearest_edges(G_walk, node_point[1], node_point[0])
     nodes = [u, v]
     node_walk = min(nodes, key=lambda n: ox.distance.great_circle_vec(lat, lon, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
     
-    u, v, key = ox.get_nearest_edge(G_drive, node_point)
+    u, v, key = ox.nearest_edges(G_drive, node_point[1], node_point[0])
     nodes = [u, v]
     node_drive = min(nodes, key=lambda n: ox.distance.great_circle_vec(lat, lon, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
     
@@ -852,7 +852,8 @@ def get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_file_base):
                         #ax.scatter(nodeu['lon'], nodeu['lat'], c='blue')
                         #print(node_point)
                         
-                        nn = ox.get_nearest_node(G_drive, node_point)
+                        #nn = ox.get_nearest_node(G_drive, node_point)
+                        nn = ox.nearest_nodes(G_drive, nodeu['lon'], nodeu['lat'])
                         
                         if nn not in filtered_nodes_osm:
                             filtered_nodes_osm.append(nn)

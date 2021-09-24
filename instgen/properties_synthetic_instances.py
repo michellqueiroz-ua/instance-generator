@@ -5,6 +5,7 @@ import pandas as pd
 import pickle
 import numpy as np
 import random
+import statistics
 
 from pathlib import Path
 from instance_class import Instance
@@ -480,20 +481,21 @@ def Fitter_best_fitting_distribution(dists):
     print(f.summary(plot=True))
     print(f.get_best(method = 'sumsquare_error'))
 
-def urgency(inst, inst1):
+def urgency(inst1):
 
     chi = []
     for idx, req in inst1.iterrows():
 
-        if req['time_stamp'] > 0:
-            er = abs(req['latest_departure'] - req['time_stamp'])
-            chi.append(er)
-
+        #if req['time_stamp'] > 0:
+        #    er = abs(req['latest_departure'] - req['time_stamp'])
+        #    chi.append(er)
+        er = abs(req['reaction_time'])
+        chi.append(er)
     
     mean = sum(chi) / len(chi)
     variance = sum([((x - mean) ** 2) for x in chi]) / len(chi)
     stdv = variance ** 0.5
-    stdv2 = statistics.pstdev(chi)
+    #stdv2 = statistics.pstdev(chi)
 
     '''
     inst1['reaction_time'] = abs(inst1['latest_departure'] - inst1['time_stamp'])
@@ -504,7 +506,8 @@ def urgency(inst, inst1):
     stdv4 = statistics.pstdev(chi2)
     '''
     
-    print(mean)
+    print('mean:', mean)
+    print('std:', stdv)
     return mean
     #print(stdv)
 
@@ -537,7 +540,7 @@ if __name__ == '__main__':
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
     
-    inst.sorted_attributes = ['destination', 'origin', 'destinationx', 'originx', 'destinationy', 'originy', 'destinationnode_drive', 'originnode_drive', 'direct_distance', 'direct_travel_time', 'walk_speed', 'max_walking', 'time_walking', 'stops_orgn', 'stops_dest', 'lead_time', 'time_window_length', 'earliest_departure', 'time_stamp', 'latest_arrival', 'earliest_arrival', 'latest_departure']
+    inst.sorted_attributes = ['destination', 'origin', 'destinationx', 'originx', 'destinationy', 'originy', 'destinationnode_drive', 'originnode_drive', 'reaction_time', 'direct_distance', 'direct_travel_time', 'walk_speed', 'max_walking', 'time_walking', 'stops_orgn', 'stops_dest', 'lead_time', 'time_window_length', 'earliest_departure', 'time_stamp', 'latest_arrival', 'earliest_arrival', 'latest_departure']
     for instance in os.listdir(os.path.join(inst.save_dir, 'json_format')):
         
         if instance != ".DS_Store":
@@ -558,6 +561,11 @@ if __name__ == '__main__':
 
     csv_directory = network_directory+'/csv_format'
     directory = os.fsencode(csv_directory)
+
+    del inst.network.shortest_path_walk
+    gc.collect()
+
+    num = 0
     for file_inst1 in os.listdir(directory):
 
         filename1 = os.fsdecode(file_inst1)
@@ -566,106 +574,34 @@ if __name__ == '__main__':
         
             inst1 = pd.read_csv(csv_directory+'/'+filename1)
 
-            all_trips = all_trips.append(inst1, ignore_index=True)
+            #all_trips = all_trips.append(inst1, ignore_index=True)
 
 
-    #new_heatmap_pois(inst, place_name)
+            speed = 7.22 #mps = 26 kmh
+            
 
-    all_trips['Trip_Miles'] = np.nan
-    all_trips['Trip_Seconds'] = np.nan
-    speed = 7.22 #mps = 26 kmh
-    #21.30 ?
-    #std 9.14
+            '''
+            ax = all_trips['direct_distance'].hist(bins=30, figsize=(15,5))
+            ax.set_yscale('log')
+            ax.set_xlabel("trip distance (meters)")
+            ax.set_ylabel("count")
+            plt.savefig('direct_distance_syn_non_filtered'+str(num)+'.png')
+            plt.close()
+            print(all_trips['direct_distance'].describe())
+            print(all_trips['direct_distance'].mean())
+            print(all_trips['direct_distance'].std())
 
-    #ray.shutdown()
-    #ray.init(num_cpus=cpu_count(), object_store_memory=11000000000)
+            
+            dists = all_trips["direct_distance"].values
+            Fitter_best_fitting_distribution(dists)
+            print('out fitter2')
+            
 
-    del inst.network.shortest_path_walk
-    gc.collect()
+            new_heatmap(inst, inst1)
+            '''
 
-    #all_trips_id = ray.put(all_trips)
-    #network_id = ray.put(inst.network)
-    print(len(all_trips))
-    #computed_distances = ray.get([compute_distances.remote(network_id, idx, int(row['originnode_drive']), int(row['destinationnode_drive'])) for idx, row in all_trips.iterrows()]) 
+            #print('urgency')
+            #urgency(inst1)
 
-
-    save_dir_csv2 = os.path.join(inst.save_dir, 'csv')
-    path_all_trips = os.path.join(save_dir_csv2, place_name+'.all_trips.csv')
-    if os.path.isfile(path_all_trips):
-        print('is file TRIPS')
-        all_trips = pd.read_csv(path_all_trips)
-
-        #all_trips = all_trips.loc[all_trips['Trip_Miles'] < 32000]
-
-    else:
-        for idx, row in all_trips.iterrows(): 
-        #for cdist in computed_distances:
-
-            #print(idx)
-            origin = int(row['originnode_drive'])
-            destination = int(row['destinationnode_drive'])
-            dist = inst.network._return_estimated_distance_drive(origin, destination)
-
-            #idx = cdist[0]
-            #dist = cdist[1]
-            seconds = int(dist/speed)
-
-            all_trips.loc[idx, 'Trip_Miles'] = dist
-            all_trips.loc[idx, 'Trip_Seconds'] = seconds
-
-        
-        all_trips = pd.DataFrame(all_trips)
-        all_trips.to_csv(path_all_trips)
-
-    print('done')
-    ax = all_trips['Trip_Miles'].hist(bins=30, figsize=(15,5))
-    ax.set_yscale('log')
-    ax.set_xlabel("trip distance (meters)")
-    ax.set_ylabel("count")
-    plt.savefig('Trip_Miles_syn_non_filtered.png')
-    plt.close()
-    print(all_trips['Trip_Miles'].describe())
-    print(all_trips['Trip_Miles'].mean())
-    print(all_trips['Trip_Miles'].std())
-
-    
-    dists = all_trips["Trip_Miles"].values
-    Fitter_best_fitting_distribution(dists)
-    print('out fitter2')
-    
-
-    '''
-    cols = ['Trip_Miles']
-
-    print('len before:', len(all_trips))
-    for col in cols:
-        col_zscore = col + '_zscore'
-        all_trips[col_zscore] = (all_trips[col] - all_trips[col].mean())/all_trips[col].std(ddof=0)
-
-    zcols = ['Trip_Miles_zscore']
-
-
-    for zcol in zcols:
-        all_trips = all_trips.loc[(all_trips[zcol] < 3)]
-
-    print('len after:', len(all_trips))
-    '''
-
-    new_heatmap(inst, all_trips)
-
-    '''
-    ax = all_trips['Trip_Miles'].hist(bins=100, figsize=(15,5))
-    ax.set_yscale('log')
-    ax.set_xlabel("trip distance (meters)")
-    ax.set_ylabel("count")
-    plt.savefig('Trip_Miles_syn_filtered.png')
-    plt.close()
-    print(all_trips['Trip_Miles'].describe())
-    print(all_trips['Trip_Miles'].mean())
-    print(all_trips['Trip_Miles'].std())
-
-
-    dists = all_trips["Trip_Miles"].values
-    Fitter_best_fitting_distribution(dists)
-    print('out fitter2')
-    '''
+            print('dynamism')
+            dynamism(inst1, 25200, 36000)

@@ -105,12 +105,12 @@ class Network:
             distance_drive = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
 
             if str(distance_drive) != 'nan':
-                distance_drive = int(distance_drive)
+                distance_drive = float(distance_drive)
     
         except KeyError:
             distance_drive = -1
 
-        return int(distance_drive)
+        return float(distance_drive)
 
     def _return_estimated_travel_time_drive(self, origin_node, destination_node):
 
@@ -343,7 +343,8 @@ class Network:
         while counter < number:
             pnt = Point(np.random.uniform(minx, maxx), np.random.uniform(miny, maxy))
             pnt2 = (pnt.y, pnt.x)
-            osmid_drive = ox.get_nearest_node(self.G_drive, pnt2)
+            #osmid_drive = ox.get_nearest_node(self.G_drive, pnt2)
+            osmid_drive = ox.nearest_nodes(self.G_drive, pnt.x, pnt.y)
             pnt_osmid = Point(self.G_drive.nodes[osmid_drive]['x'], self.G_drive.nodes[osmid_drive]['y'])
             pnt_osmid2 = (pnt_osmid.y, pnt_osmid.x)
             #distancepts = math.sqrt( ((pnt.x-pnt_osmid.x)**2)+((pnt.y-pnt_osmid.y)**2) )
@@ -566,10 +567,11 @@ class Network:
                 zone_center_point = (polygon.centroid.y, polygon.centroid.x)
 
                 #osmid nearest node walk
-                osmid_walk = ox.get_nearest_node(self.G_walk, zone_center_point) 
+                #osmid_walk = ox.get_nearest_node(self.G_walk, zone_center_point) 
+                osmid_walk = ox.nearest_nodes(self.G_walk, polygon.centroid.x, polygon.centroid.y) 
 
                 #osmid nearest node drive
-                osmid_drive = ox.get_nearest_node(self.G_drive, zone_center_point)
+                osmid_drive = ox.nearest_nodes(self.G_drive, polygon.centroid.x, polygon.centroid.y)
 
                 pnt = Point(self.G_drive.nodes[osmid_drive]['x'],  self.G_drive.nodes[osmid_drive]['y'])
 
@@ -766,10 +768,10 @@ class Network:
         if (len(idxs) > 1):
             raise ValueError('school name must be unique')
 
-        u, v, key = ox.get_nearest_edge(self.G_walk, (y,x))
+        u, v, key = ox.nearest_edges(self.G_walk, x, y)
         school_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
     
-        u, v, key = ox.get_nearest_edge(self.G_drive, (y,x))
+        u, v, key = ox.nearest_edge(self.G_drive, x, y)
         school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
 
         d = {

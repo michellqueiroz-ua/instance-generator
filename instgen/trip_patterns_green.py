@@ -43,7 +43,7 @@ def add_osmid_nodes(place_name, df, df_loc):
         longitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'longitude']
         latitude = df_loc.loc[df_loc['LocationID'] == row1['PULocationID'], 'latitude']
         origin_point = (latitude, longitude)
-        df.loc[id1, 'osmid_origin'] = ox.get_nearest_node(inst.network.G_drive, origin_point)
+        df.loc[id1, 'osmid_origin'] = ox.nearest_nodes(inst.network.G_drive, origin_point[1], origin_point[0])
         #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
 
 
@@ -51,7 +51,7 @@ def add_osmid_nodes(place_name, df, df_loc):
         latitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'latitude']
         destination_point = (latitude, longitude)
         #node_destination = ox.get_nearest_node(inst.network.G_drive, destination_point)
-        df.loc[id1, 'osmid_destination'] = ox.get_nearest_node(inst.network.G_drive, destination_point)
+        df.loc[id1, 'osmid_destination'] = ox.nearest_nodes(inst.network.G_drive, destination_point[1], destination_point[0])
 
     return df
 
@@ -224,7 +224,7 @@ def geographic_dispersion(place_name, inst1, df_loc, day):
                     #latitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'latitude']
                     #origin_point = (latitude, longitude)
                     #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
-                    node_origin = row2'osmid_origin']
+                    node_origin = row2['osmid_origin']
                     ltro.append(node_origin)
 
                 if (row2[latest_arrival] >= row1[earliest_departure] - time_gap) and (row2[latest_arrival] <= row1[earliest_departure] + time_gap):
@@ -254,7 +254,7 @@ def geographic_dispersion(place_name, inst1, df_loc, day):
                     #latitude = df_loc.loc[df_loc['LocationID'] == row2['PULocationID'], 'latitude']
                     #origin_point = (latitude, longitude)
                     #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
-                    node_origin = row2'osmid_origin']
+                    node_origin = row2['osmid_origin']
                     ltro.append(node_origin)
 
         #ltro = list(dict.fromkeys(ltro))

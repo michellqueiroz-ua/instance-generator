@@ -4,7 +4,7 @@
 	"problem": "DARP",
 	"max_speed_factor": 0.5,
 	"replicas": 1,
-	"records": 100,
+	"records": 1000,
 	"instance_filename": ["network", "problem", "records"],
 	"parameters":[
 		{
@@ -32,50 +32,56 @@
 		}
 	],
 	"attributes": [
+		{  
+			"name": "time_stamp",
+			"type": "integer",
+			"time_unit": "s",
+			"pdf": [ {	"type": "normal",
+						"loc": 25200,
+						"scale": 2700
+					} ],
+			"constraints": [ "time_stamp >= 0", 
+							"time_stamp >= min_early_departure",
+							 "time_stamp <= max_early_departure"
+						   ]
+		},
 		{
 			"name": "earliest_departure",
 			"type": "integer",
 			"time_unit": "s",
-			"pdf": [ {	"type": "uniform",
-						"loc": 25200,
-						"scale": 36000
-					} ],
+			"expression": "time_stamp",
 			"constraints": [ "earliest_departure >= 0", 
 							"earliest_departure >= min_early_departure",
 							 "earliest_departure <= max_early_departure"
 						   ]
 		},
 		{
-			"name": "time_window_length",
+			"name": "reaction_time",
 			"type": "integer",
 			"time_unit": "s",
-			"pdf": [ {	"type": "uniform",
-						"loc": 600,
-						"scale": 300
+			"pdf": [ {	"type": "normal",
+						"loc": 300,
+						"scale": 180
 					} ],
-			"output_csv": false
+			"constraints": [ "reaction_time >= 0"]
+		},
+		{
+			"name": "latest_departure",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "time_stamp + reaction_time"
+		},
+		{
+			"name": "earliest_arrival",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "latest_arrival - reaction_time"
 		},
 		{
 			"name": "latest_arrival",
 			"type": "integer",
 			"time_unit": "s",
 			"expression": "earliest_departure + direct_travel_time + (direct_travel_time * 0.5)"
-		},
-		{
-			"name": "lead_time",
-			"type": "integer",
-			"time_unit": "s",
-			"pdf": [ {	"type": "uniform",
-						"loc": 0,
-						"scale": 300
-					} ]
-		},
-		{  
-			"name": "time_stamp",
-			"type": "integer",
-			"time_unit": "s",
-			"expression": "earliest_departure - lead_time",
-			"static_probability": 0.5
 		},
 		{  
 			"name": "origin",
@@ -97,19 +103,8 @@
 			"type": "integer",
 			"length_unit": "m",
 			"expression": "dist_drive(origin,destination)",
-			"constraints": ["direct_distance >= min_distance"],
-			"output_csv": false
+			"constraints": ["direct_distance >= min_distance"]
 		}
 	],
-	"travel_time_matrix": ["bus_stations"],
-	"method_pois": [
-	   {  
-		   "locations": ["origin", "destination"],
-		   "pdf": {
-                    "type": "wald",
-                    "loc": 34.028995255744775,
-                    "scale": 7108.993523334802
-			    	}
-		}
-	]
+	"travel_time_matrix": ["bus_stations"]
 }

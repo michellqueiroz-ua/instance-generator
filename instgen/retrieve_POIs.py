@@ -29,7 +29,7 @@ def get_poi(G_walk, G_drive, index, all_pois):
     #u, v, key = ox.get_nearest_edge(G_drive, poi_point)
     #poi_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
     
-    poi_node_drive = ox.get_nearest_node(G_drive, poi_point)
+    poi_node_drive = ox.nearest_nodes(G_drive, poi_point[1], poi_point[0])
 
     d = {
         #'station_id': index,
@@ -359,7 +359,7 @@ def calc_rank_between_zones(inst):
     for idx, zone in inst.network.zones.iterrows():
 
         center_point = (zone['center_y'], zone['center_x'])
-        center_osmid = ox.get_nearest_node(inst.network.G_drive, center_point)
+        center_osmid = ox.nearest_nodes(inst.network.G_drive, center_point[1], center_point[0])
         inst.network.zones.loc[idx, 'center_osmid'] = int(center_osmid)
 
     zone_ranks = []

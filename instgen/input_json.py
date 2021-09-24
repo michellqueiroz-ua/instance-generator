@@ -512,7 +512,6 @@ def input_json(filename_json):
             if x not in inst.parameters:
                 raise ValueError(x+ ' is not a parameter, therefore not valid for instance_filename')
 
-    
     GA = nx.DiGraph()
 
     if 'travel_time_matrix' in data:
@@ -681,55 +680,181 @@ def input_json(filename_json):
 
                 if GA.nodes[name]['pdf'][0]['type'] == 'normal':
 
-                    if (isinstance(GA.nodes[name]['pdf'][0]['mean'], (int, float))):
-                        GA.nodes[name]['pdf'][0]['mean'] = GA.nodes[name]['pdf'][0]['mean']*mult
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']*mult
                     else:
-                        raise TypeError('mean value must be a number (integer, float)')
+                        raise TypeError('loc value must be a number (integer, float)')
 
-                    if (isinstance(GA.nodes[name]['pdf'][0]['std'], (int, float))):
-                        GA.nodes[name]['pdf'][0]['std'] = GA.nodes[name]['pdf'][0]['std']*mult
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']*mult
                     else:
-                        raise TypeError('std value must be a number (integer, float)')
+                        raise TypeError('scale value must be a number (integer, float)')
 
-                    if (positiveV) and (GA.nodes[name]['pdf'][0]['mean'] < 0):
-                        raise TypeError('a negative "mean" number is not allowed for type time/speed/length')
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
 
-                    if (positiveV) and (GA.nodes[name]['pdf'][0]['std'] < 0):
-                        raise TypeError('a negative "std" number is not allowed for type time/speed/length')
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
                     
                 elif GA.nodes[name]['pdf'][0]['type'] == 'uniform':
 
-                    if (isinstance(GA.nodes[name]['pdf'][0]['max'], (int, float))):
-                        GA.nodes[name]['pdf'][0]['max'] = GA.nodes[name]['pdf'][0]['max']*mult
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']*mult
                     else:
-                        raise TypeError('max value must be a number (integer, float)')
+                        raise TypeError('loc value must be a number (integer, float)')
 
-                    if (isinstance(GA.nodes[name]['pdf'][0]['min'], (int, float))):
-                        GA.nodes[name]['pdf'][0]['min'] = GA.nodes[name]['pdf'][0]['min']*mult
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']*mult + GA.nodes[name]['pdf'][0]['loc']
                     else:
-                        raise TypeError('min value must be a number (integer, float)')
+                        raise TypeError('scale value must be a number (integer, float)')
 
-                    if (positiveV) and (GA.nodes[name]['pdf'][0]['max'] < 0):
-                        raise TypeError('a negative "max" number is not allowed for type time/speed/length')
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
 
-                    if (positiveV) and (GA.nodes[name]['pdf'][0]['min'] < 0):
-                        raise TypeError('a negative "min" number is not allowed for type time/speed/length')
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
 
                     if (GA.nodes[name]['type'] == 'integer'):
-                        GA.nodes[name]['pdf'][0]['max'] += 1
+                        GA.nodes[name]['pdf'][0]['scale'] += 1
 
-                elif GA.nodes[name]['pdf'][0]['type'] == 'poisson':
+                elif GA.nodes[name]['pdf'][0]['type'] == 'cauchy':
 
-                    if (isinstance(GA.nodes[name]['pdf'][0]['lam'], (int, float))):
-                        GA.nodes[name]['pdf'][0]['lam'] = GA.nodes[name]['pdf'][0]['lam']*mult
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']
                     else:
-                        raise TypeError('lam value must be a number (integer, float)')
+                        raise TypeError('loc value must be a number (integer, float)')
 
-                    if (positiveV) and (GA.nodes[name]['pdf'][0]['lam'] < 0):
-                        raise TypeError('a negative "lam" number is not allowed for type time/speed/length')
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']
+                    else:
+                        raise TypeError('scale value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
+
+                elif GA.nodes[name]['pdf'][0]['type'] == 'expon':
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']
+                    else:
+                        raise TypeError('loc value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']
+                    else:
+                        raise TypeError('scale value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
+
+                elif GA.nodes[name]['pdf'][0]['type'] == 'gamma':
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']
+                    else:
+                        raise TypeError('loc value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']
+                    else:
+                        raise TypeError('scale value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['aux'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['aux'] = GA.nodes[name]['pdf'][0]['aux']
+                    else:
+                        raise TypeError('a value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
+
+                elif GA.nodes[name]['pdf'][0]['type'] == 'gilbrat':
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']
+                    else:
+                        raise TypeError('loc value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']
+                    else:
+                        raise TypeError('scale value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
+
+                elif GA.nodes[name]['pdf'][0]['type'] == 'lognorm':
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']
+                    else:
+                        raise TypeError('loc value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']
+                    else:
+                        raise TypeError('scale value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
+
+                elif GA.nodes[name]['pdf'][0]['type'] == 'powerlaw':
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']
+                    else:
+                        raise TypeError('loc value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']
+                    else:
+                        raise TypeError('scale value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['aux'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['aux'] = GA.nodes[name]['pdf'][0]['aux']
+                    else:
+                        raise TypeError('a value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
+
+                elif GA.nodes[name]['pdf'][0]['type'] == 'wald':
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['loc'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['loc'] = GA.nodes[name]['pdf'][0]['loc']
+                    else:
+                        raise TypeError('loc value must be a number (integer, float)')
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']
+                    else:
+                        raise TypeError('scale value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['loc'] < 0):
+                        raise TypeError('a negative "loc" number is not allowed for type time/speed/length')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
+                        raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
 
                 else:
-                    raise TypeError('pdf must be normal, uniform or poisson')
+                    raise TypeError('pdf must be cauchy, expon, gamma, gilbrat, lognorm, normal, powerlaw, uniform, or wald')
 
             elif 'expression' in attribute:
 
@@ -738,21 +863,6 @@ def input_json(filename_json):
             if 'constraints' in attribute:
 
                 GA.nodes[name]['constraints'] = attribute['constraints']
-
-            if 'rank_model' in attribute:
-
-                GA.nodes[name]['rank_model'] = attribute['rank_model']
-
-                if GA.nodes[name]['rank_model'] == 'destination':
-
-                    if 'start_point' in attribute:
-
-                        GA.nodes[name]['start_point'] = attribute['start_point']
-                        #adds an specific dependency between the two nodes
-                        GA.add_edge(attribute['start_point'], name)
-
-                    else:
-                        raise TypeError('start_point must be given for destination point in rank model')
 
             if 'weights' in attribute:
 
@@ -766,7 +876,7 @@ def input_json(filename_json):
                 if 'pdf' in attribute:
                     
                     if GA.nodes[name]['pdf'][0]['type'] == 'uniform':
-                        GA.nodes[name]['all_values'] = list(range(math.ceil(GA.nodes[name]['pdf'][0]['min']), math.floor(GA.nodes[name]['pdf'][0]['max'])))
+                        GA.nodes[name]['all_values'] = list(range(math.ceil(GA.nodes[name]['pdf'][0]['loc']), math.floor(GA.nodes[name]['pdf'][0]['scale'])))
                         #print(GA.nodes[name]['all_values'])
                         size_all_values = len(GA.nodes[name]['all_values'])
                     else: raise ValueError('normal distribution and weights is not allowed')
@@ -840,9 +950,7 @@ def input_json(filename_json):
                                 GA.add_edge(exp, node)
 
 
-        inst.sorted_attributes = list(nx.topological_sort(GA))
-        inst.GA = GA
-        print(inst.sorted_attributes)
+        
 
         if 'travel_time_matrix' in inst.parameters:
             for loc in inst.parameters['travel_time_matrix']['locations']:
@@ -851,8 +959,24 @@ def input_json(filename_json):
 
     else: raise ValueError('attributes for instance are mandatory')
 
-    
-    #else: raise ValueError('locations for travel_time_matrix is mandatory')
+    if 'method_pois' in data:
+
+        inst.parameters['method_pois'] = {}
+        inst.parameters['method_pois']['value'] = data['method_pois'][0]
+        inst.parameters['method_pois']['type'] = 'method' 
+
+        print(inst.parameters['method_pois']['value']['locations'])
+        if not (isinstance(inst.parameters['method_pois']['value']['locations'], (list))): 
+            raise TypeError('locations from method_pois must be an array')
+
+        #GA.nodes[name]['start_point'] = attribute['start_point']
+        #adds an specific dependency between the two nodes
+        GA.add_edge(inst.parameters['method_pois']['value']['locations'][0], inst.parameters['method_pois']['value']['locations'][1])
+
+
+    inst.sorted_attributes = list(nx.topological_sort(GA))
+    inst.GA = GA
+    print(inst.sorted_attributes)
 
     #caching.clear_cache()
 

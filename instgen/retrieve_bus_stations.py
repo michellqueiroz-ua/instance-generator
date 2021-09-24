@@ -79,10 +79,10 @@ def get_bus_station(G_walk, G_drive, index, poi):
     if poi['highway'] == 'bus_stop':
         bus_station_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
         
-        u, v, key = ox.get_nearest_edge(G_walk, bus_station_point)
+        u, v, key = ox.nearest_edges(G_walk, bus_station_point[1], bus_station_point[0])
         bus_station_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
         
-        u, v, key = ox.get_nearest_edge(G_drive, bus_station_point)
+        u, v, key = ox.nearest_edges(G_drive, bus_station_point[1], bus_station_point[0])
         bus_station_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
         
         d = {

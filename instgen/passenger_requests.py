@@ -13,7 +13,12 @@ import random
 import ray
 import re
 from shapely.geometry import Point
+from scipy.stats import cauchy
+from scipy.stats import expon
+from scipy.stats import gamma
 from scipy.stats import gilbrat
+from scipy.stats import lognorm
+from scipy.stats import powerlaw
 from scipy.stats import wald
 from multiprocessing import cpu_count
 import gc
@@ -197,8 +202,11 @@ def _generate_requests_ODBRPFL(
                         #ax.scatter(destination_point.x, destination_point.y, c='green')
                         destination_point = (destination_point.y, destination_point.x)
 
-                    origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
-                    destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
+                    #origin_node_walk = ox.get_nearest_node(inst.network.G_walk, origin_point)
+                    #destination_node_walk = ox.get_nearest_node(inst.network.G_walk, destination_point)
+                    origin_node_walk = ox.nearest_nodes(inst.network.G_walk, origin_point[1], origin_point[0])
+                    destination_node_walk = ox.nearest_nodes(inst.network.G_walk, destination_point[1], destination_point[0])
+                    
                     time_walking = inst.network.get_eta_walk(origin_node_walk, destination_node_walk, request_walk_speed)
 
                     
@@ -434,9 +442,9 @@ def _generate_requests_ODBRPFL(
         file.close()
 
 @ray.remote
-def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, distancex):
+def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, method_poi, distancex, pu, do, pdfunc, loc, scale, aux):
     
-    print(reqid)
+    #print(reqid)
     #print("here")
     attributes = {}
     feasible_data = False
@@ -445,13 +453,20 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
         
         attributes = {}
         feasible_data = True
-        heads_or_tails = random.randint(0,1)
-        if heads_or_tails == 0:
-            sorted_attributes[0] = 'origin'
-            sorted_attributes[1] = 'destination'
-        else:
-            sorted_attributes[0] = 'destination'
-            sorted_attributes[1] = 'origin'
+        if method_poi:
+            heads_or_tails = random.randint(0,1)
+            if heads_or_tails == 1:
+                
+                #sorted_attributes[0] = pu
+                #sorted_attributes[1] = do   
+                #else:
+
+                for sa in range(len(sorted_attributes)):
+                    if sorted_attributes[sa] == pu:
+                        sorted_attributes[sa] = do
+                    else:
+                        if sorted_attributes[sa] == do:
+                            sorted_attributes[sa] = pu
 
         #print(sorted_attributes)
 
@@ -472,16 +487,15 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
 
                         if zone is False:
 
+                            if method_poi:
 
-                            if 'rank_model' in GA.nodes[att]:
-
-
-                                type_coord = GA.nodes[att]['rank_model']
+                                type_coord = att
+                                #print(type_coord)
                                 zones = network.zones.index.tolist()
                                 
                                 if heads_or_tails == 0:
 
-                                    if type_coord == 'destination':
+                                    if type_coord == do:
                                         
                                         '''
                                         probabilities = network.zones['density_pois'].tolist()
@@ -498,23 +512,59 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
                                             rseed = rseed * 1000
                                             #print(rseed)
                                             rseed = int(rseed)
-                                            wald.random_state = np.random.RandomState(seed=rseed)
-                                            #radius = wald.rvs(loc=116.81, scale=6578.84, size=1)
-                                            #print(reqid)
-                                            radius = wald.rvs(loc=34.028995255744775, scale=7108.993523334802, size=1)
+
+                                            if pdfunc == 'cauchy':
+                                                cauchy.random_state = np.random.RandomState(seed=rseed)
+                                                radius = cauchy.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'expon':
+                                                expon.random_state = np.random.RandomState(seed=rseed)
+                                                radius = expon.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'gamma':
+                                                gamma.random_state = np.random.RandomState(seed=rseed)
+                                                radius = gamma.rvs(a=aux, loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'gilbrat':
+                                                gilbrat.random_state = np.random.RandomState(seed=rseed)
+                                                radius = gilbrat.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'lognorm':
+                                                lognorm.random_state = np.random.RandomState(seed=rseed)
+                                                radius = lognorm.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'normal':
+                                                normal.random_state = np.random.RandomState(seed=rseed)
+                                                radius = normal.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'powerlaw':
+                                                powerlaw.random_state = np.random.RandomState(seed=rseed)
+                                                radius = powerlaw.rvs(a=aux, loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'uniform':
+                                                uniform.random_state = np.random.RandomState(seed=rseed)
+                                                radius = uniform.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'wald':
+                                                wald.random_state = np.random.RandomState(seed=rseed)
+                                                radius = wald.rvs(loc=loc, scale=scale, size=1)
+                                            
+                                            #wald.random_state = np.random.RandomState(seed=rseed)
+                                            #radius = wald.rvs(loc=34.028995255744775, scale=7108.993523334802, size=1)
+
                                         else:
                                             radius = distancex
                                             first_time = False
                                         #if radius > 20000:
                                         #    print(radius)
                                         #print(radius)
-                                        att_start = GA.nodes[att]['start_point']
+                                        att_start = pu
                                         lat = attributes[att_start+'y']
                                         lon = attributes[att_start+'x']
                                         point = network._get_random_coord_radius(lat, lon, radius, network.polygon)
                                         #print(point)
 
-                                    elif type_coord == 'origin':
+                                    elif type_coord == pu:
                                         
                                         #att_start = GA.nodes[att]['start_point']
                                         #zone_start = int(attributes[att_start+'zone'])
@@ -531,7 +581,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
                                     
                                 else:
 
-                                    if type_coord == 'origin':
+                                    if type_coord == pu:
                                         
                                         '''
                                         probabilities = network.zones['density_pois'].tolist()
@@ -547,23 +597,57 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
                                             rseed = rseed * 1000
                                             #print(rseed)
                                             rseed = int(rseed)
-                                            wald.random_state = np.random.RandomState(seed=rseed)
-                                            #radius = wald.rvs(loc=116.81, scale=6578.84, size=1)
-                                            #print(reqid)
-                                            radius = wald.rvs(loc=34.028995255744775, scale=7108.993523334802, size=1)
+
+                                            if pdfunc == 'cauchy':
+                                                cauchy.random_state = np.random.RandomState(seed=rseed)
+                                                radius = cauchy.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'expon':
+                                                expon.random_state = np.random.RandomState(seed=rseed)
+                                                radius = expon.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'gamma':
+                                                gamma.random_state = np.random.RandomState(seed=rseed)
+                                                radius = gamma.rvs(a=aux, loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'gilbrat':
+                                                gilbrat.random_state = np.random.RandomState(seed=rseed)
+                                                radius = gilbrat.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'lognorm':
+                                                lognorm.random_state = np.random.RandomState(seed=rseed)
+                                                radius = lognorm.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'normal':
+                                                normal.random_state = np.random.RandomState(seed=rseed)
+                                                radius = normal.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'powerlaw':
+                                                powerlaw.random_state = np.random.RandomState(seed=rseed)
+                                                radius = powerlaw.rvs(a=aux, loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'uniform':
+                                                uniform.random_state = np.random.RandomState(seed=rseed)
+                                                radius = uniform.rvs(loc=loc, scale=scale, size=1)
+
+                                            if pdfunc == 'wald':
+                                                wald.random_state = np.random.RandomState(seed=rseed)
+                                                radius = wald.rvs(loc=loc, scale=scale, size=1)
+                                            
                                         else:
                                             radius = distancex
                                             first_time = False
+
                                         #if radius > 20000:
                                         #    print(radius)
                                         #print(radius)
-                                        att_start = 'destination'
+                                        att_start = do
                                         lat = attributes[att_start+'y']
                                         lon = attributes[att_start+'x']
                                         point = network._get_random_coord_radius(lat, lon, radius, network.polygon)
                                         #print(point)
 
-                                    elif type_coord == 'destination':
+                                    elif type_coord == do:
                                         
                                         #att_start = GA.nodes[att]['start_point']
                                         #zone_start = int(attributes[att_start+'zone'])
@@ -577,9 +661,6 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
                                         polygon_zone = network.zones.loc[random_zone_id]['polygon']
                                         point = network._get_random_coord(polygon_zone)
                                         #print(point)
-
-
-
 
                             else:
 
@@ -640,8 +721,11 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
                     
                     if point[1] != -1:
                         not_feasible_attribute = False
-                        node_drive = ox.get_nearest_node(network.G_drive, point)
+                        #node_drive = ox.get_nearest_node(network.G_drive, point)
                         #node_walk = ox.get_nearest_node(network.G_walk, point)
+
+                        node_drive = ox.nearest_nodes(network.G_drive, point[1], point[0])
+                        #node_walk = ox.nearest_nodes(network.G_walk, point[1], point[0])
 
                         attributes[att+'node_drive'] = int(node_drive)
                         #attributes[att+'node_walk'] = int(node_walk)
@@ -653,13 +737,13 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
                         not_feasible_attribute = True
                         
 
-                if att == 'origin':         
+                if att == pu:         
                     if not_feasible_attribute:
                 
                         feasible_data = False
                         break 
 
-                if att == 'destination':         
+                if att == do:         
                     if not_feasible_attribute:
                 
                         feasible_data = False
@@ -669,22 +753,12 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
 
                     if GA.nodes[att]['pdf'][0]['type'] == 'normal':
 
-                        attributes[att] = np.random.normal(GA.nodes[att]['pdf'][0]['mean'], GA.nodes[att]['pdf'][0]['std'])
+                        attributes[att] = np.random.normal(GA.nodes[att]['pdf'][0]['loc'], GA.nodes[att]['pdf'][0]['scale'])
                         
                         if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                             attributes[att] = int(attributes[att])
 
-
-                    if GA.nodes[att]['pdf'][0]['type'] == 'poisson':
-
-                        attributes[att] = np.random.poisson(GA.nodes[att]['pdf'][0]['lam'])
-                        
-                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
-                            attributes[att] = int(attributes[att])
-
-                        
-                        #print(attributes[att])
-
+                    
                     if GA.nodes[att]['pdf'][0]['type'] == 'uniform':
 
 
@@ -695,14 +769,75 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, dis
                             #print(attributes[att])
 
                         else:
+
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
-                                attributes[att] = np.random.randint(GA.nodes[att]['pdf'][0]['min'], GA.nodes[att]['pdf'][0]['max'])
+                                attributes[att] = np.random.randint(GA.nodes[att]['pdf'][0]['loc'], GA.nodes[att]['pdf'][0]['scale'])
                             else:
-                                attributes[att] = np.random.uniform(GA.nodes[att]['pdf'][0]['min'], GA.nodes[att]['pdf'][0]['max'])
+                                attributes[att] = np.random.uniform(GA.nodes[att]['pdf'][0]['loc'], GA.nodes[att]['pdf'][0]['scale'])
 
                             #print(inst.GA.nodes[att]['pdf'][0]['min'], inst.GA.nodes[att]['pdf'][0]['max'])
                             #if att == 'ambulatory':
                                 #print(attributes[att])
+
+                    if GA.nodes[att]['pdf'][0]['type'] == 'cauchy':
+
+                        attributes[att] = cauchy.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+
+                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+
+                    if GA.nodes[att]['pdf'][0]['type'] == 'expon':
+
+                        attributes[att] = expon.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+
+                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+
+                    if GA.nodes[att]['pdf'][0]['type'] == 'gamma':
+
+                        attributes[att] = gamma.rvs(a=GA.nodes[att]['pdf'][0]['aux'], loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+
+                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+
+                    if GA.nodes[att]['pdf'][0]['type'] == 'gilbrat':
+
+                        attributes[att] = gilbrat.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+
+                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+
+                    if GA.nodes[att]['pdf'][0]['type'] == 'lognorm':
+
+                        attributes[att] = lognorm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+
+                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+
+                    if GA.nodes[att]['pdf'][0]['type'] == 'powerlaw':
+
+                        attributes[att] = powerlaw.rvs(a=GA.nodes[att]['pdf'][0]['aux'], loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+
+                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+
+                    if GA.nodes[att]['pdf'][0]['type'] == 'wald':
+
+                        attributes[att] = wald.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+
+                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+
+                    '''
+                    if GA.nodes[att]['pdf'][0]['type'] == 'poisson':
+
+                        attributes[att] = np.random.poisson(GA.nodes[att]['pdf'][0]['lam'])
+                        
+                        if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                            attributes[att] = int(attributes[att])
+                    '''
+
+
 
                 elif 'expression' in GA.nodes[att]:
 
@@ -887,7 +1022,6 @@ def _generate_requests(
     
     print("Now generating " + " request_data")
 
-
     origin_points=[]
     destination_points=[]
     h = 0
@@ -904,14 +1038,65 @@ def _generate_requests(
     #distancesx = wald.rvs(loc=65.081, scale=7035.153, size=inst.parameters['records']['value']+10000)
 
     #distancesx = wald.rvs(loc=116.81, scale=6578.84, size=inst.parameters['records']['value']+20000)
-    distancesx = wald.rvs(loc=34.028995255744775, scale=7108.993523334802, size=inst.parameters['records']['value']+20000)
 
-    #{'wald': (34.028995255744775, 7108.993523334802)}
+    method_poi = False
+    pu = None 
+    do = None 
+    pdfunc = None
+    aux = None 
+    loc = None 
+    scale = None 
 
-    distances = [x for x in distancesx if x >= 500]
-    distances = [x for x in distancesx if x < 32000]
-    #print(distances)
-    print('len distances: ', len(distances))
+    num_requests = inst.parameters['records']['value']
+    if 'method_pois' in inst.parameters:
+
+        method_poi = True 
+        pu = inst.parameters['method_pois']['value']['locations'][0]
+        do = inst.parameters['method_pois']['value']['locations'][1]
+        #print(pu, do)
+        pdfunc = inst.parameters['method_pois']['value']['pdf']['type']
+
+        aux = -1
+        loc = inst.parameters['method_pois']['value']['pdf']['loc']
+        scale = inst.parameters['method_pois']['value']['pdf']['scale']
+        #print('here')
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'cauchy':
+            distancesx = cauchy.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'expon':
+            distancesx = expon.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'gamma':
+            distancesx = gamma.rvs(a=inst.parameters['method_pois']['value']['pdf']['aux'], loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+            aux = inst.parameters['method_pois']['value']['pdf']['aux']
+
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'gilbrat':
+            distancesx = gilbrat.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'lognorm':
+            distancesx = lognorm.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'normal':
+            distancesx = normal.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'powerlaw':
+            distancesx = powerlaw.rvs(a=inst.parameters['method_pois']['value']['pdf']['aux'], loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+            aux = inst.parameters['method_pois']['value']['pdf']['aux']
+
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'uniform':
+            distancesx = uniform.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+
+        if inst.parameters['method_pois']['value']['pdf']['type'] == 'wald':
+            distancesx = wald.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['records']['value']+20000)
+
+
+        distances = [x for x in distancesx if x >= 500]
+        distances = [x for x in distancesx if x < 32000]
+        #print(distances)
+        print('len distances: ', len(distances))
+    else:
+
+        distances = [0] * num_requests
 
     #print(inst.network.zones['density_pois'].sum())
 
@@ -941,7 +1126,8 @@ def _generate_requests(
 
                     point = inst.network._get_random_coord(inst.network.polygon)
                     point = (point.y, point.x)
-                    node_drive = ox.get_nearest_node(inst.network.G_drive, point)
+                    #node_drive = ox.get_nearest_node(inst.network.G_drive, point)
+                    node_drive = ox.nearest_nodes(inst.network.G_drive, point[1], point[0])
                     if node_drive not in inst.parameters[param]['list_node_drive'+str(replicate_num)]:
                         inst.parameters[param]['list'+str(replicate_num)].append("random_loc"+len(inst.parameters[param]['list'+str(replicate_num)]))
                         inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
@@ -986,7 +1172,7 @@ def _generate_requests(
 
             #print(inst.parameters[param]['zones'+str(replicate_num)])               
 
-    num_requests = inst.parameters['records']['value']
+    
     print(num_requests)
     instance_data = {}
     all_instance_data = {}  
@@ -1012,7 +1198,7 @@ def _generate_requests(
     sorted_attributes_id = ray.put(inst.sorted_attributes)
     parameters_id = ray.put(inst.parameters)
     print("HERE")
-    all_reqs = ray.get([_generate_single_data.remote(GA_id, network_id, sorted_attributes_id, parameters_id, i, distances[i]) for i in range(num_requests)]) 
+    all_reqs = ray.get([_generate_single_data.remote(GA_id, network_id, sorted_attributes_id, parameters_id, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux) for i in range(num_requests)]) 
     print("OUT HERE")
     #inst.GA = GA_id
     del GA_id
@@ -1032,6 +1218,8 @@ def _generate_requests(
         instance_data.update({i: req})
         i += 1    
               
+    del all_reqs
+    gc.collect()
 
     #count, bins, ignored = plt.hist(ps, 30, density=True)
     #plt.plot(bins, np.ones_like(bins), linewidth=2, color='r')    
@@ -1168,7 +1356,10 @@ def _generate_requests(
 
     with open(inst.output_file_json, 'w') as file:
         json.dump(all_instance_data, file, indent=4)
-        file.close()     
+        file.close() 
+
+    del all_instance_data
+    gc.collect()
 
 def _generate_requests_regular( 
     inst,
