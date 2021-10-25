@@ -1,10 +1,10 @@
 {
 	"seed": 100,
-	"network": "Chicago, Illinois",
+	"network": "Manhattan, New York",
 	"problem": "DARP",
 	"max_speed_factor": 0.5,
-	"replicas": 40,
-	"records": 1000,
+	"replicas": 1,
+	"records": 100,
 	"instance_filename": ["network", "problem", "records"],
 	"parameters":[
 		{

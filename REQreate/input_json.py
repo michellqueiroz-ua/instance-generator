@@ -1014,11 +1014,11 @@ def input_json(filename_json):
     plt.savefig(network_folder+'/network_drive')
 
     #plot network
-    fig, ax = ox.plot_graph(inst.network.G_walk, show=False, close=False,  figsize=(8, 8), node_color='#000000', node_size=12, bgcolor="#ffffff", edge_color="#999999", edge_alpha=None, dpi=1440)
-    plt.savefig(network_folder+'/network_walk')
+    #fig, ax = ox.plot_graph(inst.network.G_walk, show=False, close=False,  figsize=(8, 8), node_color='#000000', node_size=12, bgcolor="#ffffff", edge_color="#999999", edge_alpha=None, dpi=1440)
+    #plt.savefig(network_folder+'/network_walk')
 
-    del inst.network.G_walk
-    del inst.network.shortest_path_walk
+    #del inst.network.G_walk
+    #del inst.network.shortest_path_walk
     gc.collect()
     inst.generate_requests()
 

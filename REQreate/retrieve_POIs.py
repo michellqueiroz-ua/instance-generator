@@ -18,7 +18,7 @@ def divide_chunks(l, n):
         yield l[i:i + n]
 
 @ray.remote
-def get_poi(G_walk, G_drive, index, all_pois):
+def get_poi(G_drive, index, all_pois):
 
     poi = all_pois.loc[index]
     poi_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
@@ -41,7 +41,7 @@ def get_poi(G_walk, G_drive, index, all_pois):
 
     return d
 
-def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
+def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
 
     warnings.filterwarnings(action="ignore")
     '''
@@ -136,7 +136,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         #sum_pois = len(pois_amenity) + len(pois_building) + len(pois_leisure) + len(pois_office) + len(pois_shop1) + len(pois_tourism)
         #print('number pois: ', sum_pois)
 
-        G_walk_id = ray.put(G_walk)
+        #G_walk_id = ray.put(G_walk)
         G_drive_id = ray.put(G_drive)
         pois_amenity_id = ray.put(pois_amenity)
         pois_building_id = ray.put(pois_building)
@@ -155,7 +155,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_amenity_id) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_amenity_id) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -168,7 +168,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_building_id) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_building_id) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -181,7 +181,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_leisure_id) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_leisure_id) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -194,7 +194,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_office_id) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_office_id) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -207,7 +207,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_shop_id1) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id1) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -220,7 +220,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_shop_id2) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id2) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -233,7 +233,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_shop_id3) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id3) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -246,7 +246,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_shop_id4) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id4) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -259,7 +259,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_shop_id5) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id5) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)
@@ -272,7 +272,7 @@ def get_POIs_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_bas
         count = 0
         for cpois in chunks_pois:
             #print(count)
-            poisx = ray.get([get_poi.remote(G_walk_id, G_drive_id, index_poi, pois_tourism_id) for index_poi in cpois]) 
+            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_tourism_id) for index_poi in cpois]) 
             count += 1
 
             xt = pd.DataFrame(poisx)

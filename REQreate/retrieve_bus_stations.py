@@ -48,7 +48,6 @@ def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base
                 #if (stop1['type'] != stop2['type']):
                 try:
                     if (int(shortest_path_drive.loc[osmid_origin_stop, osmid_destination_stop]) == 0):
-                        print("here")
                         if (int(stop1['type']) == 0):
                             if (index1 not in indexes_to_drop):
                                 indexes_to_drop.append(index1)

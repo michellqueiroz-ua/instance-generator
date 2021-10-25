@@ -5,4 +5,4 @@ if __name__ == '__main__':
 
     caching.clear_cache()
 
-    input_json('input_json_dynamism.json')
+    input_json('..examples/input_json_dynamism.json')

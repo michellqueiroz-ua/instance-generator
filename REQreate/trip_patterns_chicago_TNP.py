@@ -62,7 +62,10 @@ def rank_model(place_name, df):
     print('smaller zones')
     inst.network.zones = inst.network.divide_network_grid(rows, columns, save_dir, output_folder_base)
 
-    pois = get_POIs_matrix_csv(inst.network.G_walk, inst.network.G_drive, place_name, save_dir, output_folder_base)
+    del inst.network.G_walk
+    del inst.network.shortest_path_walk
+    gc.collect()
+    pois = get_POIs_matrix_csv(inst.network.G_drive, place_name, save_dir, output_folder_base)
     attribute_density_zones(inst, pois)
     #del attribute_density_zones
 
@@ -1067,29 +1070,18 @@ def real_data_tests_chicago_database2(time_intervals):
             j = df.index[-1] + 1
         del df
 
-    #understand peak hours // off - peak 
-    #Observar se os requests seguem normal distribution during peak hours and uniform during off peak. Pegar sample dos horários e plotar
-    '''
-    df_pu = pd.read_sql_query('SELECT ih AS time, count(*) AS PUcount \
-                        FROM table_record \
-                        GROUP BY ih', chicago_database)
-    print(df_pu.head())
-    print(len(df_pu))
 
-    ax = df_pu.plot(x='time', y='PUcount', kind='line', style="-o", figsize=(15,5))
-    plt.savefig('pickup_trips_time.png')
-    plt.close()
-
-
-    '''
-    #plt.show()
     data_dist = []
+
+    data_pu_lon = []
+    data_pu_lat = []
     for ti in time_intervals:
 
         #print(time_intervals)
-        day = ti[0]
+        dayx = ti[0]
         ed = ti[1]
         ld = ti[2]
+        print(dayx, ed, ld)
 
         dfc = pd.read_sql_query('SELECT ih, pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination, Trip_Miles, speed FROM table_record', chicago_database)
         dfc['speed'] = dfc['speed']*3.6
@@ -1109,7 +1101,7 @@ def real_data_tests_chicago_database2(time_intervals):
         for zcol in zcols:
             dfc = dfc.loc[(dfc[zcol] < 3)]
 
-        print('len after:', len(dfc))
+        print('len after 1:', len(dfc))
         
         #fitting pickups and dropoff times
         #pus = dfc["pu_time_sec"].values
@@ -1121,7 +1113,8 @@ def real_data_tests_chicago_database2(time_intervals):
 
             weekends_holidays = [1, 2, 7, 8, 14, 15, 21, 22, 28, 29]
 
-            if day == 0:
+            if dayx == 0:
+
                 if day not in weekends_holidays:
                     d1 = '09/{0:0=2d}/2019'.format(day)
 
@@ -1139,16 +1132,14 @@ def real_data_tests_chicago_database2(time_intervals):
         dfc = final_dfc
         print('len after 2:', len(dfc))
 
-
+        #understand peak hours // off - peak 
+        #Observar se os requests seguem normal distribution during peak hours and uniform during off peak. Pegar sample dos horários e plotar
         dfc2 = dfc
-        #dfc2.groupby(['ih']).size().reset_index(name='PUcount')
-        #dfc2 = dfc2.groupby(['ih']).agg(['mean', 'count'])
         dfc2 = dfc2.groupby('ih').count()
-        #print(dfc2)
         ax = dfc2.plot(y='pickup_day', kind='line', style="-o", figsize=(15,5))
         plt.xlabel('hour')
         plt.ylabel('number of trips')
-        plt.savefig('pickup_trips_time_weekend.png')
+        plt.savefig('pickup_trips_time.png')
         plt.close()
 
 
@@ -1320,16 +1311,32 @@ def real_data_tests_chicago_database2(time_intervals):
         dists = dfc["Trip_Miles"].values
         data_dist.append(Fitter_best_fitting_distribution(dists))
 
+        #coords = dfc["Pickup_Centroid_Longitude"].values
+        #data_pu_lon.append(Fitter_best_fitting_distribution(coords))
+
+        #coords = dfc["Pickup_Centroid_Latitude"].values
+        #data_pu_lat.append(Fitter_best_fitting_distribution(coords))
+
+        #Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude
+
+
+    #rank model
+    #rank_model("Chicago, Illinois", dfc)
+
+    bins = 100
+    density = True 
+
+    plt.close()
 
     for d1 in data_dist:
         plt.hist(d1 , bins=bins, density=density, histtype="step")
+
     plt.savefig('fitting_dist_curve.png')
     plt.close()
     print('out fitter2')
     #powelaw_best_fitting_distribution(dists)
     
-    #rank model
-    #rank_model("Chicago, Illinois", dfc)
+    
 
 if __name__ == '__main__':
     
@@ -1340,6 +1347,7 @@ if __name__ == '__main__':
     day = 0
     time_intervals.append((day,ed,ld))
 
+    
     #16 and 20 am weekday
     ed = 57600
     ld = 72000
@@ -1351,6 +1359,7 @@ if __name__ == '__main__':
     ld = 72000
     day = 1
     time_intervals.append((day,ed,ld))
+    
 
     real_data_tests_chicago_database2(time_intervals)
 

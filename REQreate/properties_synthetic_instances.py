@@ -562,7 +562,7 @@ if __name__ == '__main__':
     csv_directory = network_directory+'/csv_format'
     directory = os.fsencode(csv_directory)
 
-    del inst.network.shortest_path_walk
+    #del inst.network.shortest_path_walk
     gc.collect()
 
     num = 0
@@ -579,26 +579,25 @@ if __name__ == '__main__':
 
             speed = 7.22 #mps = 26 kmh
             
-
-            '''
-            ax = all_trips['direct_distance'].hist(bins=30, figsize=(15,5))
+            #print(all_trips.columns)
+            ax = inst1['direct_distance'].hist(bins=30, figsize=(15,5))
             ax.set_yscale('log')
             ax.set_xlabel("trip distance (meters)")
             ax.set_ylabel("count")
             plt.savefig('direct_distance_syn_non_filtered'+str(num)+'.png')
             plt.close()
-            print(all_trips['direct_distance'].describe())
-            print(all_trips['direct_distance'].mean())
-            print(all_trips['direct_distance'].std())
+            print(inst1['direct_distance'].describe())
+            print(inst1['direct_distance'].mean())
+            print(inst1['direct_distance'].std())
 
             
-            dists = all_trips["direct_distance"].values
+            dists = inst1["direct_distance"].values
             Fitter_best_fitting_distribution(dists)
             print('out fitter2')
             
 
             new_heatmap(inst, inst1)
-            '''
+            
 
             #print('urgency')
             #urgency(inst1)
