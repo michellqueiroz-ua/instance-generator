@@ -5,9 +5,77 @@ import pandas as pd
 import pickle
 
 from pathlib import Path
-from instance_class import Instance
 
+def dynamism(inst1, ed, ld):
 
+    #time_stamp = 'time_stamp'
+    Te = abs(ld - ed)
+
+    inst1.sort()
+
+    sorted_ts = inst1
+
+    #sorted_ts = inst1[time_stamp].tolist()
+    #sorted_ts = [i for i in sorted_ts if i != 0]
+    #exclude time stamp 0
+
+    DELTA = []
+    for ts in range(len(sorted_ts)-1):
+        DELTA.append(float(abs(sorted_ts[ts+1] - sorted_ts[ts])))
+
+    number_reqs = len(inst1)
+
+    theta = Te/len(sorted_ts)
+
+    #print(theta)
+    #print(DELTA)
+
+    SIGMA = []
+    for k in range(len(DELTA)):
+
+        if ((k == 0) and (DELTA[k] < theta)): 
+
+            SIGMA.append(theta - DELTA[k])
+
+        else:
+
+            if ((k > 0) and (DELTA[k] < theta)): 
+
+                SIGMA.append(theta - DELTA[k] + SIGMA[k-1]*((theta - DELTA[k])/theta))
+
+            else:
+
+                SIGMA.append(0)
+
+    #print(SIGMA)
+    lambdax = 0
+    for sk in SIGMA:
+
+        lambdax += sk
+
+    NEGSIGMA = []
+    for k in range(len(DELTA)):
+
+        if ((k > 0) and (DELTA[k] < theta)): 
+
+            NEGSIGMA.append(theta + SIGMA[k-1]*((theta - DELTA[k])/theta))
+
+        else:
+
+            NEGSIGMA.append(theta)
+
+    #print(NEGSIGMA)
+    eta = 0
+    for nsk in NEGSIGMA:
+
+        eta += nsk
+
+    rho = 1 - (sum(SIGMA)/sum(NEGSIGMA)) 
+
+    #print(rho)
+    return rho
+
+'''
 if __name__ == '__main__':
 
     place_name = "Rennes, France"
@@ -21,7 +89,6 @@ if __name__ == '__main__':
     network_directory = os.getcwd()+'/'+place_name
 
     if Path(param_class_file).is_file():
-        #inst = Instance(folder_to_network=place_name)
         with open(param_class_file, 'rb') as param_class_file:
             param = pickle.load(param_class_file)
 
@@ -39,33 +106,22 @@ if __name__ == '__main__':
 
             sorted_ts = inst1['time_stamp'].tolist()
             sorted_ts = [i for i in sorted_ts if i != 0]
-
-            #print(sorted_ts)
-            #exclude time stamp 0?
+            #exclude time stamp 0
 
             DELTA = []
             for ts in range(len(sorted_ts)-1):
-                #print(abs(float(sorted_ts[ts+1]) - float(sorted_ts[ts])))
-                #print(sorted_ts[ts+1])
-                #print(sorted_ts[ts])
                 DELTA.append(abs(sorted_ts[ts+1] - sorted_ts[ts]))
 
             number_reqs = len(inst1)
             Te = param.parameters['max_early_departure']['value'] - param.parameters['min_early_departure']['value']
-            #Te = 10
 
             theta = int(Te/len(sorted_ts))
-            #print(float(theta))
-
-            #theta = float(theta)
-            #print(theta)
 
             SIGMA = []
             for k in range(len(DELTA)):
 
                 if ((k == 0) and (DELTA[k] < theta)): 
 
-                    #print(theta - DELTA[k])
                     SIGMA.append(theta - DELTA[k])
 
                 else:
@@ -78,8 +134,6 @@ if __name__ == '__main__':
 
                          SIGMA.append(0)
 
-
-            #print(SIGMA)
             lambdax = 0
             for sk in SIGMA:
 
@@ -96,23 +150,15 @@ if __name__ == '__main__':
 
                     NEGSIGMA.append(theta)
 
-            #print(NEGSIGMA)
             eta = 0
             for nsk in NEGSIGMA:
 
                 eta += nsk
 
-            #print(lambdax)
-            #print(eta)
             rho = 1 - (sum(SIGMA)/sum(NEGSIGMA)) 
 
-            #print(DELTA)
-            #print(SIGMA)
-            #print(NEGSIGMA)
-            #print(lambdax)
-            #print(eta)
             print(rho)
-
+'''
 
 
             

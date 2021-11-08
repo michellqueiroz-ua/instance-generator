@@ -1,12 +1,14 @@
 import datetime
-import matplotlib.pyplot as plt
-import numpy as np
-import codecs, json
-import math
+import gc
+import codecs
 import geopandas as gpd
 import glob
+import json
+import math
 from math import sqrt
+import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
+import numpy as np
 import os
 import osmapi as osm
 import osmnx as ox
@@ -16,18 +18,16 @@ from random import randint
 from random import seed
 from random import choices
 import ray
+from streamlit import caching
+import sys
 from shapely.geometry import Point
 from shapely.geometry import MultiPoint
 from shapely.geometry import LineString
 from shapely.geometry import MultiLineString
 from shapely.geometry import MultiPolygon
 from shapely.geometry import Polygon
-from streamlit import caching
-import sys
-import time
 import warnings
-import gc
-
+import time
 
 try:
     import tkinter as tk
@@ -35,13 +35,10 @@ try:
 except:
     pass
 
-
 from stops_locations import *
-
 from fixed_lines import get_fixed_lines_deconet
 from fixed_lines import get_fixed_lines_osm
 from fixed_lines import plot_fixed_lines
-
 from output_files import JsonConverter
 from retrieve_bus_stations import filter_bus_stations
 from retrieve_bus_stations import get_bus_stations_matrix_csv
@@ -52,17 +49,10 @@ from compute_distance_matrix import _get_distance_matrix
 from compute_distance_matrix import _update_distance_matrix_walk
 from speed_info import _calc_mean_max_speed
 from speed_info import _get_max_speed_road
-
 from network_class import Network
 from instance_class import Instance
 from request_distribution_class import RequestDistributionTime
        
-def network_stats(network):
-    pass
-    #print('used vehicle speed: ', network.vehicle_speed*3.6, ' kmh')
-    #print("average dist 2 stops (driving network):", network.travel_time_matrix["dist"].mean())
-    #print("average travel time between 2 stops:", network.travel_time_matrix["eta"].mean())
-
 def download_network_information(
     place_name,
     vehicle_speed_data="max", 
@@ -146,12 +136,6 @@ def download_network_information(
     )
 
     print('Now genarating network_data')
-    #G_walk = ox.graph_from_place(place_name, network_type='walk', retain_all=True)
-    #G_walk, polygon_walk = ox.graph_from_place(place_name, network_type='walk', retain_all=True, buffer_dist=3000)
-    #fig, ax = ox.plot_graph(G_walk, save=True, file_format='svg', filename='walk_network')
-    #G_drive = ox.graph_from_place(place_name, network_type='drive', retain_all=True)
-    #G_drive, polygon_drive = ox.graph_from_place(place_name, network_type='drive', retain_all=True, buffer_dist=3000)
-    #fig, ax = ox.plot_graph(G_drive, save=True, filename='cincinnati_drive')
     
     print('num walk nodes', len(G_walk.nodes()))
     print('num drive nodes', len(G_drive.nodes()))
@@ -185,7 +169,7 @@ def download_network_information(
         max_speed_mean_overall = max_speed_mean_overall/counter_max_speeds
 
         #value to replace the missing max speed values
-        #replace_vehicle_speed is the mean of all input maximum speed values in the network
+        #the mean of all input maximum speed values in the network
         replace_vehicle_speed = float(max_speed_mean_overall)
 
     #add attribute travel_time to edges
@@ -220,7 +204,7 @@ def download_network_information(
     gc.collect()
 
     print('Downloading zones from location')
-    #zones = retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BBx, BBy)
+    
     #create graph to plot zones here
     zones = network.divide_network_grid(rows, columns, save_dir, output_folder_base)           
     print('number of zones', len(zones))
@@ -228,7 +212,7 @@ def download_network_information(
     print('Downloading schools from location')
     schools = retrieve_schools(network.G_walk, network.G_drive, place_name, save_dir, output_folder_base)
     schools = schools.reset_index(drop=True)
-    #create graph to plot zones here           
+              
     print('number of schools', len(schools))
 
     network.zones = zones
@@ -238,25 +222,9 @@ def download_network_information(
     del zones 
     del schools
     gc.collect() 
-    #del retrieve_schools
-    #del get_bus_stations_matrix_csv
-    
-    #R = 1000
-    #pt = polygon.centroid
-    #network._get_random_coord_circle(R, pt.y, pt.x)
     
     plot_bus_stations(network, save_dir_images)
-    network_stats(network)
-
-
-    '''
-    list_bus_stations = []
-    for index, stop_node in network.bus_stations.iterrows():
-        list_bus_stations.append(index)
-
-    network.list_bus_stations = list_bus_stations
-    '''
-
+    
     #computes distance matrix for drivig and walking network
     shortest_path_walk = []
     shortest_path_drive = []
@@ -264,17 +232,8 @@ def download_network_information(
     unreachable_nodes = []
     shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(network.G_walk, network.G_drive, network.bus_stations, save_dir, output_folder_base)
 
-    #del _get_distance_matrix
-    #network.G_drive.remove_nodes_from(unreachable_nodes)
-    
-    #get fixed lines
-    #network.linepieces = []
-    #network.connecting_nodes = []
-    ##network.transfer_nodes = []
-    #network.direct_lines = []
-    #network.nodes_covered_fixed_lines = []
-    #removes unreacheable stops or useless duplicate stations
-    
+
+    #getting fixed lines    
     if get_fixed_lines is not None:
         if get_fixed_lines == 'osm':
             pt_fixed_lines = get_fixed_lines_osm(network.G_walk, network.G_drive, polygon, save_dir, output_folder_base)
@@ -293,15 +252,12 @@ def download_network_information(
                 [extra_stops_fr.append(int(x)) for x in extra_stops if str(x) != 'nan'] 
                 print(extra_stops_fr)
                 shortest_path_walk = _update_distance_matrix_walk(G_walk, extra_stops_fr, save_dir, output_folder_base)
-                #if not os.path.isdir(folder_path_deconet):
-                #    raise ValueError('DECONET data files do not exist. Make sure you passed the correct path to the folder')
-                #else:         
+                        
         else: raise ValueError('get_fixed_lines method argument must be either "osm" or "deconet"')
 
 
         num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
-        #del filter_bus_stations
         network.bus_stations = network.bus_stations.reset_index(drop=True)
 
         for lp in range(len(network.linepieces)):
@@ -328,8 +284,6 @@ def download_network_information(
 
             bn = network.deconet_network_nodes.loc[int(node), 'bindex']
 
-            #print(network.bus_stations.loc[int(bn), 'type'])
-
             osm_w1 = network.deconet_network_nodes.loc[int(node), 'osmid_walk']
             osm_d1 = network.deconet_network_nodes.loc[int(node), 'osmid_drive']
 
@@ -338,17 +292,14 @@ def download_network_information(
 
             if int(network.bus_stations.loc[int(bn), 'type']) == 1:
                 if ((osm_w1 == osm_w2) and (osm_d1 == osm_d2)):
-                    #print('ok')
                     count += 1
 
-        #print(count)
         print(len(network.nodes_covered_fixed_lines))
 
     else:
         
         num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
-        #del filter_bus_stations
         network.bus_stations = network.bus_stations.reset_index(drop=True)
         
     network.bus_stations_ids = []

@@ -7,6 +7,147 @@ from pathlib import Path
 from instance_class import Instance
 
 
+def geographic_dispersion(inst, inst1, problem):
+
+    if problem == 'ODBRP':
+
+
+    else:
+        #mu
+        #average travel time between origin and destinations
+        dtt = []
+        for idx, req in inst1.iterrows():
+            dtt.append(req['direct_travel_time'])
+
+        mudarp = sum(dtt) / len(dtt)
+        mu2 = inst1['direct_travel_time'].mean()
+
+        #average travel time between x nearest neighbors
+        #nyc -> compute for the 5 nearest zones
+        earliest_departure = 'earliest_departure'
+        #latest_arrival = 'do_time_sec'
+        time_gap = 600
+        #node_origin = 
+        #node_destination = 
+        osmid_origin = 'originnode_drive'
+        osmid_destination = 'destinationnode_drive'
+        speed = 7.22 #26kmh
+        
+        sumnn = 0
+        for idx1, row1 in inst1.iterrows():
+
+            ltro = []
+            ltrd = []
+            for idx2, row2 in inst1.iterrows():
+
+                if idx2 != idx1:
+
+                    latest_arrival1 = row1[earliest_departure] + row1['direct_travel_time']
+                    latest_arrival2 = row2[earliest_departure] + row2['direct_travel_time']
+                    #print(row2['earliest_departure'])
+                    if (row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap):
+                        #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
+                        #ltro.append(row2['originnode_drive'])
+                        #origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
+                        node_origin = row2[osmid_origin]
+            
+                        ltro.append(node_origin)
+
+                    if (latest_arrival2 >= row1[earliest_departure] - time_gap) and (latest_arrival2 <= row1[earliest_departure] + time_gap):
+                        #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
+                        #ltro.append(row2['destinationnode_drive'])
+                        #destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
+                        node_destination = row2[osmid_destination]
+                        
+                        ltro.append(node_destination)
+
+                    if (latest_arrival2 >= latest_arrival1 - time_gap) and (latest_arrival2 <= latest_arrival1 + time_gap):
+                        #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
+                        #ltrd.append(row2['destinationnode_drive'])
+                        #destination_point = (row2['Dropoff_Centroid_Latitude'], row2['Dropoff_Centroid_Longitude'])
+                        node_destination = row2[osmid_destination]
+
+                        ltro.append(node_destination)
+
+                    if (row2[earliest_departure] >= latest_arrival1 - time_gap) and (row2[earliest_departure] <= latest_arrival1 + time_gap):
+                        #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
+                        #ltrd.append(row2['originnode_drive'])
+                        #origin_point = (row2['Pickup_Centroid_Latitude'], row2['Pickup_Centroid_Longitude'])
+                        node_origin = row2[osmid_origin]
+
+                        ltro.append(node_origin)
+
+            #ltro = list(dict.fromkeys(ltro))
+            #ltrd = list(dict.fromkeys(ltrd))
+            #print(ltro)
+            #print(ltrd)
+
+            ltrot = []
+            ltrdt = []
+            
+            #org_row1 = int(row1['originnode_drive'])
+            #origin_point = (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])
+            #org_row1 = ox.get_nearest_node(inst.network.G_drive, origin_point)
+            org_row1 = row1[osmid_origin]
+            
+            for x in ltro:
+
+                #tuplx = (x, inst.network._return_estimated_travel_time_drive(int(org_row1), int(x)))
+                dist = inst.network._return_estimated_distance_drive(int(org_row1), int(x))
+                tt = dist/speed
+                tuplx = (x, tt)
+                ltrot.append(tuplx)
+
+            #dest_row1 = int(row1['destinationnode_drive'])
+            #destination_point = (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])
+            #dest_row1 = ox.get_nearest_node(inst.network.G_drive, destination_point)
+            dest_row1 = row1[osmid_destination]
+
+            for y in ltrd:
+
+                #tuply = (y, inst.network._return_estimated_travel_time_drive(int(dest_row1), int(y)))
+                dist = inst.network._return_estimated_distance_drive(int(dest_row1), int(y))
+                tt = dist/speed
+                tuply = (y, tt)
+                ltrdt.append(tuply)
+
+
+            #ordenar as tuplas
+            ltrot.sort(key = lambda x: x[1]) 
+            ltrdt.sort(key = lambda x: x[1])
+            
+            #pegar a media das 5 primeiras
+            n_neig = 5
+            avgo = 0
+            for i in range(min(n_neig, len(ltrot))):
+                avgo += ltrot[i][1]
+            
+            if len(ltrot) > 0:
+                avgo = avgo/min(n_neig, len(ltrot))
+
+            avgd = 0
+            for j in range(min(n_neig, len(ltrdt))):
+                avgd += ltrdt[j][1]
+            #adicionar numa variavel de soma
+            if len(ltrdt) > 0:
+                avgd = avgd/min(n_neig, len(ltrdt))
+            
+            #print(avgo, avgd)
+            #print(avgd)
+            sumnn += avgo + avgd
+
+        omegadarp = sumnn/(len(inst1)*2)
+        #ttm1['mean'] = ttm1.mean(axis=1)
+        #varchi = 0.7
+        #omega = ttm1['mean'].mean()
+        
+        #print(mudarp)
+        #print(omegadarp)
+        gd = mudarp + omegadarp
+        #print(gd)
+
+    return gd
+
 if __name__ == '__main__':
 
     place_name = "Rennes, France"
@@ -46,14 +187,8 @@ if __name__ == '__main__':
                     
                     dest = row['stops_dest'].strip('][').split(', ')
 
-                    #stations.extend(orgn)
-
-                    #stations.extend(dest)
-
-                    #orgn = list(dict.fromkeys(orgn))
+                    
                     orgn = [int(i) for i in orgn]
-
-                    #dest = list(dict.fromkeys(dest))
                     dest = [int(i) for i in dest]
 
                     summ = 0
@@ -69,43 +204,35 @@ if __name__ == '__main__':
 
                 
                 muodbrp = ovrsumm/(len(inst1))
-                #stations = list(dict.fromkeys(stations))
-                #stations = [int(i) for i in stations]
 
                 sumnn = 0
                 for idx1, row1 in inst1.iterrows():
-                    #print(idx1)
                     ltro = []
                     ltrd = []
                     for idx2, row2 in inst1.iterrows():
 
                         if idx2 != idx1:
 
-                            #print(row2['earliest_departure'])
+                            
                             if (row2['earliest_departure'] >= row1['earliest_departure'] - 600) and (row2['earliest_departure'] <= row1['earliest_departure'] + 600):
-                                #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
-                                    stps = row2['stops_orgn'].strip('][').split(', ')
-                                    ltro.extend(stps)
+                                
+                                stps = row2['stops_orgn'].strip('][').split(', ')
+                                ltro.extend(stps)
 
                             if (row2['latest_arrival'] >= row1['earliest_departure'] - 600) and (row2['latest_arrival'] <= row1['earliest_departure'] + 600):
-                                #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
-                                    stps = row2['stops_dest'].strip('][').split(', ')
-                                    ltro.extend(stps)
+                                stps = row2['stops_dest'].strip('][').split(', ')
+                                ltro.extend(stps)
 
                             if (row2['latest_arrival'] >= row1['latest_arrival'] - 600) and (row2['latest_arrival'] <= row1['latest_arrival'] + 600):
-                                #if (row2['destinationnode_drive'] != row1['originnode_drive']) and (row2['destinationnode_drive'] != row1['destinationnode_drive']):
-                                    stps = row2['stops_dest'].strip('][').split(', ')
-                                    ltrd.extend(stps)
+                                stps = row2['stops_dest'].strip('][').split(', ')
+                                ltrd.extend(stps)
 
                             if (row2['earliest_departure'] >= row1['latest_arrival'] - 600) and (row2['earliest_departure'] <= row1['latest_arrival'] + 600):
-                                #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
-                                    stps = row2['stops_orgn'].strip('][').split(', ')
-                                    ltrd.extend(stps)
+                                stps = row2['stops_orgn'].strip('][').split(', ')
+                                ltrd.extend(stps)
 
                     ltro = list(dict.fromkeys(ltro))
                     ltrd = list(dict.fromkeys(ltrd))
-                    #print(ltro)
-                    #print(ltrd)
 
                     ltrot = []
                     ltrdt = []
@@ -130,12 +257,11 @@ if __name__ == '__main__':
                             ltrdt.append(tuply)
 
 
-                    #ordenar as tuplas
+                    #sort tuples
                     ltrot.sort(key = lambda x: x[1]) 
                     ltrdt.sort(key = lambda x: x[1])
                     
-                    #print(ltrot)
-                    #pegar a media das 5 primeiras
+                    #avg 5 first
                     n_neig = 5
                     avgo = 0
                     for i in range(min(n_neig, len(ltrot))):
@@ -147,39 +273,15 @@ if __name__ == '__main__':
                     avgd = 0
                     for j in range(min(n_neig, len(ltrdt))):
                         avgd += ltrdt[j][1]
-                    #adicionar numa variavel de soma
+                    
                     if len(ltrdt) > 0:
                         avgd = avgd/min(n_neig, len(ltrdt))
                     
-                    #print(avgo, avgd)
-                    #print(avgd)
                     sumnn += avgo + avgd
 
                 omegaodbrp = sumnn/(len(inst1)*2)
-
-
-                '''
-                summ = 0
-                count = 0
-                for i in stations:
-                    for j in stations:
-
-                        if i != j:
-                            summ += ttm1.loc[i, str(j)]
-                            count += 1
-
-                varchi = 0.7
-                omega2 = summ/count
-                '''
-
-                
-                print(muodbrp)
-                print(omegaodbrp)
                 gd = muodbrp + omegaodbrp
-                print(gd)
-                #gd = varchi * mumuodbrp + (1 - varchi) * omega2
-                #print(gd)
-
+            
             else:
 
                 #mu
@@ -202,7 +304,6 @@ if __name__ == '__main__':
 
                         if idx2 != idx1:
 
-                            #print(row2['earliest_departure'])
                             if (row2['earliest_departure'] >= row1['earliest_departure'] - 600) and (row2['earliest_departure'] <= row1['earliest_departure'] + 600):
                                 if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                                     ltro.append(row2['originnode_drive'])
@@ -218,11 +319,6 @@ if __name__ == '__main__':
                             if (row2['earliest_departure'] >= row1['latest_arrival'] - 600) and (row2['earliest_departure'] <= row1['latest_arrival'] + 600):
                                 if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
                                     ltrd.append(row2['originnode_drive'])
-
-                    #ltro = list(dict.fromkeys(ltro))
-                    #ltrd = list(dict.fromkeys(ltrd))
-                    #print(ltro)
-                    #print(ltrd)
 
                     ltrot = []
                     ltrdt = []
@@ -240,15 +336,11 @@ if __name__ == '__main__':
                         ltrdt.append(tuply)
 
 
-                    #ordenar as tuplas
+                    #sort tuples
                     ltrot.sort(key = lambda x: x[1]) 
                     ltrdt.sort(key = lambda x: x[1])
-                    #print(ltrot) 
-
-                    #print(ltrot)
-                    #print(ltrdt)
-
-                    #pegar a media das 5 primeiras
+                    
+                    #average of the 5 first
                     n_neig = 5
                     avgo = 0
                     for i in range(min(n_neig, len(ltrot))):
@@ -260,22 +352,12 @@ if __name__ == '__main__':
                     avgd = 0
                     for j in range(min(n_neig, len(ltrdt))):
                         avgd += ltrdt[j][1]
-                    #adicionar numa variavel de soma
+                    
                     if len(ltrdt) > 0:
                         avgd = avgd/min(n_neig, len(ltrdt))
                     
-                    #print(avgo, avgd)
-                    #print(avgd)
                     sumnn += avgo + avgd
 
                 omegadarp = sumnn/(len(inst1)*2)
-                #ttm1['mean'] = ttm1.mean(axis=1)
-                #varchi = 0.7
-                #omega = ttm1['mean'].mean()
                 
-                print(mudarp)
-                print(omegadarp)
                 gd = mudarp + omegadarp
-                print(gd)
-                #gd = varchi * mudarp + (1 - varchi) * omega
-                #print(gd)

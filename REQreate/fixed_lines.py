@@ -12,52 +12,7 @@ import ray
 import requests
 import warnings
 
-def _evaluate_best_fixed_route(network, fixed_lines, origin_node_drive, destination_node_drive, max_walking):
-    #evaluate the expected gain of the passenger to take the fixed line
-
-    best_fixed_route = []
-    best_evaluation_route = -math.inf
-    eta_bus_full = network.shortest_path_drive.loc[origin_node_drive, str(destination_node_drive)]
-    #walking_time_bus_full = max_walking * 2
-
-    for line in fixed_lines:
-        
-        eta_by_fixed_line = line['eta']
-        walking_time_fl = 0
-
-        u_drive = int(network.deconet_network_nodes.loc[int(line['u']), 'osmid_drive'])
-        v_drive = int(network.deconet_network_nodes.loc[int(line['v']), 'osmid_drive'])
-
-        if line['option'] == 1:
-            #walking_time_fl += line['walking_time_u'] + line['walking_time_v']
-            eta_bus_partial = 0
-            #walking_time_bus_partial = 0
-
-        if line['option'] == 2:
-            #walking_time_fl += line['walking_time_v']
-            eta_bus_partial = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
-            #walking_time_bus_partial = max_walking * 2
-
-        if line['option'] == 3:
-            #walking_time_fl += line['walking_time_u']
-            eta_bus_partial = network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
-            #walking_time_bus_partial = max_walking * 2
-
-        if line['option'] == 4:
-            eta_bus_partial = network.shortest_path_drive.loc[origin_node_drive, str(u_drive)]
-            eta_bus_partial += network.shortest_path_drive.loc[v_drive, str(destination_node_drive)]
-            #walking_time_bus_partial = max_walking * 4
-
-        #evaluation_route = (eta_bus_full + walking_time_bus_full) - (walking_time_fl + eta_bus_partial + walking_time_bus_partial)
-        evaluation_route = (eta_bus_full) - (eta_by_fixed_line + eta_bus_partial)
-
-        if evaluation_route > best_evaluation_route:
-            best_evaluation_route = evaluation_route
-            best_fixed_route = line
-
-    return best_fixed_route 
     
-
 def _retrieve_new_bus_stations(network, node_walk, max_walking, request_walk_speed, to_node_walk):
 
     #return bus stops that within walking threshold from node_walk
@@ -417,7 +372,6 @@ def remove_duplicate_lines(network):
 
     #for id1 in network.subway_lines:
     #    print(id1)
-
 
 def break_lines_in_pieces(network):
 

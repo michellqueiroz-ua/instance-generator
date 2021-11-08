@@ -35,17 +35,9 @@ class Network:
 
         #used in request generation to avoid using iterrows
         self.bus_stations_ids = []
-        #for index, stop_node in self.bus_stations.iterrows():
-        #    self.bus_stations_ids.append(index)
 
         self.node_list_darp = []
        
-        #self.zones = zones
-
-        #self.schools = schools
-
-        #self.shortest_path_drive = shortest_path_drive
-        #self.shortest_path_walk = shortest_path_walk
 
     def get_eta_walk(self, u, v, walk_speed):
         
@@ -66,29 +58,21 @@ class Network:
             except KeyError:
                 
                 try:
-                    #print(u,v)
-                    #print(self.bus_stations.index[self.bus_stations['osmid_walk'] == v].tolist())
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
                     
                 except (nx.NetworkXNoPath, nx.NodeNotFound):
                     distance_walk = np.nan
                     
-                    #nx.exception.NodeNotFound
-        #print(distance_walk)
+                    
         if math.isnan(distance_walk):
             '''
             nodeu = osm_api.NodeGet(u)
-
             nodev = osm_api.NodeGet(v)
-
             origin = (nodeu['lat'], nodeu['lon'])
             dest = (nodev['lat'], nodev['lon'])
-
             distance_walk = geodesic(origin, dest).meters
-
             eta_walk = int(math.ceil(distance_walk/speed))
             '''
-
             eta_walk = -1
             
         else:
@@ -158,148 +142,18 @@ class Network:
 
     def _get_travel_time_matrix(self, nodes, inst=None, node_list=None):
         
-        if nodes == "bus":
-            
-            #return travel time matrix between all bus stations in the network
-            
-            travel_time = np.ndarray((len(self.bus_stations), len(self.bus_stations)))
-            #travel_time = []
-            
-            
-            #loop for computing the travel time matrix
-            i=0
-            for index_o, origin_stop in self.bus_stations.iterrows():
-                j=0
-                for index_d, destination_stop in self.bus_stations.iterrows(): 
-                    #u = self.bus_stations.loc[int(index_o), 'osmid_drive']
-                    #v = self.bus_stations.loc[int(index_d), 'osmid_drive']
-                    u = int(origin_stop['osmid_drive'])
-                    v = int(destination_stop['osmid_drive'])
-                    
-                    #od_travel_time = self._return_estimated_travel_time_drive(u, v)
-                    od_travel_time = self._return_estimated_distance_drive(u,v)
-
-                    #calculating travel time and storing in travel_time matrix
-                    if not math.isnan(od_travel_time):
-                        if od_travel_time >= 0:
-                            #element = (str(index_o), str(index_d), str(od_travel_time))
-                            #travel_time.append(element)
-                            travel_time[index_o][index_d] = od_travel_time
-
-                            if (od_travel_time == 0):
-                                if (index_o != index_d):
-                                    print('here')
-                            #print(od_travel_time)
-                        '''
-                        else:
-                            od_travel_time = -1
-                            od_travel_time = int(od_travel_time)
-                            element = (i, j, -1)
-                            travel_time.append(element)
-                        '''
-                    j+=1
-                i+=1
-
         if nodes == "list":
-            #travel_time = []
             travel_time = np.ndarray((len(node_list), len(node_list))) 
 
             for u in range(0, len(node_list)):
                 for v in range(0, len(node_list)):
 
-                    #print(int(node_list[u]), int(node_list[v]))
                     od_travel_time = self._return_estimated_travel_time_drive(int(node_list[u]), int(node_list[v]))  
 
                     if not math.isnan(od_travel_time):
                         travel_time[u][v] = int(od_travel_time)
-                        #element = (str(u), str(v), str(od_travel_time))
-                        #travel_time.append(element)
                         
-
-        '''
-        if nodes == "subway":
-            
-            travel_time = []
-
-            for line_id in self.subway_lines:
-
-                for u in self.nodes_covered_fixed_lines:
-                    for v in self.nodes_covered_fixed_lines:
-
-                        try:
-
-                            eta = nx.dijkstra_path_length(self.subway_lines[line_id]['route_graph'], u, v, weight='duration_avg')
-                            
-                            element = (str(u), str(v), str(int(eta)), str(line_id))
-                            travel_time.append(element)
-
-                        except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
-                            pass
-        '''
-
-        '''
-        if nodes == "hybrid":
-
-            travel_time = []
-
-            for u in self.bus_stations_ids:
-                for v in self.nodes_covered_fixed_lines:
-
-                    uwalk = self.bus_stations.loc[u, 'osmid_walk']
-                    udrive = self.bus_stations.loc[u, 'osmid_drive']
-                    vwalk = self.deconet_network_nodes.loc[int(v), 'osmid_walk']
-                    avg_walk_speed = (inst.min_walk_speed+inst.max_walk_speed)/2
-                    
-                    #from u to v
-                    eta1 = self.get_eta_walk(uwalk, vwalk, avg_walk_speed)
-                    #from v to u
-                    eta2 = self.get_eta_walk(vwalk, uwalk, avg_walk_speed)
-                    if eta1 >= 0:
-                        element = (str(udrive), str(v), str(eta1))
-                        travel_time.append(element)
-
-                    if eta2 >= 0:
-                        element = (str(v), str(udrive), str(eta2))
-                        travel_time.append(element)
-        '''
-
-        '''
-        if nodes == "list":
-            travel_time = []
-
-            for u in node_list:
-                for v in node_list:
-                    od_travel_time = self._return_estimated_travel_time_drive(u, v)  
-
-                    if not math.isnan(od_travel_time):
-                        if od_travel_time >= 0:
-                            element = (str(u), str(v), str(od_travel_time))
-                            travel_time.append(element)
-
-        if nodes == "all":
-            
-            #return travel time matrix between all nodes in the network
-            
-            travel_time = []
-            #loop for computing the travel time matrix
-            i = 0
-            for u in self.G_drive.nodes:
-                j=0
-                for v in self.G_drive.nodes:
-                    od_travel_time = self._return_estimated_travel_time_drive(u, v)   
-                    
-                    #calculating travel time and storing in travel_time matrix
-                    if not math.isnan(od_travel_time):
-                        if od_travel_time >= 0:
-                            element = (str(u), str(v), str(od_travel_time))
-                            travel_time.append(element)
-                    
-                    j+=1
-                i+=1
-        '''
-
-
-
+                        
         return travel_time
 
     def _get_travel_time_from_stops_to_school(self, school_id):
@@ -329,8 +183,6 @@ class Network:
 
         return travel_time  
 
-
-
     def _get_random_coord(self, polygon):
 
         '''
@@ -343,20 +195,14 @@ class Network:
         while counter < number:
             pnt = Point(np.random.uniform(minx, maxx), np.random.uniform(miny, maxy))
             pnt2 = (pnt.y, pnt.x)
-            #osmid_drive = ox.get_nearest_node(self.G_drive, pnt2)
             osmid_drive = ox.nearest_nodes(self.G_drive, pnt.x, pnt.y)
             pnt_osmid = Point(self.G_drive.nodes[osmid_drive]['x'], self.G_drive.nodes[osmid_drive]['y'])
             pnt_osmid2 = (pnt_osmid.y, pnt_osmid.x)
-            #distancepts = math.sqrt( ((pnt.x-pnt_osmid.x)**2)+((pnt.y-pnt_osmid.y)**2) )
-
+            
             distancepts = geopy.distance.distance(pnt2, pnt_osmid2).m
             if distancepts < 500:
                 if polygon.contains(pnt):
                     return pnt
-            #else:
-            #    print(distancepts)
-
-
 
         return (-1, -1)
 
@@ -365,12 +211,7 @@ class Network:
         '''
         returns random coordinate within the circle bounds
         '''
-
         earth_radius = 6371009  # meters
-        #print('circle centroid')
-        #print(clat, clon)
-        #print('points')
-        #fig, ax = ox.plot_graph(self.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
         counter = 0
         number = 1
@@ -387,23 +228,14 @@ class Network:
             lon = clon + delta_lng
             lat = clat + delta_lat
 
-            #ax.scatter(lon, lat, c='red', s=8, marker=",")
-            #print(lon, lat)
-
             pnt = Point(lon, lat)
-
-            #cdist = math.sqrt(((lon - clon) ** 2) + ((lat - clat) ** 2))
 
             c1 = (clat, clon)
             c2 = (lat, lon)
             cdist = (geopy.distance.distance(c1, c2).km)*1000
 
             if cdist <= R:
-                #counter += 1
                 return pnt
-
-        #plt.show()
-        #plt.close(fig)
 
         return (-1, -1)
 
@@ -434,17 +266,8 @@ class Network:
             pnt = Point(lon2, lat2)
             
             distancepts = geopy.distance.distance((lat, lon), (lat2, lon2)).m
-            #print(radius)
-            #print(distancepts)
-
-            #o1 = ox.get_nearest_node(self.G_drive, (lat2, lon2))
-            #o2 = ox.get_nearest_node(self.G_drive, (lat, lon))
             
             if polygon.contains(pnt):
-                #print('heeeere')
-                #print('heeeere')
-                #rint('heeeere')
-                #print('heeeere')
                 return pnt
             else:
                 counter += 1
@@ -475,8 +298,6 @@ class Network:
         
         polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
 
-
-            
         #updates the polygon. used to generate coordinates within the zone
         self.zones.loc[index, 'polygon'] = polygon
 
@@ -499,8 +320,6 @@ class Network:
         zones = []
         earth_radius = 6371009  # meters
         blocks = []
-
-        #minx, miny, maxx, maxy = self.polygon.bounds
 
         minx = 9000
         miny = 9000
@@ -534,9 +353,6 @@ class Network:
         for lat in range(len(lats)-1):
             for lng in range(len(lngs)-1):
 
-                #ax.scatter(lng, lat, c='red', s=8, marker=",")
-                #print(lng, lat)
-
                 north = lats[lat+1]
                 south = lats[lat]
                 east = lngs[lng+1]
@@ -544,30 +360,11 @@ class Network:
 
                 polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
 
-                '''
-                geom_area = ops.transform(
-                partial(
-                    pyproj.transform,
-                    pyproj.Proj('EPSG:4326'),
-                    pyproj.Proj(
-                        proj='aea',
-                        lat_1=polygon.bounds[1],
-                        lat_2=polygon.bounds[3]
-                    )
-                ),
-                polygon)
-
-                # Print the area in km^2
-                print(geom_area.area/1000000)
-                '''
-                #print(zone_id)
-
                 strname = 'zone'+str(zone_id)
 
                 zone_center_point = (polygon.centroid.y, polygon.centroid.x)
 
                 #osmid nearest node walk
-                #osmid_walk = ox.get_nearest_node(self.G_walk, zone_center_point) 
                 osmid_walk = ox.nearest_nodes(self.G_walk, polygon.centroid.x, polygon.centroid.y) 
 
                 #osmid nearest node drive
@@ -582,22 +379,6 @@ class Network:
                     ax.scatter(west, north, c='red', s=8, marker=",")
 
                     ax.scatter(polygon.centroid.x, polygon.centroid.y, c='green', s=8, marker=",")
-
-                    #plot here the center point zone in the walk network
-                    '''
-                    nc = ['r' if (node == osmid_walk) else '#336699' for node in self.G_walk.nodes()]
-                    ns = [16 if (node == osmid_walk) else 1 for node in self.G_walk.nodes()]
-                    zone_filename = str(zone_id)+'_'+strname+'_walk.png'
-                    fig2, ax2 = ox.plot_graph(self.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
-                    plt.close(fig2)
-
-                    #plot here the center point zone in the drive network
-                    nc = ['r' if (node == osmid_drive) else '#336699' for node in self.G_drive.nodes()]
-                    ns = [16 if (node == osmid_drive) else 1 for node in self.G_drive.nodes()]
-                    zone_filename = str(zone_id)+'_'+strname+'_drive.png'
-                    fig3, ax3 = ox.plot_graph(self.G_drive, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=zones_folder+'/'+zone_filename)
-                    plt.close(fig3)
-                    '''
 
                     d = {
                         "name": strname,
@@ -616,96 +397,13 @@ class Network:
         if len(zones) > 0:
             zones.set_index(['id'], inplace=True)
 
-        #plt.show()
-        #plt.savefig('zone_grid_division.png')
         plt.close(fig)
         return zones
 
-        '''         
-        #dist_lat = abs((maxy-miny)/rows)
-        #dist_lng = abs((maxx-minx)/columns)
-
-        print(minx, maxx)
-        print(miny, maxy)
-        
-        c1 = (minx, miny)
-        c2 = (maxx, miny)
-        dist_lng = (geopy.distance.distance(c1, c2).km)*1000
-
-
-        c1 = (minx, miny)
-        c2 = (minx, maxy)
-        dist_lat = (geopy.distance.distance(c1, c2).km)*1000
-
-        print(dist_lat)
-        print(dist_lng)
-
-        dist_lat = dist_lat/rows
-        dist_lng = dist_lng/columns
-
-        lat = miny
-        #lng = minx
-        for y in range(rows):
-
-            delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
-            #delta_lat *= 2
-            lng = minx
-            for x in range(columns):
-
-                midlat = lat + delta_lat/2
-                delta_lng = (dist_lng / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
-                #delta_lng *= 2
-
-                north = lat + delta_lat
-                south = lat
-                east = lng + delta_lng
-                west = lng
-
-                c1 = (south, west)
-                c2 = (south, east)
-                dist = (geopy.distance.distance(c1, c2).km)*1000
-                print(dist)
-
-                polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
-
-                d = {
-                    'type': 1,
-                    'polygon': polygon,
-                    'radius': np.nan,
-                    'center_y': np.nan,
-                    'center_x': np.nan,
-                    'origin_weigth': 0,
-                    'destination_weigth': 0
-                }
-
-                blocks.append(d)
-                ax.scatter(lng, lat, c='red', s=8, marker=",")
-                print(lng, lat)
-
-                lng += delta_lng
-            lat += delta_lat 
-        '''           
-        #self.blocks = pd.DataFrame(blocks)
-
-
     def add_new_zone(self, name, center_x, center_y, length_x=0, length_y=0, radius=0):
-
-
-        #for index, row in self.zones.iterrows():
-
-        #    if (row['center_y'] == center_y) and (row['center_x'] == center_x):
-        #       raise ValueError('another zone with same center coordinates was already added.')
 
         if (radius > 0) and (length_x > 0):
             raise ValueError('radius and length can not be specified at the same time for a zone')
-
-        '''
-        if not ((origin_weigth >= 0) and (origin_weigth <= 100)):
-            raise ValueError('origin_weigth must be in the interval [0,100]')
-
-        if not ((destination_weigth >= 0) and (destination_weigth <= 100)):
-            raise ValueError('destination_weigth must be in the interval [0,100]')
-        '''
 
         if (length_x > 0) or (length_y > 0):
 
@@ -726,11 +424,6 @@ class Network:
             south = lat - delta_lat
             east = lng + delta_lng
             west = lng - delta_lng
-
-            #c1 = (south, west)
-            #c2 = (south, east)
-            #dist = (geopy.distance.distance(c1, c2).km)*1000
-            #print(dist)
             
             polygon = Polygon([(west, south), (east, south), (east, north), (west, north)])
 
@@ -781,8 +474,6 @@ class Network:
             'lat':y,
             'lon':x,
         }
-
-        #print(d)
         self.schools = self.schools.append(d, ignore_index=True)
 
 

@@ -73,9 +73,6 @@ def input_json(filename_json):
 
     if 'network' in data:
 
-        #if (len(data['network']) > 1):
-        #    raise ValueError('only one network per instance is allowed')
-      
         place_name=data['network']
         
         save_dir = os.getcwd()+'/'+place_name
@@ -122,7 +119,6 @@ def input_json(filename_json):
                 vehicle_speed_data = "max"
                 vehicle_speed = None
 
-            #print(max_speed_factor)
             network = download_network_information(place_name=place_name, vehicle_speed_data=vehicle_speed_data, vehicle_speed=vehicle_speed, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines)
 
             save_dir_fr = os.path.join(save_dir, 'fr_network')
@@ -176,10 +172,8 @@ def input_json(filename_json):
                 
                 else: raise ValueError('name parameter for places is mandatory')
                 
-                #print(j['name'])
                 location_names.append(j['name'])
-                #print(location_names)
-
+                
                 if ('centroid' in j) or (('lat' in j) and ('lon' in j)):
                        
                     if ('lon' in j) and ('lat' in j):
@@ -368,12 +362,11 @@ def input_json(filename_json):
                         inst.parameters[j['name']]['value'] = j['value']
 
 
-
                 else: inst.parameters[j['name']]['value'] = np.nan
 
                 if 'type' in j:
 
-                    types = ['string', 'integer', 'speed', 'length', 'array_primitives', 'array_locations', 'array_zones', 'matrix', 'graphml']
+                    types = ['string', 'integer', 'float', 'speed', 'length', 'array_primitives', 'array_locations', 'array_zones', 'matrix', 'graphml']
                     if not (j['type'] in types):
                         raise ValueError('type ' +j['type']+' is not supported')
 
@@ -568,23 +561,13 @@ def input_json(filename_json):
 
                     GA.nodes[name]['time_unit'] = attribute['time_unit']
                     
-                #else: 
-
-                    #GA.nodes[name]['time_unit'] = 's'
 
                     if (attribute['time_unit'] != 's') and (attribute['time_unit'] != 'min') and (attribute['time_unit'] != 'h'):
                         raise ValueError('time_unit must be s, min or h')
 
-                    
-
-                
                 if 'speed_unit' in attribute:
 
                     GA.nodes[name]['speed_unit'] = attribute['speed_unit']
-
-                #else:
-
-                    #GA.nodes[name]['speed_unit'] = 'mps'
 
                     sunit = GA.nodes[name]['speed_unit']
                     if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'miph'):
@@ -593,10 +576,6 @@ def input_json(filename_json):
                 if 'length_unit' in attribute:
 
                     GA.nodes[name]['length_unit'] = attribute['length_unit']
-
-                #else:
-
-                    #GA.nodes[name]['length_unit'] = 'm'
 
                     lunit = GA.nodes[name]['length_unit']
                     if (lunit != 'm') and (lunit != 'km') and (lunit != 'mi'):
@@ -657,24 +636,18 @@ def input_json(filename_json):
                 if 'time_unit' in attribute:
                     positiveV = True
                     tunit = attribute['time_unit']
-                    #if (tunit != 's') and (tunit != 'min') and (tunit != 'h'):
-                    #    raise ValueError('time_unit must be s, min or h')
 
                     mult = get_multiplier_time_unit(attribute['time_unit'])
 
                 elif 'speed_unit' in attribute:
                     positiveV = True
                     sunit = attribute['speed_unit']
-                    #if (sunit != 'mps') and (sunit != 'kmh') and (sunit != 'miph'):
-                    #    raise ValueError('speed_unit must be mps, kmh or miph')
 
                     mult = get_multiplier_speed_unit(attribute['speed_unit'])
 
                 elif 'length_unit' in attribute:
                     positiveV = True
                     lunit = attribute['length_unit']
-                    #if (lunit != 'm') and (lunit != 'km') and (lunit != 'mi'):
-                    #    raise ValueError('length_unit must be m, km or mi')
 
                     mult = get_multiplier_length_unit(attribute['length_unit'])
 
@@ -704,7 +677,7 @@ def input_json(filename_json):
                         raise TypeError('loc value must be a number (integer, float)')
 
                     if (isinstance(GA.nodes[name]['pdf'][0]['scale'], (int, float))):
-                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']*mult + GA.nodes[name]['pdf'][0]['loc']
+                        GA.nodes[name]['pdf'][0]['scale'] = GA.nodes[name]['pdf'][0]['scale']*mult
                     else:
                         raise TypeError('scale value must be a number (integer, float)')
 
@@ -713,9 +686,6 @@ def input_json(filename_json):
 
                     if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
                         raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
-
-                    if (GA.nodes[name]['type'] == 'integer'):
-                        GA.nodes[name]['pdf'][0]['scale'] += 1
 
                 elif GA.nodes[name]['pdf'][0]['type'] == 'cauchy':
 
@@ -853,8 +823,18 @@ def input_json(filename_json):
                     if (positiveV) and (GA.nodes[name]['pdf'][0]['scale'] < 0):
                         raise TypeError('a negative "scale" number is not allowed for type time/speed/length')
 
+                elif GA.nodes[name]['pdf'][0]['type'] == 'poisson':
+
+                    if (isinstance(GA.nodes[name]['pdf'][0]['a'], (int, float))):
+                        GA.nodes[name]['pdf'][0]['a'] = GA.nodes[name]['pdf'][0]['a']
+                    else:
+                        raise TypeError('"a" (rate of occurances in the time interval for poisson) value must be a number (integer, float)')
+
+                    if (positiveV) and (GA.nodes[name]['pdf'][0]['a'] < 0):
+                        raise TypeError('a negative "a" number is not allowed for type time/speed/length')
+
                 else:
-                    raise TypeError('pdf must be cauchy, expon, gamma, gilbrat, lognorm, normal, powerlaw, uniform, or wald')
+                    raise TypeError('pdf must be cauchy, expon, gamma, gilbrat, lognorm, normal, poisson, powerlaw, uniform, or wald')
 
             elif 'expression' in attribute:
 
@@ -863,6 +843,12 @@ def input_json(filename_json):
             if 'constraints' in attribute:
 
                 GA.nodes[name]['constraints'] = attribute['constraints']
+
+            if 'dynamism' in attribute:
+
+                GA.nodes[name]['dynamism'] = attribute['dynamism']
+
+                #put here values
 
             if 'weights' in attribute:
 
@@ -888,7 +874,6 @@ def input_json(filename_json):
                 if attribute['weights'][0] == 'randomized_weights':
 
                     GA.nodes[name]['weights'] = np.random.randint(0, 101, size_all_values)
-                    #print(GA.nodes[name]['weights'])
                     sumall = 0
                     for w in GA.nodes[name]['weights']:
                         sumall += w
@@ -896,9 +881,6 @@ def input_json(filename_json):
                     for w in range(len(GA.nodes[name]['weights'])):
                         GA.nodes[name]['weights'][w] = int((GA.nodes[name]['weights'][w]/sumall)*100)
                   
-                    #print('randomized_weights')      
-                    #print(GA.nodes[name]['weights'])
-
                     for w in GA.nodes[name]['weights']:
                         if not (isinstance(w, (np.integer))): 
                             raise TypeError('weights values must be numbers (integer, float)')
@@ -924,7 +906,6 @@ def input_json(filename_json):
         for node in GA.nodes():
 
             if 'expression' in GA.nodes[node]:
-                #print(GA.nodes[node]['expression'])
                 expression = re.split(r"[(,) ]", GA.nodes[node]['expression'])
                 
                 for exp in expression:
@@ -950,8 +931,6 @@ def input_json(filename_json):
                                 GA.add_edge(exp, node)
 
 
-        
-
         if 'travel_time_matrix' in inst.parameters:
             for loc in inst.parameters['travel_time_matrix']['locations']:
                 if loc not in inst.parameters['all_locations']['value']:
@@ -969,19 +948,15 @@ def input_json(filename_json):
         if not (isinstance(inst.parameters['method_pois']['value']['locations'], (list))): 
             raise TypeError('locations from method_pois must be an array')
 
-        #GA.nodes[name]['start_point'] = attribute['start_point']
         #adds an specific dependency between the two nodes
         GA.add_edge(inst.parameters['method_pois']['value']['locations'][0], inst.parameters['method_pois']['value']['locations'][1])
 
 
     inst.sorted_attributes = list(nx.topological_sort(GA))
     inst.GA = GA
-    print(inst.sorted_attributes)
 
-    #caching.clear_cache()
-
+    
     final_filename = ''
-    #print(inst.instance_filename)
     for p in inst.instance_filename:
 
         if p in inst.parameters:
@@ -993,9 +968,6 @@ def input_json(filename_json):
                     final_filename = final_filename + '_' + strv
                 else: final_filename = strv
 
-    print(final_filename)
-
-    #instance_class_file = os.path.join(inst.pickle_dir, final_filename + '.instance.class.pkl')
     pclassfile = Parameters()
     pclassfile.parameters = inst.parameters
     p_class_file = inst.pickle_dir+'/'+final_filename+'.param.class.pkl'
@@ -1013,49 +985,26 @@ def input_json(filename_json):
         os.mkdir(network_folder)
     plt.savefig(network_folder+'/network_drive')
 
-    #plot network
-    #fig, ax = ox.plot_graph(inst.network.G_walk, show=False, close=False,  figsize=(8, 8), node_color='#000000', node_size=12, bgcolor="#ffffff", edge_color="#999999", edge_alpha=None, dpi=1440)
-    #plt.savefig(network_folder+'/network_walk')
-
-    #del inst.network.G_walk
-    #del inst.network.shortest_path_walk
     gc.collect()
     inst.generate_requests()
 
     caching.clear_cache()
         
-    # convert instances from json to cpp and localsolver formats
-    save_dir_cpp = os.path.join(inst.save_dir, 'cpp_format')
-    if not os.path.isdir(save_dir_cpp):
-        os.mkdir(save_dir_cpp)
-
+    # convert instances from json to csv format
     save_dir_csv = os.path.join(inst.save_dir, 'csv_format')
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
 
-    save_dir_localsolver = os.path.join(inst.save_dir, 'localsolver_format')
-    if not os.path.isdir(save_dir_localsolver):
-        os.mkdir(save_dir_localsolver)
-
-    
     for instance in os.listdir(os.path.join(inst.save_dir, 'json_format')):
         
         if instance != ".DS_Store":
             input_name = os.path.join(inst.save_dir, 'json_format', instance)
             
-            output_name_cpp = instance.split('.')[0] + '_cpp.pass'
-            output_name_cpp = output_name_cpp.replace(" ", "")
-            print(output_name_cpp)
-
             output_name_csv = instance.split('.')[0] + '.csv'
             output_name_csv = output_name_csv.replace(" ", "")
             
-            output_name_ls = instance.split('.')[0] + '_ls.pass'
-
             converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
-            #converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
-    
+            converter.convert_normal(inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
 
 
     f.close()

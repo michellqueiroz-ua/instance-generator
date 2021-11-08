@@ -41,10 +41,10 @@ def geographic_dispersion(inst, inst1):
     #average travel time between origin and destinations
     dtt = []
     for idx, req in inst1.iterrows():
-        dtt.append(req['Trip_Seconds'])
+        dtt.append(req['direct_travel_time'])
 
     mudarp = sum(dtt) / len(dtt)
-    mu2 = inst1['Trip_Seconds'].mean()
+    mu2 = inst1['direct_travel_time'].mean()
 
     #average travel time between x nearest neighbors
     #nyc -> compute for the 5 nearest zones
@@ -66,8 +66,8 @@ def geographic_dispersion(inst, inst1):
 
             if idx2 != idx1:
 
-                latest_arrival1 = row1[earliest_departure] + row1['Trip_Seconds']
-                latest_arrival2 = row2[earliest_departure] + row2['Trip_Seconds']
+                latest_arrival1 = row1[earliest_departure] + row1['direct_travel_time']
+                latest_arrival2 = row2[earliest_departure] + row2['direct_travel_time']
                 #print(row2['earliest_departure'])
                 if (row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap):
                     #if (row2['originnode_drive'] != row1['originnode_drive']) and (row2['originnode_drive'] != row1['destinationnode_drive']):
@@ -307,11 +307,12 @@ def dynamism(inst1, ed, ld):
 
     DELTA = []
     for ts in range(len(sorted_ts)-1):
-        DELTA.append(abs(sorted_ts[ts+1] - sorted_ts[ts]))
+        DELTA.append(float(abs(sorted_ts[ts+1] - sorted_ts[ts])))
 
     number_reqs = len(inst1)
-    
+
     theta = Te/len(sorted_ts)
+
 
     SIGMA = []
     for k in range(len(DELTA)):
@@ -324,11 +325,11 @@ def dynamism(inst1, ed, ld):
 
             if ((k > 0) and (DELTA[k] < theta)): 
 
-                 SIGMA.append(theta - DELTA[k] + SIGMA[k-1]*((theta - DELTA[k])/theta))
+                SIGMA.append(theta - DELTA[k] + SIGMA[k-1]*((theta - DELTA[k])/theta))
 
             else:
 
-                 SIGMA.append(0)
+                SIGMA.append(0)
 
     #print(SIGMA)
     lambdax = 0
@@ -355,11 +356,6 @@ def dynamism(inst1, ed, ld):
 
     rho = 1 - (sum(SIGMA)/sum(NEGSIGMA)) 
 
-    #print(DELTA)
-    #print(SIGMA)
-    #print(NEGSIGMA)
-    #print(lambdax)
-    #print(eta)
     print(rho)
 
 def new_heatmap(inst, dfc):
@@ -529,12 +525,6 @@ if __name__ == '__main__':
 
     if Path(network_class_file).is_file():
         inst = Instance(folder_to_network=place_name)
-        #with open(param_class_file, 'rb') as param_class_file:
-        #    param = pickle.load(param_class_file)
-
-    save_dir_cpp = os.path.join(inst.save_dir, 'cpp_format')
-    if not os.path.isdir(save_dir_cpp):
-        os.mkdir(save_dir_cpp)
 
     save_dir_csv = os.path.join(inst.save_dir, 'csv_format')
     if not os.path.isdir(save_dir_csv):
@@ -546,17 +536,11 @@ if __name__ == '__main__':
         if instance != ".DS_Store":
             input_name = os.path.join(inst.save_dir, 'json_format', instance)
             
-            output_name_cpp = instance.split('.')[0] + '_cpp.pass'
-            output_name_cpp = output_name_cpp.replace(" ", "")
-            print(output_name_cpp)
-
             output_name_csv = instance.split('.')[0] + '.csv'
             output_name_csv = output_name_csv.replace(" ", "")
             
-            output_name_ls = instance.split('.')[0] + '_ls.pass'
-
             converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(output_file_name=os.path.join(save_dir_cpp, output_name_cpp), inst=inst, problem_type="DARP", path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
+            converter.convert_normal(inst=inst, problem_type="DARP", path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
             #converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
 
     csv_directory = network_directory+'/csv_format'
@@ -578,6 +562,7 @@ if __name__ == '__main__':
 
 
             speed = 7.22 #mps = 26 kmh
+            #speed = 5.55 #mps = 20 kmh
             
             #print(all_trips.columns)
             ax = inst1['direct_distance'].hist(bins=30, figsize=(15,5))
@@ -586,6 +571,7 @@ if __name__ == '__main__':
             ax.set_ylabel("count")
             plt.savefig('direct_distance_syn_non_filtered'+str(num)+'.png')
             plt.close()
+            '''
             print(inst1['direct_distance'].describe())
             print(inst1['direct_distance'].mean())
             print(inst1['direct_distance'].std())
@@ -597,10 +583,12 @@ if __name__ == '__main__':
             
 
             new_heatmap(inst, inst1)
-            
+            '''
 
             #print('urgency')
             #urgency(inst1)
 
-            print('dynamism')
-            dynamism(inst1, 25200, 36000)
+            #print('dynamism')
+            #dynamism(inst1, 25200, 25560)
+
+            geographic_dispersion(inst, inst1)

@@ -41,11 +41,9 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
         print('is file dist walk')
         shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
 
-        #test_bus_stops_ids = bus_stops['osmid_walk'].tolist()
         test_bus_stops_ids = bus_stops_fr
 
         osmid_origins = shortest_path_walk['osmid_origin'].tolist()
-
 
         #remove duplicates from list
         bus_stops_ids2 = [] 
@@ -58,7 +56,6 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
         G_walk_id = ray.put(G_walk)
 
         #calculate shortest path between nodes in the walking network to the bus stops
-        #shortest_path_length_walk = []
         results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u, weight="length") for u in bus_stops_ids])
 
         j=0
@@ -75,14 +72,12 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
                 if dist_uv != -1:
                     sv = str(v)
                     d[sv] = dist_uv
-            #print(d)
+            
             shortest_path_walk = shortest_path_walk.append(d, ignore_index=True)
 
             j+=1
             del d
 
-        #shortest_path_walk = pd.DataFrame(shortest_path_length_walk)
-        #del shortest_path_length_walk
         del results
         gc.collect()
 
@@ -97,8 +92,6 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
     shortest_path_drive = []
     shortest_dist_drive = []
     
-    
-   
     save_dir_csv = os.path.join(save_dir, 'csv')
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
@@ -111,7 +104,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
     shortest_path_walk = pd.DataFrame()
     shortest_dist_drive = pd.DataFrame()
 
-    #calculates the shortest paths between all nodes walk (takes long time)
+    #calculates the shortest paths between all nodes walk
 
     if os.path.isfile(path_dist_csv_file_walk):
         print('is file dist walk x')
