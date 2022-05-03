@@ -197,6 +197,7 @@ def download_network_information(
 
     
     network = Network(place_name, G_drive, G_walk, polygon, bus_stations)
+    network.vehicle_speed = vehicle_speed
 
     
     del G_drive

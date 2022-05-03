@@ -376,8 +376,8 @@ def powelaw_best_fitting_distribution(dists):
     print(R, p)
 
 def Fitter_best_fitting_distribution(dists):
-    #f = Fitter(dists, timeout=180, distributions= get_common_distributions())
-    f = Fitter(dists, timeout=180)
+    f = Fitter(dists, timeout=180, distributions= get_common_distributions())
+    #f = Fitter(dists, timeout=180)
 
     bins = 100
     density = True 
@@ -1075,6 +1075,27 @@ def real_data_tests_chicago_database2(time_intervals):
 
     data_pu_lon = []
     data_pu_lat = []
+
+    dfc = pd.read_sql_query('SELECT ih, pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination, Trip_Miles, speed FROM table_record', chicago_database)
+    dfc['speed'] = dfc['speed']*3.6
+    dfc['speed'].replace([np.inf, -np.inf], np.nan, inplace=True)
+    dfc.dropna(subset=['speed'], inplace=True)
+
+    cols = ['Trip_Miles', 'speed', 'Trip_Seconds']
+    #dfc = dfc.loc[(dfc['Trip_Miles'] > 2000)]
+
+    print('len before:', len(dfc))
+    for col in cols:
+        col_zscore = col + '_zscore'
+        dfc[col_zscore] = (dfc[col] - dfc[col].mean())/dfc[col].std(ddof=0)
+
+    zcols = ['Trip_Miles_zscore', 'speed_zscore', 'Trip_Seconds_zscore']
+
+    for zcol in zcols:
+        dfc = dfc.loc[(dfc[zcol] < 3)]
+
+    print('len after 1:', len(dfc))
+
     for ti in time_intervals:
 
         #print(time_intervals)
@@ -1083,26 +1104,6 @@ def real_data_tests_chicago_database2(time_intervals):
         ld = ti[2]
         print(dayx, ed, ld)
 
-        dfc = pd.read_sql_query('SELECT ih, pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination, Trip_Miles, speed FROM table_record', chicago_database)
-        dfc['speed'] = dfc['speed']*3.6
-        dfc['speed'].replace([np.inf, -np.inf], np.nan, inplace=True)
-        dfc.dropna(subset=['speed'], inplace=True)
-
-        cols = ['Trip_Miles', 'speed', 'Trip_Seconds']
-        #dfc = dfc.loc[(dfc['Trip_Miles'] > 2000)]
-
-        print('len before:', len(dfc))
-        for col in cols:
-            col_zscore = col + '_zscore'
-            dfc[col_zscore] = (dfc[col] - dfc[col].mean())/dfc[col].std(ddof=0)
-
-        zcols = ['Trip_Miles_zscore', 'speed_zscore', 'Trip_Seconds_zscore']
-
-        for zcol in zcols:
-            dfc = dfc.loc[(dfc[zcol] < 3)]
-
-        print('len after 1:', len(dfc))
-        
         #fitting pickups and dropoff times
         #pus = dfc["pu_time_sec"].values
         #Fitter_best_fitting_distribution(pus)
@@ -1129,12 +1130,12 @@ def real_data_tests_chicago_database2(time_intervals):
                     final_dfc = final_dfc.append(dfct, ignore_index=True)
 
 
-        dfc = final_dfc
-        print('len after 2:', len(dfc))
+        #dfc = final_dfc
+        print('len after 2:', len(final_dfc))
 
         #understand peak hours // off - peak 
         #Observar se os requests seguem normal distribution during peak hours and uniform during off peak. Pegar sample dos horários e plotar
-        dfc2 = dfc
+        dfc2 = final_dfc
         dfc2 = dfc2.groupby('ih').count()
         ax = dfc2.plot(y='pickup_day', kind='line', style="-o", figsize=(15,5))
         plt.xlabel('hour')
@@ -1143,16 +1144,16 @@ def real_data_tests_chicago_database2(time_intervals):
         plt.close()
 
 
-        dfc = dfc.loc[(dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
-        print('len after 3:', len(dfc))
+        final_dfc = final_dfc.loc[(final_dfc['pu_time_sec'] >= ed) & (final_dfc['pu_time_sec'] <= ld)]
+        print('len after 3:', len(final_dfc))
 
         
         #distance
-        print(dfc['Trip_Miles'].describe())
-        print(dfc['Trip_Miles'].mean())
-        print(dfc['Trip_Miles'].std())
+        print(final_dfc['Trip_Miles'].describe())
+        print(final_dfc['Trip_Miles'].mean())
+        print(final_dfc['Trip_Miles'].std())
 
-        ax = dfc['Trip_Miles'].hist(bins=30, figsize=(15,5))
+        ax = final_dfc['Trip_Miles'].hist(bins=30, figsize=(15,5))
         ax.set_yscale('log')
         ax.set_xlabel("trip distance (meters)")
         ax.set_ylabel("count")
@@ -1161,11 +1162,11 @@ def real_data_tests_chicago_database2(time_intervals):
 
         #speed
         #df_speed = pd.read_sql_query('SELECT speed FROM table_record', chicago_database)
-        print(dfc['speed'].describe())
-        print(dfc['speed'].mean())
-        print(dfc['speed'].std())
+        print(final_dfc['speed'].describe())
+        print(final_dfc['speed'].mean())
+        print(final_dfc['speed'].std())
 
-        ax = dfc['speed'].hist(bins=30, figsize=(15,5))
+        ax = final_dfc['speed'].hist(bins=30, figsize=(15,5))
         ax.set_yscale('log')
         ax.set_xlabel("trip distance (kmh)")
         ax.set_ylabel("count")
@@ -1308,7 +1309,7 @@ def real_data_tests_chicago_database2(time_intervals):
         #filtered_entries = (abs_z_scores < 3).all(axis=1)
         #df_fit = df_fit[filtered_entries]
 
-        dists = dfc["Trip_Miles"].values
+        dists = final_dfc["Trip_Miles"].values
         data_dist.append(Fitter_best_fitting_distribution(dists))
 
         #coords = dfc["Pickup_Centroid_Longitude"].values
@@ -1331,6 +1332,10 @@ def real_data_tests_chicago_database2(time_intervals):
     for d1 in data_dist:
         plt.hist(d1 , bins=bins, density=density, histtype="step")
 
+    #plt.yscale('log')
+    plt.xlabel("distance (meters)")
+    plt.ylabel("probability")
+    plt.tight_layout()
     plt.savefig('fitting_dist_curve.png')
     plt.close()
     print('out fitter2')
@@ -1341,18 +1346,22 @@ def real_data_tests_chicago_database2(time_intervals):
 if __name__ == '__main__':
     
     time_intervals = []
+    
+
+
     #7 and 10 am weekday
     ed = 25200
     ld = 36000
     day = 0
     time_intervals.append((day,ed,ld))
 
-    
     #16 and 20 am weekday
     ed = 57600
     ld = 72000
     day = 0
     time_intervals.append((day,ed,ld))
+
+    
 
     #16 and 20 am weekend
     ed = 57600

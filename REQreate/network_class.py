@@ -37,6 +37,7 @@ class Network:
         self.bus_stations_ids = []
 
         self.node_list_darp = []
+
        
 
     def get_eta_walk(self, u, v, walk_speed):
@@ -46,6 +47,7 @@ class Network:
         v = int(v)
         #returns estimated time walking in seconds from origin_node to destination_node
         #in the case of walking, there is no difference between origin/destination
+        
         try:
             sv = str(v)
             distance_walk = self.shortest_path_walk.loc[u, sv]
@@ -58,12 +60,20 @@ class Network:
             except KeyError:
                 
                 try:
+                    print('heeere')
                     distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
                     
                 except (nx.NetworkXNoPath, nx.NodeNotFound):
                     distance_walk = np.nan
-                    
-                    
+         
+        '''
+        try:
+            distance_walk = nx.dijkstra_path_length(self.G_walk, u, v, weight='length')
+            
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            distance_walk = np.nan 
+        '''          
+            
         if math.isnan(distance_walk):
             '''
             nodeu = osm_api.NodeGet(u)
@@ -87,7 +97,7 @@ class Network:
         try:
             #distance_drive = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='length')
             distance_drive = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
-
+            
             if str(distance_drive) != 'nan':
                 distance_drive = float(distance_drive)
     
@@ -102,9 +112,12 @@ class Network:
         eta = -1
         try:
             
-            travel_time = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='travel_time')
-            #travel_time = self.shortest_path_drive.loc[int(origin_node), str(destination_node)]
-            
+            #travel_timex = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='travel_time')
+            travel_time = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
+            speed = 5.56 #20kmh remove this later maybe?
+            travel_time = travel_time/speed
+           
+            #print(travel_timex, travel_time)
             if str(travel_time) != 'nan':
                 eta = int(travel_time)
 
@@ -183,13 +196,13 @@ class Network:
 
         return travel_time  
 
-    def _get_random_coord(self, polygon):
+    def _get_random_coord(self, polygon, seed_coord):
 
         '''
         returns random coordinate within the polygon bounds
         '''
         minx, miny, maxx, maxy = polygon.bounds
-        
+        np.random.seed(seed_coord)
         counter = 0
         number = 1
         while counter < number:
@@ -206,13 +219,13 @@ class Network:
 
         return (-1, -1)
 
-    def _get_random_coord_circle(self, R, clat, clon):
+    def _get_random_coord_circle(self, R, clat, clon, seed_coord):
 
         '''
         returns random coordinate within the circle bounds
         '''
         earth_radius = 6371009  # meters
-
+        np.random.seed(seed_coord)
         counter = 0
         number = 1
         while counter < 1000:
@@ -239,12 +252,13 @@ class Network:
 
         return (-1, -1)
 
-    def _get_random_coord_radius(self, lat, lon, radius, polygon):
+    def _get_random_coord_radius(self, lat, lon, radius, polygon, seed_coord):
 
         R = 6378.1 #Radius of the Earth
 
         counter = 0
         number = 1
+        np.random.seed(seed_coord)
         while counter < 1000:
             degree = random.randint(0, 360)
             brng = math.radians(degree)

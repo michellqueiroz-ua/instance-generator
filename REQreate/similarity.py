@@ -9,10 +9,10 @@ from instance_class import Instance
 
 if __name__ == '__main__':
 
-    place_name = "Rennes, France"
+    place_name = "Chicago, Illinois"
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
-    network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+    network_class_file = pickle_dir+'/'+place_name+'.network2.class.pkl'
 
     network_directory = os.getcwd()+'/'+place_name
 
@@ -24,6 +24,27 @@ if __name__ == '__main__':
     the = 60
     csv_directory = network_directory+'/csv_format'
     directory = os.fsencode(csv_directory)
+    
+    #filename1 = os.fsdecode(network_directory+'/csv_format'+'Chicago,Illinois_ODBRP_300_7.0_8.0_0.6088048438833111_300.0_0.0_2791.1_1_.csv')
+    #filename2 = os.fsdecode(network_directory+'/csv_format'+'Chicago,Illinois_ODBRP_300_7.0_8.0_0.7098540433648091_300.0_0.0_2836.7_1_.csv')
+    inst1 = pd.read_csv(network_directory+'/csv_format/'+'Chicago,Illinois_ODBRP_300_7.0_8.0_0.71_300.0_0.0_2686.3_1.csv')
+    inst2 = pd.read_csv(network_directory+'/csv_format/'+'Chicago,Illinois_ODBRP_300_7.0_8.0_0.61_303.98_328.55_2709.8_1.csv')
+
+    count = 0
+    count2 = 0
+    for r in range(300):
+        o1 = inst1.loc[r, 'origin']
+        o2 = inst2.loc[r, 'origin']
+        if o1 == o2:
+            count += 1
+        d1 = inst1.loc[r, 'destination']
+        d2 = inst2.loc[r, 'destination']
+        if d1 == d2:
+            count2 += 1
+        #print(o1)
+        #print(o2)
+    print(count, count2)
+    '''
     for file_inst1 in os.listdir(directory):
         
         filename1 = os.fsdecode(file_inst1)
@@ -138,3 +159,4 @@ if __name__ == '__main__':
                         si1i2 = si1i2/count
 
                         print(si1i2)
+    '''

@@ -33,6 +33,18 @@ class Instance:
         with open(self.network_class_file, 'rb') as self.network_class_file:
             self.network = pickle.load(self.network_class_file)
 
+        self.network_class_file2 = self.pickle_dir+'/'+self.output_folder_base+'.network.class.pkl'
+
+        with open(self.network_class_file2, 'rb') as self.network_class_file:
+            network2 = pickle.load(self.network_class_file)
+
+        self.network.G_walk = network2.G_walk
+        self.network.shortest_path_walk = network2.shortest_path_walk
+        
+        del network2
+        #del self.network.shortest_path_drive
+        gc.collect()
+
         #problem for which the instance is being created
         self.problem_type = None
 
@@ -77,6 +89,8 @@ class Instance:
 
         self.parameters = {}
 
+        self.properties = ['dynamism', 'urgency', 'geographic_dispersion']
+
     def set_seed(self, seed, increment_seed):
 
         self.seed = seed
@@ -101,10 +115,10 @@ class Instance:
 
         self.number_replicas = int(number_replicas)
 
-    def generate_requests(self):
+    def generate_requests(self, base_save_folder_name, inst_directory):
 
         for replicate_num in range(self.number_replicas):
             
             self.seed += self.increment_seed
 
-            _generate_requests(self, replicate_num)
+            _generate_requests(self, replicate_num, base_save_folder_name, inst_directory)

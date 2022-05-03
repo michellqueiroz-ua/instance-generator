@@ -7,7 +7,24 @@ import statistics
 from pathlib import Path
 from instance_class import Instance
 
+def urgency(inst1):
 
+    chi = []
+    for idx, req in inst1.iterrows():
+
+        if req['time_stamp'] > 0:
+            er = abs(req['latest_departure'] - req['time_stamp'])
+            chi.append(er)
+
+    
+    mean = sum(chi) / len(chi)
+    variance = sum([((x - mean) ** 2) for x in chi]) / len(chi)
+    stdv = variance ** 0.5
+    stdv2 = statistics.pstdev(chi)
+
+    return mean, stdv
+
+'''
 if __name__ == '__main__':
 
     place_name = "Rennes, France"
@@ -43,17 +60,10 @@ if __name__ == '__main__':
             stdv = variance ** 0.5
             stdv2 = statistics.pstdev(chi)
 
-            '''
-            inst1['reaction_time'] = abs(inst1['latest_departure'] - inst1['time_stamp'])
-            chi2 = inst1['reaction_time'].tolist()
-            mean2 = inst1['reaction_time'].mean()
-            variance2 = sum([((x - mean2) ** 2) for x in chi2]) / len(chi2)
-            stdv3 = variance ** 0.5
-            stdv4 = statistics.pstdev(chi2)
-            '''
             
             print(mean)
             #print(stdv)
 
             #print(mean2)
             #print(stdv4)
+'''

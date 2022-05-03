@@ -117,8 +117,15 @@ class JsonConverter(object):
 
                             d[att+'node_drive'] = request.get(att+'node_drive')
 
+                        if ((att == 'stops_orgn') or (att == 'stops_dest')):
+
+                            d[att+'_walking_distance'] = request.get(att+'_walking_distance')
+
+            d['seed_location'] = request.get('seed_location')
+            d['reqid'] = request.get('reqid')
             instance.append(d)
 
         instance = pd.DataFrame(instance)
+        instance = instance.sort_values("reqid")
         instance.to_csv(path_instance_csv_file)
         

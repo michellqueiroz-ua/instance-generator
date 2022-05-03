@@ -7,10 +7,147 @@ from pathlib import Path
 from instance_class import Instance
 
 
-def geographic_dispersion(inst, inst1, problem):
+def geographic_dispersion(inst, problem, filename1):
+
+    network_directory = os.getcwd()+'/'+inst.network.place_name
+    csv_directory = network_directory+'/csv_format'
+    ttm_directory = network_directory+'/travel_time_matrix'
+    directory = os.fsencode(csv_directory)
+
+    #filename1 = os.fsdecode(file_inst1)
+
+    #if (filename1.endswith(".csv")):
+    
+    inst1 = pd.read_csv(csv_directory+'/'+filename1)
+    ttm_file_inst1 = 'travel_time_matrix_'+filename1
+    ttmfilename1 = os.fsdecode(ttm_file_inst1)
+    #ttm1 = pd.read_csv(ttm_directory+'/'+ttmfilename1)
+    #ttm1.set_index(['osmid_origin'], inplace=True)
 
     if problem == 'ODBRP':
 
+        earliest_departure = 'earliest_departure'
+        latest_arrival = 'latest_arrival'
+        time_gap = 600
+        #node_origin = 
+        #node_destination = 
+        osmid_origin = 'originnode_drive'
+        osmid_destination = 'destinationnode_drive'
+        speed = 7.22 #26kmh
+        stops_orgn = 'stops_orgn'
+        stops_dest = 'stops_dest'
+
+        stations = []
+        ovrsumm = 0
+        for idx, row in inst1.iterrows():
+            
+            orgn = row[stops_orgn].strip('][').split(', ')
+            
+            dest = row[stops_dest].strip('][').split(', ')
+
+            
+            orgn = [int(i) for i in orgn]
+            dest = [int(i) for i in dest]
+
+            summ = 0
+            count = 0
+            for so in orgn:
+                for sd in dest:
+
+                    if so != sd:
+                        #summ += ttm1.loc[so, str(sd)]
+                        stopo = int(inst.network.bus_stations.loc[so, 'osmid_drive'])
+                        stopd = int(inst.network.bus_stations.loc[sd, 'osmid_drive'])
+                        summ += round(inst.network._return_estimated_travel_time_drive(int(stopo), int(stopd)),1) 
+                        count += 1
+
+            ovrsumm += round(summ/count,1)
+
+        
+        muodbrp = round(ovrsumm/(len(inst1)),1)
+
+        sumnn = 0
+        for idx1, row1 in inst1.iterrows():
+            ltro = []
+            ltrd = []
+            for idx2, row2 in inst1.iterrows():
+
+                if idx2 != idx1:
+
+                    
+                    if (row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap):
+                        
+                        stps = row2[stops_orgn].strip('][').split(', ')
+                        ltro.extend(stps)
+
+                    if (row2[latest_arrival] >= row1[earliest_departure] - time_gap) and (row2[latest_arrival] <= row1[earliest_departure] + time_gap):
+                        stps = row2[stops_dest].strip('][').split(', ')
+                        ltro.extend(stps)
+
+                    if (row2[latest_arrival] >= row1[latest_arrival] - time_gap) and (row2[latest_arrival] <= row1[latest_arrival] + time_gap):
+                        stps = row2[stops_dest].strip('][').split(', ')
+                        ltrd.extend(stps)
+
+                    if (row2[earliest_departure] >= row1[latest_arrival] - time_gap) and (row2[earliest_departure] <= row1[latest_arrival] + time_gap):
+                        stps = row2[stops_orgn].strip('][').split(', ')
+                        ltrd.extend(stps)
+
+            ltro = list(dict.fromkeys(ltro))
+            ltrd = list(dict.fromkeys(ltrd))
+
+            ltrot = []
+            ltrdt = []
+
+            org_stps = row1[stops_orgn].strip('][').split(', ')
+            org_stps = [int(i) for i in org_stps]
+            ltro = [int(i) for i in ltro if int(i) not in org_stps]
+            for s in org_stps:
+                for x in ltro:
+
+                    #tuplx = (x, ttm1.loc[int(s), str(x)])
+                    stopo = int(inst.network.bus_stations.loc[s, 'osmid_drive'])
+                    stopd = int(inst.network.bus_stations.loc[x, 'osmid_drive'])
+                    tuplx = (x, round(inst.network._return_estimated_travel_time_drive(int(stopo), int(stopd)),1))
+                    ltrot.append(tuplx)
+
+            
+            dest_stps = row1[stops_dest].strip('][').split(', ')
+            dest_stps = [int(i) for i in dest_stps]
+            ltrd = [int(i) for i in ltrd if int(i) not in dest_stps]
+            for s in dest_stps:
+                for y in ltrd:
+
+                    #tuply = (y, ttm1.loc[int(s), str(y)])
+                    stopo = int(inst.network.bus_stations.loc[s, 'osmid_drive'])
+                    stopd = int(inst.network.bus_stations.loc[y, 'osmid_drive'])
+                    tuply = (y, round(inst.network._return_estimated_travel_time_drive(int(stopo), int(stopd)), 1))
+                    ltrdt.append(tuply)
+
+
+            #sort tuples
+            ltrot.sort(key = lambda x: x[1]) 
+            ltrdt.sort(key = lambda x: x[1])
+            
+            #avg 5 first
+            n_neig = 5
+            avgo = 0
+            for i in range(min(n_neig, len(ltrot))):
+                avgo += ltrot[i][1]
+            
+            if len(ltrot) > 0:
+                avgo = avgo/min(n_neig, len(ltrot))
+
+            avgd = 0
+            for j in range(min(n_neig, len(ltrdt))):
+                avgd += ltrdt[j][1]
+            
+            if len(ltrdt) > 0:
+                avgd = avgd/min(n_neig, len(ltrdt))
+            
+            sumnn += avgo + avgd
+
+        omegaodbrp = sumnn/(len(inst1)*2)
+        gd = muodbrp + omegaodbrp
 
     else:
         #mu
@@ -147,7 +284,7 @@ def geographic_dispersion(inst, inst1, problem):
         #print(gd)
 
     return gd
-
+'''
 if __name__ == '__main__':
 
     place_name = "Rennes, France"
@@ -156,11 +293,11 @@ if __name__ == '__main__':
     pickle_dir = os.path.join(save_dir, 'pickle')
     network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
 
-    network_directory = os.getcwd()+'/'+place_name
-
+    
     if Path(network_class_file).is_file():
         inst = Instance(folder_to_network=place_name)
 
+    network_directory = os.getcwd()+'/'+place_name
     csv_directory = network_directory+'/csv_format'
     ttm_directory = network_directory+'/travel_time_matrix'
     directory = os.fsencode(csv_directory)
@@ -361,3 +498,4 @@ if __name__ == '__main__':
                 omegadarp = sumnn/(len(inst1)*2)
                 
                 gd = mudarp + omegadarp
+'''

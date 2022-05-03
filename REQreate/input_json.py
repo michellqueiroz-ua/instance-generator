@@ -7,6 +7,7 @@ import random
 import re
 import os
 import osmnx as ox
+import pandas as pd
 import pickle
 
 from instance_class import Instance
@@ -19,6 +20,10 @@ from shapely.geometry import Point
 from shapely.geometry import Polygon
 from streamlit import caching
 import gc
+
+from dynamism import dynamism2
+from urgency import urgency
+from geographic_dispersion import geographic_dispersion
 
 def get_multiplier_time_unit(time_unit):
 
@@ -53,8 +58,9 @@ def get_multiplier_speed_unit(speed_unit):
 
     return mult
 
-def input_json(filename_json):
+def input_json(inst_directory, instance_filename, base_save_folder_name):
 
+    filename_json = inst_directory+instance_filename
     f = open(filename_json,)
 
     #true = True
@@ -62,14 +68,7 @@ def input_json(filename_json):
 
     data = json.load(f)
 
-    if 'seed' in data:
-        value = data['seed']
-           
-    else: 
-        value = 1
-
-    random.seed(value)
-    np.random.seed(value)
+    
 
     if 'network' in data:
 
@@ -83,6 +82,28 @@ def input_json(filename_json):
         if Path(network_class_file).is_file():
 
             inst = Instance(folder_to_network=place_name)
+
+            #remove this later
+            if 'set_fixed_speed' in data:
+
+                vehicle_speed_data = "set"
+                if 'vehicle_speed_data_unit' in data['set_fixed_speed']:
+                    mult = get_multiplier_speed_unit(data['set_fixed_speed']['vehicle_speed_data_unit'])
+
+                    sunit = data['set_fixed_speed']['vehicle_speed_data_unit']
+                    if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'miph'):
+                        raise ValueError('vehicle_speed_data_unit must be mps, kmh or miph')
+
+                    if not (isinstance(data['set_fixed_speed']['vehicle_speed_data'], (int, float))): 
+                        raise TypeError('value for vehicle_speed_data speed must be a number (integer, float)')
+
+                    if data['set_fixed_speed']['vehicle_speed_data'] < 0:
+                        raise TypeError('negative number is not allowed for type speed')
+
+                    vehicle_speed = data['set_fixed_speed']['vehicle_speed_data']
+                    inst.network.vehicle_speed = vehicle_speed*mult
+                    print('VEHICLE SPEED')
+                    print(inst.network.vehicle_speed)
 
         else:
 
@@ -100,19 +121,19 @@ def input_json(filename_json):
 
                 vehicle_speed_data = "set"
                 if 'vehicle_speed_data_unit' in data:
-                    mult = get_multiplier_speed_unit(data['vehicle_speed_data_unit'])
+                    mult = get_multiplier_speed_unit(data['set_fixed_speed']['vehicle_speed_data_unit'])
 
-                    sunit = data['vehicle_speed_data_unit']
+                    sunit = data['set_fixed_speed']['vehicle_speed_data_unit']
                     if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'miph'):
                         raise ValueError('vehicle_speed_data_unit must be mps, kmh or miph')
 
-                    if not (isinstance(data['vehicle_speed_data'], (int, float))): 
+                    if not (isinstance(data['set_fixed_speed']['vehicle_speed_data'], (int, float))): 
                         raise TypeError('value for vehicle_speed_data speed must be a number (integer, float)')
 
-                    if data['vehicle_speed_data'] < 0:
+                    if data['set_fixed_speed']['vehicle_speed_data'] < 0:
                         raise TypeError('negative number is not allowed for type speed')
 
-                    vehicle_speed = data['vehicle_speed_data']
+                    vehicle_speed = data['set_fixed_speed']['vehicle_speed_data']
                     vehicle_speed = vehicle_speed*mult
                 
             else:
@@ -137,6 +158,18 @@ def input_json(filename_json):
         inst.parameters['network']['type'] = 'network'
 
     else: raise ValueError('network parameter is mandatory')
+
+    if 'seed' in data:
+        inst.seed = data['seed']
+        value = data['seed']
+           
+    else: 
+        inst.seed = 1
+        value = 1
+
+    inst.filename_json = filename_json    
+    random.seed(value)
+    np.random.seed(value)
 
     if 'problem' in data:
 
@@ -485,24 +518,35 @@ def input_json(filename_json):
 
             else: raise ValueError('name for a parameter is mandatory')
 
+    if ('min_dtt' in inst.parameters) and ('max_dtt' in inst.parameters):
+
+        inst.parameters['set_geographic_dispersion'] = {}
+        inst.parameters['set_geographic_dispersion']['type'] = 'builtin'
+        inst.parameters['set_geographic_dispersion']['value'] = True 
+        print('set geographic dispersion TRUE')
+    else:
+        inst.parameters['set_geographic_dispersion'] = {}
+        inst.parameters['set_geographic_dispersion']['type'] = 'builtin'
+        inst.parameters['set_geographic_dispersion']['value'] = False
+
     if 'replicas' in data:
 
         inst.set_number_replicas(number_replicas=data['replicas'])
 
     else: inst.set_number_replicas(number_replicas=1)
 
-    if 'records' in data:
+    if 'requests' in data:
 
-        inst.parameters['records'] = {}
-        inst.parameters['records']['value'] = data['records']
-        inst.parameters['records']['type'] = 'integer'
+        inst.parameters['requests'] = {}
+        inst.parameters['requests']['value'] = data['requests']
+        inst.parameters['requests']['type'] = 'integer'
 
     if 'instance_filename' in data:
 
         inst.instance_filename = data['instance_filename']
 
         for x in data['instance_filename']:
-            if x not in inst.parameters:
+            if ((x not in inst.parameters) and (x not in inst.properties)):
                 raise ValueError(x+ ' is not a parameter, therefore not valid for instance_filename')
 
     GA = nx.DiGraph()
@@ -954,7 +998,7 @@ def input_json(filename_json):
 
     inst.sorted_attributes = list(nx.topological_sort(GA))
     inst.GA = GA
-
+    print(inst.sorted_attributes)
     
     final_filename = ''
     for p in inst.instance_filename:
@@ -965,6 +1009,14 @@ def input_json(filename_json):
                 strv = strv.replace(" ", "")
 
                 if len(final_filename) > 0:
+                    if p == 'min_early_departure':
+                        strv = inst.parameters[p]['value']/3600
+                        strv = str(strv)
+
+                    if p == 'max_early_departure':
+                        strv = inst.parameters[p]['value']/3600
+                        strv = str(strv)
+
                     final_filename = final_filename + '_' + strv
                 else: final_filename = strv
 
@@ -985,8 +1037,11 @@ def input_json(filename_json):
         os.mkdir(network_folder)
     plt.savefig(network_folder+'/network_drive')
 
+    if not os.path.isdir(inst.save_dir+'/json_format/'+base_save_folder_name):
+        os.mkdir(inst.save_dir+'/json_format/'+base_save_folder_name)
+    
     gc.collect()
-    inst.generate_requests()
+    inst.generate_requests(base_save_folder_name, inst_directory)
 
     caching.clear_cache()
         
@@ -995,16 +1050,66 @@ def input_json(filename_json):
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
 
-    for instance in os.listdir(os.path.join(inst.save_dir, 'json_format')):
+    if not os.path.isdir(save_dir_csv+'/'+base_save_folder_name):
+        os.mkdir(save_dir_csv+'/'+base_save_folder_name)
+
+    replicate_num = 1
+    for instance in os.listdir(os.path.join(inst.save_dir, 'json_format', base_save_folder_name)):
         
-        if instance != ".DS_Store":
-            input_name = os.path.join(inst.save_dir, 'json_format', instance)
+        base_filename = inst.filename_json.replace(inst_directory, "")
+        inst_base = instance.replace(inst.save_dir+'/json_format/'+base_save_folder_name+'/', "")
+        inst_base = inst_base.replace('_1.json', "")
+        inst_base = inst_base.replace('_2.json', "")
+        inst_base = inst_base.replace('_3.json', "")
+        inst_base = inst_base.replace('_4.json', "")
+        inst_base = inst_base.replace('_5.json', "")
+        inst_base = inst_base+'.json'
+               
+        if (instance != ".DS_Store") and (inst_base == base_filename):
+
+            input_name = os.path.join(inst.save_dir, 'json_format', base_save_folder_name, instance)
             
-            output_name_csv = instance.split('.')[0] + '.csv'
+            output_name_csv = instance.split('.json')[0] + '.csv'
             output_name_csv = output_name_csv.replace(" ", "")
             
+            print(output_name_csv)
             converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
+            converter.convert_normal(inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
+            
+            inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
 
+            full_final_filename = final_filename
+
+            '''
+            for p in inst.instance_filename:
+                if p in inst.properties:
+
+                    if p == 'dynamism':
+                        strv = str(round(dynamism2(inst1, inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc']), 2))
+                        #print(inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc'])
+                        #strv = str(dynamism2(inst1, inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc']))
+                        full_final_filename = full_final_filename + '_' + strv
+
+                    if p == 'urgency':
+                        strvm, strvstd = urgency(inst1)
+                        strvm = str(round(strvm,2))
+                        strvstd = str(round(strvstd,2))
+                        full_final_filename = full_final_filename + '_' + strvm + '_' + strvstd
+                        
+                    if p == 'geographic_dispersion':
+                        strv = str(round(geographic_dispersion(inst, inst.parameters['problem']['value'], output_name_csv), 1))
+                        full_final_filename = full_final_filename + '_' + strv
+            '''
+
+            #renaming the file with the properties
+            
+            #full_final_filename = full_final_filename + '_' + str(replicate_num) + '.csv'
+            
+            full_final_filename = inst.filename_json.replace(inst_directory, "")
+            full_final_filename = full_final_filename.replace(".json", "")
+            full_final_filename = full_final_filename + '_' + str(replicate_num) + '.csv'
+
+            os.rename(os.path.join(save_dir_csv, output_name_csv), os.path.join(save_dir_csv, full_final_filename))
+            replicate_num = replicate_num + 1
 
     f.close()
