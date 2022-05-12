@@ -3,7 +3,7 @@
 	"network": "Rennes, France",
 	"get_fixed_lines": "deconet",
 	"replicas": 1,
-	"records": 500,
+	"requests": 500,
 	"locations": [
 		{
 			"name": "Depot Example",
@@ -88,5 +88,5 @@
 			"subset_zones": "zonesdest"
 		},
 	],
-	"instance_filename": ["network", "problem", "number_records", "min_early_departure", "max_early_departure"]
+	"instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure"]
 }

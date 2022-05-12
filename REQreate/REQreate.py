@@ -7,8 +7,8 @@ if __name__ == '__main__':
     caching.clear_cache()
 
     place_name = "Chicago, Illinois"
-    inst_directory = '../examples/ODBRP_benchmark_configuration_files/600_ni/'
-    base_save_folder_name = '600_ni' #give a unique folder name to save the instances
+    inst_directory = '../examples/ODBRP_benchmark_configuration_files/900_180_1000/'
+    base_save_folder_name = '900_180_1000' #give a unique folder name to save the instances
     directory = os.fsencode(inst_directory)
 
     

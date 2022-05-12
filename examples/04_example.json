@@ -4,8 +4,8 @@
 	"problem": "DARP",
 	"max_speed_factor": 0.5,
 	"replicas": 1,
-	"records": 1000,
-	"instance_filename": ["network", "problem", "records"],
+	"requests": 1000,
+	"instance_filename": ["network", "problem", "requests"],
 	"parameters":[
 		{
 			"name": "min_early_departure",

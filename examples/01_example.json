@@ -4,8 +4,8 @@
 	"problem": "DARP",
 	"max_speed_factor": 0.5,
 	"replicas": 2,
-	"records": 500,
-	"instance_filename": ["network", "problem", "records"],
+	"requests": 500,
+	"instance_filename": ["network", "problem", "requests"],
 	"places": [
 		{
 			"name": "zonexx",

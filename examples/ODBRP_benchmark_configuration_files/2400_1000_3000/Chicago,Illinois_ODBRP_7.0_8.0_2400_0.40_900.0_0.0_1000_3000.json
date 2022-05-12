@@ -1,0 +1,140 @@
+{
+	"seed": 1,
+	"network": "Chicago, Illinois",
+	"problem": "ODBRP",
+	"max_speed_factor": 0.5,
+	"replicas": 1,
+	"requests": 2400,
+	"instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure", "dynamism", "urgency", "geographic_dispersion"],
+	"parameters":[
+		{
+			"name": "min_early_departure",
+			"type": "float",
+			"value": 7.0,
+			"time_unit": "h"
+		},
+		{
+			"name": "max_early_departure",
+			"type": "float",
+			"value": 8.0,
+			"time_unit": "h"
+		},
+		{
+			"name": "min_dtt",
+			"type": "integer",
+			"value": 1001,
+			"length_unit": "m"
+		},
+		{
+			"name": "max_dtt",
+			"type": "integer",
+			"value": 3000,
+			"length_unit": "m"
+		},
+		{
+			"name": "graphml",
+			"type": "graphml",
+			"value": true
+		}
+	],
+	"attributes": [
+		{  
+			"name": "time_stamp",
+			"type": "integer",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"loc": 25200,
+						"scale": 3600
+					} ],
+			"constraints": [ "time_stamp >= 0", 
+							"time_stamp >= min_early_departure",
+							 "time_stamp <= max_early_departure"
+						   ],
+			"dynamism": 40
+		},
+		{
+			"name": "reaction_time",
+			"type": "integer",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"loc": 900,
+						"scale": 0
+					} ]
+		},
+		{
+			"name": "earliest_departure",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "time_stamp",
+			"constraints": [ "earliest_departure >= 0", 
+							"earliest_departure >= min_early_departure"
+						   ]
+		},
+		{
+			"name": "latest_departure",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "time_stamp + reaction_time"
+		},
+		{
+			"name": "latest_arrival",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "earliest_departure + direct_travel_time + (reaction_time)"
+		},
+		{  
+			"name": "origin",
+			"type": "location"
+		},
+		{  
+			"name": "destination",
+			"type": "location"
+		},
+		{ 
+			"name": "stops_orgn",
+			"type": "array_primitives",
+			"expression": "stops(origin)",
+			"constraints": ["len(stops_orgn) > 0"]
+		},
+		{ 
+			"name": "stops_dest",
+			"type": "array_primitives",
+			"expression": "stops(destination)",
+			"constraints": ["len(stops_dest) > 0", "not (set(stops_orgn) & set(stops_dest))"]
+		},
+		{
+			"name": "max_walking",
+			"type": "integer",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"loc": 550,
+						"scale": 50
+					} ],
+			"output_csv": false
+		},
+		{
+			"name": "walk_speed",
+			"type": "real",
+			"speed_unit": "mps",
+			"pdf": [ {	"type": "uniform",
+						"loc": 1.38889,
+						"scale": 0
+					} ],
+			"output_csv": false
+		},
+		{
+			"name": "direct_travel_time",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "dtt(origin,destination)",
+			"constraints": ["direct_travel_time >= min_dtt", "direct_travel_time <= max_dtt"]
+		},
+		{
+			"name": "direct_distance",
+			"type": "integer",
+			"length_unit": "m",
+			"expression": "dist_drive(origin,destination)"
+		}
+	],
+	"travel_time_matrix": ["bus_stations"]
+}
