@@ -57,6 +57,17 @@ def rank_model(place_name, df):
     if Path(network_class_file).is_file():
         inst = Instance(folder_to_network=place_name)
 
+    for node in inst.network.G_drive.nodes():
+        #print(inst.network.G_drive.nodes[node])
+        try:
+            
+            print(inst.network.G_drive.nodes[node]['population'])
+            #print('found')
+        except:
+            #print('not found')
+            pass
+
+
     rows = 25
     columns = 25
     print('smaller zones')
@@ -104,13 +115,15 @@ def rank_model(place_name, df):
     plt.savefig('scatter_rank_trips.png')
     '''
 
+
+
     #dumping updated network file
     print(inst.network.zones['density_pois'].head())
     inst.network.zone_ranks = zone_ranks
     inst.network.zone_probabilities = zone_probabilities
     
     pickle_dir = os.path.join(save_dir, 'pickle')
-    network_class_file = pickle_dir+'/'+output_folder_base+'.network2.class.pkl'
+    network_class_file = pickle_dir+'/'+output_folder_base+'.network3.class.pkl'
     
     output_network_class = open(network_class_file, 'wb')
     pickle.dump(inst.network, output_network_class, pickle.HIGHEST_PROTOCOL)
@@ -148,16 +161,16 @@ def add_osmid_nodes(place_name, df):
 
         #origin_point = (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])
         #df.loc[id1, 'osmid_origin'] = ox.get_nearest_node(inst.network.G_drive, origin_point)
-        idx = pairid.first
-        osmid_node = pairid.second
+        idx = pairid[0]
+        osmid_node = pairid[1]
         df.loc[idx, 'osmid_origin'] = osmid_node
 
     for pairid in osmid_destinations:
 
         #destination_point = (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])
         #df.loc[id1, 'osmid_destination'] = ox.get_nearest_node(inst.network.G_drive, destination_point)
-        idx = pairid.first
-        osmid_node = pairid.second
+        idx = pairid[0]
+        osmid_node = pairid[1]
         df.loc[idx, 'osmid_destination'] = osmid_node
         
     ray.shutdown()
@@ -1322,7 +1335,8 @@ def real_data_tests_chicago_database2(time_intervals):
 
 
     #rank model
-    #rank_model("Chicago, Illinois", dfc)
+    print('rank model')
+    rank_model("Chicago, Illinois", dfc)
 
     bins = 100
     density = True 

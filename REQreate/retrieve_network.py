@@ -62,7 +62,11 @@ def download_network_information(
     BBx=1000,
     BBy=1000,
     rows=10,
-    columns=10
+    columns=10,
+    graph_from_point=False,
+    lon=None,
+    lat=None,
+    dist=0
 ):
 
     warnings.filterwarnings(action="ignore")
@@ -106,23 +110,44 @@ def download_network_information(
     ‘all’ – download all (non-private) OSM streets and paths
     ‘all_private’ – download all OSM streets and paths, including private-access ones
     '''
-    api_osm = osm.OsmApi()
 
-    if isinstance(place_name, (str, dict)):
-        # if it is a string (place name) or dict (structured place query), then
-        # it is a single place
-        gdf_place = ox.geocoder.geocode_to_gdf(
-            place_name, which_result=None, buffer_dist=None
+
+    if graph_from_point:
+
+        center_point = (lat, lon)
+        north, south, east, west = ox.utils_geo.bbox_from_point(center_point, dist)
+
+        '''
+        G = ox.graph_from_bbox(
+            north,
+            south,
+            east,
+            west,
+            network_type='drive',
+            retain_all=True
         )
-    elif isinstance(place_name, list):
-        # if it is a list, it contains multiple places to get
-        gdf_place = ox.geocoder.geocode_to_gdf(place_name, buffer_dist=None)
+        '''
+        print('here')
+        polygon = ox.utils_geo.bbox_to_poly(north, south, east, west)
     else:
-        raise TypeError("query must be dict, string, or list of strings")
+        api_osm = osm.OsmApi()
 
-    # extract the geometry from the GeoDataFrame to use in API query
-    polygon = gdf_place["geometry"].unary_union 
+        if isinstance(place_name, (str, dict)):
+            # if it is a string (place name) or dict (structured place query), then
+            # it is a single place
+            gdf_place = ox.geocoder.geocode_to_gdf(
+                place_name, which_result=None, buffer_dist=None
+            )
+        elif isinstance(place_name, list):
+            # if it is a list, it contains multiple places to get
+            gdf_place = ox.geocoder.geocode_to_gdf(place_name, buffer_dist=None)
+        else:
+            raise TypeError("query must be dict, string, or list of strings")
 
+        # extract the geometry from the GeoDataFrame to use in API query
+        polygon = gdf_place["geometry"].unary_union 
+
+    print(polygon)
     G_walk = ox.graph_from_polygon(
         polygon,
         network_type='walk', 
@@ -188,7 +213,9 @@ def download_network_information(
                 G_drive[u][v][0]['travel_time'] = int(math.ceil(G_drive[u][v][0]['length']/(replace_vehicle_speed * max_speed_factor)))
         
         elif vehicle_speed_data == "set":
-            if not math.isnan(vehicle_speed):   
+            if not math.isnan(vehicle_speed):
+                #print(G_drive[u][v][0]['length'])   
+                #print(vehicle_speed)
                 G_drive[u][v][0]['travel_time'] = int(math.ceil(G_drive[u][v][0]['length']/(vehicle_speed)))
             else:
                 raise ValueError('please set attribute vehicle_speed')
@@ -231,6 +258,7 @@ def download_network_information(
     shortest_path_drive = []
     shortest_dist_drive = []
     unreachable_nodes = []
+    
     shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(network.G_walk, network.G_drive, network.bus_stations, save_dir, output_folder_base)
 
 
@@ -298,11 +326,14 @@ def download_network_information(
         print(len(network.nodes_covered_fixed_lines))
 
     else:
+        pass 
         
         num_removed = filter_bus_stations(network, shortest_path_drive, save_dir, output_folder_base)
 
         network.bus_stations = network.bus_stations.reset_index(drop=True)
-        
+    
+    #remove these comments
+    
     network.bus_stations_ids = []
     for index, stop_node in network.bus_stations.iterrows():
         if index not in network.bus_stations_ids:
@@ -313,7 +344,7 @@ def download_network_information(
     network.shortest_path_walk = shortest_path_walk
     network.shortest_path_drive = shortest_path_drive
     network.shortest_dist_drive = shortest_dist_drive
-
+     
     print('successfully retrieved network')
 
     network_class_file = pickle_dir+'/'+output_folder_base+'.network.class.pkl'

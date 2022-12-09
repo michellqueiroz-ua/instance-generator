@@ -120,12 +120,12 @@ def add_osmid_nodes(place_name, df):
         inst = Instance(folder_to_network=place_name)
 
     ray.shutdown()
-    ray.init(num_cpus=cpu_count())
+    ray.init(num_cpus=os.cpu_count())
     G_drive_id = ray.put(inst.network.G_drive)
     osmid_origins = ray.get([get_osmid_node.remote(G_drive_id, id1, (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])) for id1, row1 in df.iterrows()]) 
 
     ray.shutdown()
-    ray.init(num_cpus=cpu_count())
+    ray.init(num_cpus=os.cpu_count())
     G_drive_id = ray.put(inst.network.G_drive)
     osmid_destinations = ray.get([get_osmid_node.remote(G_drive_id, id1, (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])) for id1, row1 in df.iterrows()]) 
 
@@ -133,16 +133,16 @@ def add_osmid_nodes(place_name, df):
 
         #origin_point = (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])
         #df.loc[id1, 'osmid_origin'] = ox.get_nearest_node(inst.network.G_drive, origin_point)
-        idx = pairid.first
-        osmid_node = pairid.second
+        idx = pairid[0]
+        osmid_node = pairid[1]
         df.loc[idx, 'osmid_origin'] = osmid_node
 
     for pairid in osmid_destinations:
 
         #destination_point = (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])
         #df.loc[id1, 'osmid_destination'] = ox.get_nearest_node(inst.network.G_drive, destination_point)
-        idx = pairid.first
-        osmid_node = pairid.second
+        idx = pairid[0]
+        osmid_node = pairid[1]
         df.loc[idx, 'osmid_destination'] = osmid_node
         
     ray.shutdown()
@@ -678,6 +678,9 @@ def dynamism(inst1, ed, ld):
     number_reqs = len(inst1)
     
     theta = Te/len(sorted_ts)
+    print('theta', theta)
+    print(inst1)
+    print(DELTA)
 
     SIGMA = []
     for k in range(len(DELTA)):
@@ -690,11 +693,11 @@ def dynamism(inst1, ed, ld):
 
             if ((k > 0) and (DELTA[k] < theta)): 
 
-                 SIGMA.append(theta - DELTA[k] + SIGMA[k-1]*((theta - DELTA[k])/theta))
+                SIGMA.append(theta - DELTA[k] + SIGMA[k-1]*((theta - DELTA[k])/theta))
 
             else:
 
-                 SIGMA.append(0)
+                SIGMA.append(0)
 
     #print(SIGMA)
     lambdax = 0
@@ -912,6 +915,8 @@ def real_data_tests_chicago_database2(ed, ld):
     #similarity
     #ed = 420
     #ld = 540
+    
+    '''
     similarities = []
     for day in range(1,2):
         for day2 in range(1,2):
@@ -930,25 +935,7 @@ def real_data_tests_chicago_database2(ed, ld):
 
                 df_2 = dfc.loc[(dfc['pickup_day'] == d2) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
 
-                '''
-                df_1['Pickup_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_1['Pickup_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_1['Dropoff_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_1['Dropoff_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_1.dropna(subset=['Pickup_Centroid_Latitude'], inplace=True)
-                df_1.dropna(subset=['Pickup_Centroid_Longitude'], inplace=True)
-                df_1.dropna(subset=['Dropoff_Centroid_Latitude'], inplace=True)
-                df_1.dropna(subset=['Dropoff_Centroid_Longitude'], inplace=True)
-
-                df_2['Pickup_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_2['Pickup_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_2['Dropoff_Centroid_Latitude'].replace('', np.nan, inplace=True)
-                df_2['Dropoff_Centroid_Longitude'].replace('', np.nan, inplace=True)
-                df_2.dropna(subset=['Pickup_Centroid_Latitude'], inplace=True)
-                df_2.dropna(subset=['Pickup_Centroid_Longitude'], inplace=True)
-                df_2.dropna(subset=['Dropoff_Centroid_Latitude'], inplace=True)
-                df_2.dropna(subset=['Dropoff_Centroid_Longitude'], inplace=True)
-                '''
+                
 
                 #what if there are different numbers of requests?
                 #sample randomly
@@ -961,6 +948,8 @@ def real_data_tests_chicago_database2(ed, ld):
 
                 print(len(df_1), len(df_2))
                 similarities.append(similarity("Chicago, Illinois", df_1, df_2))
+    '''
+
 
     #geographic dispersion
     #df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination  \
@@ -968,20 +957,20 @@ def real_data_tests_chicago_database2(ed, ld):
 
     #print(df_loc.columns)
     #print(df_gd.columns)
-    for day in range(1,2):
+    #for day in range(1,2):
+    day = 14
+    sd = '09/{0:0=2d}/2019'.format(day)
+    #ed = ed
+    #ld = 540*60
 
-        sd = '09/{0:0=2d}/2019'.format(day)
-        #ed = ed
-        #ld = 540*60
-
-        #print(sd)
-        
-        df_gd_d = dfc.loc[(dfc['pickup_day'] == sd) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
-        #df_gd_d_loc = pd.merge(df_gd_d, df_loc)
-        #print(df_gd_d_loc.head())
-        
-        print('geographic dispersion: ', len(df_gd_d))
-        geographic_dispersion("Chicago, Illinois", df_gd_d, day)
+    #print(sd)
+    
+    df_gd_d = dfc.loc[(dfc['pickup_day'] == sd) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
+    #df_gd_d_loc = pd.merge(df_gd_d, df_loc)
+    #print(df_gd_d_loc.head())
+    
+    print('geographic dispersion: ', len(df_gd_d))
+    geographic_dispersion("Chicago, Illinois", df_gd_d, day)
 
     #df_dyn = pd.read_sql_query('SELECT pickup_day, pickup_time, pu_time_sec, do_time_sec, Trip_Seconds, Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude, osmid_origin, osmid_destination \
     #                    FROM table_record', chicago_database)
@@ -996,28 +985,28 @@ def real_data_tests_chicago_database2(ed, ld):
     #dynamism
     #average number of trips per day at a given time slot
     avg_trips = 0
-    for day in range(1,3):
+    #for day in range(1,3):
+    day = 14
+    sd = '09/{0:0=2d}/2019'.format(day)
+    #ed = 420
+    #ld = 540
 
-        sd = '09/{0:0=2d}/2019'.format(day)
-        #ed = 420
-        #ld = 540
+    print(sd)
+    
+    df_dyn_d = dfc.loc[(dfc['pickup_day'] == sd) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
 
-        print(sd)
-        
-        df_dyn_d = dfc.loc[(dfc['pickup_day'] == sd) & (dfc['pu_time_sec'] >= ed) & (dfc['pu_time_sec'] <= ld)]
-
-        if len(df_dyn_d) > 0:
-            avg_trips += len(df_dyn_d)
-        
-        #daily per pop
-        dpp = len(df_dyn_d)/population
-        print(dpp)
-        print('dynamism')
-        print(len(df_dyn_d))
-        dynamism(df_dyn_d, ed, ld)
-        #ratio between real vs estimated travel time
-        print('ratio eta vs real')
-        ratio_eta_real_time("Chicago, Illinois", df_dyn_d)
+    if len(df_dyn_d) > 0:
+        avg_trips += len(df_dyn_d)
+    
+    #daily per pop
+    dpp = len(df_dyn_d)/population
+    print(dpp)
+    print('dynamism')
+    print(len(df_dyn_d))
+    dynamism(df_dyn_d, ed, ld)
+    #ratio between real vs estimated travel time
+    print('ratio eta vs real')
+    ratio_eta_real_time("Chicago, Illinois", df_dyn_d)
 
     #change the formulas (for measures of features), and put it in appendix
 
@@ -1037,8 +1026,8 @@ def real_data_tests_chicago_database2(ed, ld):
     #df_fit = df_fit[filtered_entries]
 
     dists = dfc["Trip_Miles"].values
-    Fitter_best_fitting_distribution(dists)
-    print('out Fitter')
+    #Fitter_best_fitting_distribution(dists)
+    #print('out Fitter')
     #powelaw_best_fitting_distribution(dists)
     
     #rank model

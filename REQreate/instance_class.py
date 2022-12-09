@@ -30,16 +30,27 @@ class Instance:
         
         self.network_class_file = self.pickle_dir+'/'+self.output_folder_base+'.network2.class.pkl'
 
+        print(self.network_class_file)
         with open(self.network_class_file, 'rb') as self.network_class_file:
             self.network = pickle.load(self.network_class_file)
+
+        self.network_class_file = self.pickle_dir+'/'+self.output_folder_base+'.network3.class.pkl'
+
+        print(self.network_class_file)
+        with open(self.network_class_file, 'rb') as self.network_class_file:
+            network3 = pickle.load(self.network_class_file)
+
+        self.network.zones = network3.zones
+
+        del network3
 
         self.network_class_file2 = self.pickle_dir+'/'+self.output_folder_base+'.network.class.pkl'
 
         with open(self.network_class_file2, 'rb') as self.network_class_file:
             network2 = pickle.load(self.network_class_file)
 
-        self.network.G_walk = network2.G_walk
-        self.network.shortest_path_walk = network2.shortest_path_walk
+        #self.network.G_walk = network2.G_walk
+        #self.network.shortest_path_walk = network2.shortest_path_walk
         
         del network2
         #del self.network.shortest_path_drive

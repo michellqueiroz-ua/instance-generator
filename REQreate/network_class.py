@@ -31,6 +31,7 @@ class Network:
 
         #indicates which nodes in the network are specifically bus stops
         self.bus_stations = bus_stations 
+        
         self.num_stations = len(bus_stations)
 
         #used in request generation to avoid using iterrows
@@ -112,9 +113,9 @@ class Network:
         eta = -1
         try:
             
-            #travel_timex = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='travel_time')
+            #travel_time = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='travel_time')
             travel_time = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
-            speed = 5.56 #20kmh remove this later maybe?
+            speed = 5.56 #20kmh remove this later maybe? (look two lines above)
             travel_time = travel_time/speed
            
             #print(travel_timex, travel_time)
@@ -217,7 +218,7 @@ class Network:
                 if polygon.contains(pnt):
                     return pnt
 
-        return (-1, -1)
+        return Point(-1, -1)
 
     def _get_random_coord_circle(self, R, clat, clon, seed_coord):
 
@@ -478,7 +479,7 @@ class Network:
         u, v, key = ox.nearest_edges(self.G_walk, x, y)
         school_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
     
-        u, v, key = ox.nearest_edge(self.G_drive, x, y)
+        u, v, key = ox.nearest_edges(self.G_drive, x, y)
         school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
 
         d = {
@@ -489,6 +490,23 @@ class Network:
             'lon':x,
         }
         self.schools = self.schools.append(d, ignore_index=True)
+
+    def add_new_stop(self, types, x, y):
+
+        u, v, key = ox.nearest_edges(self.G_walk, x, y)
+        stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
+    
+        u, v, key = ox.nearest_edges(self.G_drive, x, y)
+        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
+
+        d = {
+            'osmid_walk':stop_node_walk,
+            'osmid_drive':stop_node_drive,
+            'lat':y,
+            'lon':x,
+            'type': types
+        }
+        self.bus_stations = self.bus_stations.append(d, ignore_index=True)
 
 
 

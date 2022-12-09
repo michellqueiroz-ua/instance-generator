@@ -1,3 +1,4 @@
+import ast
 import networkx as nx
 import os
 import osmnx as ox
@@ -498,13 +499,16 @@ def new_heatmap(inst, dfc):
     pts_ogy = []    
     for idx, row in df_og.iterrows():
 
-        pt = (row['originx'], row['originy'])
+        #print(row)
+        pt = ast.literal_eval(row['origin'])
+        #print(pt)
+        #pt = (row['origin'])
         pts_og.append(pt)
-        pts_ogx.append(row['originx'])
-        pts_ogy.append(row['originy'])
+        pts_ogx.append(pt[1])
+        pts_ogy.append(pt[0])
 
-        pts_bhx.append(row['originx'])
-        pts_bhy.append(row['originy'])
+        pts_bhx.append(pt[1])
+        pts_bhy.append(pt[0])
     
 
     pts_de = []
@@ -512,13 +516,14 @@ def new_heatmap(inst, dfc):
     pts_dey = []      
     for idx, row in df_de.iterrows():
 
-        pt = (row['destinationx'], row['destinationy'])
+        pt = ast.literal_eval(row['destination'])
+        #print(pt)
         pts_de.append(pt)
-        pts_dex.append(row['destinationx'])
-        pts_dey.append(row['destinationy'])
+        pts_dex.append(pt[1])
+        pts_dey.append(pt[0])
 
-        pts_bhx.append(row['destinationx'])
-        pts_bhy.append(row['destinationy'])
+        pts_bhx.append(pt[1])
+        pts_bhy.append(pt[0])
 
     minx, miny, maxx, maxy = inst.network.polygon.bounds
     #hm = Heatmap(libpath="cHeatmap.cpython-38-x86_64-linux-gnu.so")
@@ -659,10 +664,10 @@ if __name__ == '__main__':
         os.mkdir(save_dir_csv)
     
     inst.sorted_attributes = ['destination', 'origin', 'destinationx', 'originx', 'destinationy', 'originy', 'destinationnode_drive', 'originnode_drive', 'reaction_time', 'direct_distance', 'direct_travel_time', 'walk_speed', 'max_walking', 'time_walking', 'stops_orgn', 'stops_dest', 'lead_time', 'time_window_length', 'earliest_departure', 'time_stamp', 'latest_arrival', 'earliest_arrival', 'latest_departure']
-    for instance in os.listdir(os.path.join(inst.save_dir, 'json_format')):
+    for instance in os.listdir(os.path.join(inst.save_dir, 'json_format/new_york')):
         
         if instance != ".DS_Store":
-            input_name = os.path.join(inst.save_dir, 'json_format', instance)
+            input_name = os.path.join(inst.save_dir, 'json_format/new_york', instance)
             
             output_name_csv = instance.split('.')[0] + '.csv'
             output_name_csv = output_name_csv.replace(" ", "")
@@ -671,7 +676,7 @@ if __name__ == '__main__':
             converter.convert_normal(inst=inst, problem_type="DARP", path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
             #converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
 
-    csv_directory = network_directory+'/csv_format'
+    csv_directory = network_directory+'/csv_format/new_york'
     directory = os.fsencode(csv_directory)
 
     #del inst.network.shortest_path_walk
@@ -682,6 +687,8 @@ if __name__ == '__main__':
     for file_inst1 in os.listdir(directory):
 
         filename1 = os.fsdecode(file_inst1)
+
+        print(filename1)
 
         if (filename1.endswith(".csv")):
         
@@ -694,11 +701,11 @@ if __name__ == '__main__':
             #speed = 5.55 #mps = 20 kmh
             
             dists = inst1["direct_distance"].values
-            data_dist.append(Fitter_best_fitting_distribution(dists))
-            print('out fitter2')
-            '''
+            #data_dist.append(Fitter_best_fitting_distribution(dists))
+            #print('out fitter2')
+           
             new_heatmap(inst, inst1)
-            '''
+            
 
             #print('urgency')
             #urgency(inst1)

@@ -16,6 +16,7 @@ from output_files import JsonConverter
 from output_files import output_fixed_route_network
 from pathlib import Path
 from retrieve_network import download_network_information
+from compute_distance_matrix import _get_distance_matrix
 from shapely.geometry import Point
 from shapely.geometry import Polygon
 from streamlit import caching
@@ -61,29 +62,31 @@ def get_multiplier_speed_unit(speed_unit):
 def input_json(inst_directory, instance_filename, base_save_folder_name):
 
     filename_json = inst_directory+instance_filename
-    f = open(filename_json,)
+    #f = open(filename_json,)
+    with open(filename_json, 'rb') as f:   # will close() when we leave this block
+        data = json.load(f)
 
     #true = True
     #false = False
 
-    data = json.load(f)
+    #data = json.load(f)
 
     
-
     if 'network' in data:
 
         place_name=data['network']
         
         save_dir = os.getcwd()+'/'+place_name
         pickle_dir = os.path.join(save_dir, 'pickle')
-        network_class_file = pickle_dir+'/'+place_name+'.network2.class.pkl'
+        network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
 
 
         if Path(network_class_file).is_file():
 
             inst = Instance(folder_to_network=place_name)
 
-            #remove this later
+            
+            
             if 'set_fixed_speed' in data:
 
                 vehicle_speed_data = "set"
@@ -104,7 +107,8 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                     inst.network.vehicle_speed = vehicle_speed*mult
                     print('VEHICLE SPEED')
                     print(inst.network.vehicle_speed)
-
+            
+            
         else:
 
             if 'get_fixed_lines' in data:
@@ -117,10 +121,11 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
             else:
                 max_speed_factor = 0.5
 
+            vehicle_speed = 0
             if 'set_fixed_speed' in data:
 
                 vehicle_speed_data = "set"
-                if 'vehicle_speed_data_unit' in data:
+                if 'vehicle_speed_data_unit' in data['set_fixed_speed']:
                     mult = get_multiplier_speed_unit(data['set_fixed_speed']['vehicle_speed_data_unit'])
 
                     sunit = data['set_fixed_speed']['vehicle_speed_data_unit']
@@ -140,7 +145,18 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 vehicle_speed_data = "max"
                 vehicle_speed = None
 
-            network = download_network_information(place_name=place_name, vehicle_speed_data=vehicle_speed_data, vehicle_speed=vehicle_speed, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines)
+            if 'point' in data:
+                graph_from_point = True 
+                lon = data['point']['lon']
+                lat = data['point']['lat']
+                dist = data['dist']
+            else:
+                graph_from_point = False
+                lon = -1
+                lat = -1
+                dist = -1
+
+            network = download_network_information(place_name=place_name, vehicle_speed_data=vehicle_speed_data, vehicle_speed=vehicle_speed, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines, graph_from_point=graph_from_point, lon=lon, lat=lat, dist=dist)
 
             save_dir_fr = os.path.join(save_dir, 'fr_network')
             if not os.path.isdir(save_dir_fr):
@@ -157,7 +173,13 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         inst.parameters['network']['value'] = data['network']
         inst.parameters['network']['type'] = 'network'
 
-    else: raise ValueError('network parameter is mandatory')
+    else: raise ValueError('network or point parameter is mandatory')
+
+    '''
+    print('hxxxxx')
+    #remove this later
+    inst.network.bus_stations = inst.network.bus_stations.iloc[0:0]
+    '''
 
     if 'seed' in data:
         inst.seed = data['seed']
@@ -184,6 +206,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         inst.parameters['problem']['value'] = data['problem']
 
     list_names = []
+    
     if 'places' in data:
 
         location_names = []
@@ -228,13 +251,16 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
                 
                 if 'class' in j: 
-                    classlocs = ['school', 'coordinate']
+                    classlocs = ['school', 'coordinate', 'bus_stop']
 
                     if j['class'] not in classlocs:
                         raise ValueError('location '+str(j['type'])+' is not supported')
 
                     if j['class'] == 'school':
                         inst.network.add_new_school(name=namelocation, x=lon, y=lat)
+
+                    if j['class'] == 'bus_stop':
+                        inst.network.add_new_stop(types=0, x=lon, y=lat)
                 
 
             if j['type'] == 'zone':
@@ -321,6 +347,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 data['places'][x]['node_drive'] = ox.get_nearest_node(inst.network.G_drive, point)
                 data['places'][x]['node_walk'] = ox.get_nearest_node(inst.network.G_walk, point)
 
+    
     if 'parameters' in data:
 
         inst.parameters['all_locations'] = {}
@@ -518,6 +545,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
             else: raise ValueError('name for a parameter is mandatory')
 
+    
     if ('min_dtt' in inst.parameters) and ('max_dtt' in inst.parameters):
 
         inst.parameters['set_geographic_dispersion'] = {}
@@ -529,6 +557,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         inst.parameters['set_geographic_dispersion']['type'] = 'builtin'
         inst.parameters['set_geographic_dispersion']['value'] = False
 
+    
     if 'replicas' in data:
 
         inst.set_number_replicas(number_replicas=data['replicas'])
@@ -995,7 +1024,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         #adds an specific dependency between the two nodes
         GA.add_edge(inst.parameters['method_pois']['value']['locations'][0], inst.parameters['method_pois']['value']['locations'][1])
 
-
+    
     inst.sorted_attributes = list(nx.topological_sort(GA))
     inst.GA = GA
     print(inst.sorted_attributes)
@@ -1025,6 +1054,41 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     p_class_file = inst.pickle_dir+'/'+final_filename+'.param.class.pkl'
     output_p_class = open(p_class_file, 'wb')
     pickle.dump(pclassfile, output_p_class, pickle.HIGHEST_PROTOCOL)
+
+    '''
+    #comment this later on
+    #bryan
+    shortest_path_walk = []
+    shortest_path_drive = []
+    shortest_dist_drive = []
+    unreachable_nodes = []
+    save_dir = os.getcwd()+'/'+inst.output_folder_base
+    shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes = _get_distance_matrix(inst.network.G_walk, inst.network.G_drive, inst.network.bus_stations, save_dir, inst.output_folder_base)
+    
+
+    inst.network.shortest_path_walk = shortest_path_walk
+    inst.network.shortest_path_drive = shortest_path_drive
+    inst.network.shortest_dist_drive = shortest_dist_drive
+
+
+    inst.network.bus_stations_ids = []
+    for index, stop_node in inst.network.bus_stations.iterrows():
+        if index not in inst.network.bus_stations_ids:
+            inst.network.bus_stations_ids.append(index)
+            
+    inst.network.num_stations = len(inst.network.bus_stations)
+
+    network_class_file = inst.pickle_dir+'/'+inst.output_folder_base+'.network.class.pkl'
+    output_network_class = open(network_class_file, 'wb')
+    pickle.dump(inst.network, output_network_class, pickle.HIGHEST_PROTOCOL)
+
+    print('hiiierxxx7')
+    save_dir_csv = os.path.join(inst.output_folder_base, 'csv')
+    path_bus_stations = os.path.join(save_dir_csv, inst.output_folder_base+'.stations.csv')
+    inst.network.bus_stations = pd.DataFrame(inst.network.bus_stations)
+    inst.network.bus_stations.to_csv(path_bus_stations)
+    #until here
+    '''
 
     #plot network
     fig, ax = ox.plot_graph(inst.network.G_drive, show=False, close=False,  figsize=(8, 8), node_color='#000000', node_size=20, bgcolor="#ffffff", edge_color="#999999", edge_alpha=None, dpi=1440)

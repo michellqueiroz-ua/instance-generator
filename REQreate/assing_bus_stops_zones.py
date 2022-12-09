@@ -15,10 +15,10 @@ def assign_bus_stops_to_zones():
 
 if __name__ == '__main__':
 
-    place_name = "Chicago, Illinois"
+    place_name = "Antwerp, Belgium"
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
-    network_class_file = pickle_dir+'/'+place_name+'.network2.class.pkl'
+    network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
 
     network_directory = os.getcwd()+'/'+place_name
 
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     zones = pd.read_csv(save_dir_csv+'/'+place_name+'.zones.csv')
     stations = pd.read_csv(save_dir_csv+'/'+place_name+'.stations.csv')
 
-    '''
+    
     all_stations = []
     for indexz, zone in zones.iterrows():
         stationslis = []
@@ -48,6 +48,8 @@ if __name__ == '__main__':
 
     zones = pd.DataFrame(zones)
     zones.to_csv(save_dir_csv+'/'+place_name+'.zones.csv')
+    
+
     '''
     path_tt_file = os.path.join(save_dir_csv, place_name+'.tt.matrix.stations.csv')
     pd_travel_time_matrix = pd.DataFrame()
@@ -69,4 +71,4 @@ if __name__ == '__main__':
     pd_travel_time_matrix = pd_travel_time_matrix.append(xt, ignore_index=True)
     pd_travel_time_matrix.set_index(['station_index'], inplace=True)
     pd_travel_time_matrix.to_csv(path_tt_file)
-    
+    '''

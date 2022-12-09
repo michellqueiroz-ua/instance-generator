@@ -184,13 +184,16 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                             first_time = False
                                         
                                         att_start = pu
-                                        lat = attributes[att_start+'y']
-                                        lon = attributes[att_start+'x']
-                                        point = network._get_random_coord_radius(lat, lon, radius, network.polygon, seed_location)
+                                        try:
+                                            lat = attributes[att_start+'y']
+                                            lon = attributes[att_start+'x']
+                                            point = network._get_random_coord_radius(lat, lon, radius, network.polygon, seed_location)
+                                        except KeyError:
+                                            point = Point(-1, -1)
 
                                     elif type_coord == pu:
                                         
-                                        probabilities = network.zones['density_pois'].tolist()
+                                        probabilities = network.zones['density_pop'].tolist()
                                         random_zone_id = np.random.choice(a=zones, size=1, p=probabilities)
 
                                         random_zone_id = random_zone_id[0]
@@ -253,13 +256,16 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                             first_time = False
 
                                         att_start = do
-                                        lat = attributes[att_start+'y']
-                                        lon = attributes[att_start+'x']
-                                        point = network._get_random_coord_radius(lat, lon, radius, network.polygon, seed_location)
+                                        try:
+                                            lat = attributes[att_start+'y']
+                                            lon = attributes[att_start+'x']
+                                            point = network._get_random_coord_radius(lat, lon, radius, network.polygon, seed_location)
+                                        except KeyError:
+                                            point = Point(-1, -1)
 
                                     elif type_coord == do:
                                         
-                                        probabilities = network.zones['density_pois'].tolist()
+                                        probabilities = network.zones['density_pop'].tolist()
                                         random_zone_id = np.random.choice(a=zones, size=1, p=probabilities)
 
                                         random_zone_id = random_zone_id[0]
@@ -366,10 +372,10 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                         not_feasible_attribute = False
                         
                         node_drive = ox.nearest_nodes(network.G_drive, point[1], point[0])
-                        node_walk = ox.nearest_nodes(network.G_walk, point[1], point[0])
+                        #node_walk = ox.nearest_nodes(network.G_walk, point[1], point[0])
 
                         attributes[att+'node_drive'] = int(node_drive)
-                        attributes[att+'node_walk'] = int(node_walk)
+                        #attributes[att+'node_walk'] = int(node_walk)
 
                         attributes[att+'zone'] = int(random_zone_id)
 
@@ -391,12 +397,13 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                         break 
 
                 #remove this later
+                '''
                 if att == 'destination':         
                     if not_feasible_attribute:
                 
                         feasible_data = False
                         break 
-                
+                '''
                 
                 if 'pdf' in GA.nodes[att]:
 
@@ -599,6 +606,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                 except KeyError:
                                     pass
                             
+                            
                             '''
                             for index in network.bus_stations_ids:
                     
@@ -656,7 +664,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                         check_constraint = eval_expression(constraint)
                         
                         if not check_constraint:
-                            #print(constraint)
+                            print(constraint)
                             not_feasible_attribute = True
                             exhaustion_iterations += 1
                             if 'expression' in GA.nodes[att]:
@@ -701,6 +709,13 @@ def _generate_requests(
 
     if replicate_num == 0:
         inst.network.zones['density_pois'] = inst.network.zones['density_pois']/100
+
+    #print('suuum1 ', inst.network.zones['density_pois'].sum())
+
+    if replicate_num == 0:
+        inst.network.zones['density_pop'] = inst.network.zones['density_pop']/100
+
+    #print('suuum2 ', inst.network.zones['density_pop'].sum())
 
     distances = []
     
@@ -765,7 +780,7 @@ def _generate_requests(
         distances = [x for x in distancesx if x >= 500]
         distances = [x for x in distancesx if x < 32000]
         
-        print('len distances: ', len(distances))
+        #print('len distances: ', len(distances))
     else:
 
         distances = [0] * num_requests
@@ -930,7 +945,7 @@ def _generate_requests(
 
     gc.collect()
     ray.shutdown()
-    ray.init(num_cpus=5, object_store_memory=14000000000)
+    ray.init(num_cpus=4, object_store_memory=14000000000)
 
     GA_id = ray.put(inst.GA)
     network_id = ray.put(inst.network)
@@ -938,6 +953,7 @@ def _generate_requests(
     sorted_attributes_id = ray.put(inst.sorted_attributes)
     parameters_id = ray.put(inst.parameters)
     print("HERE")
+    print(inst.sorted_attributes)
     all_reqs = ray.get([_generate_single_data.remote(GA_id, network_id, sorted_attributes_id, parameters_id, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsvid) for i in range(num_requests)]) 
     print("OUT HERE")
     ray.shutdown()
@@ -962,7 +978,8 @@ def _generate_requests(
                           })
 
     final_filename = ''
-    '''
+    
+
     for p in inst.instance_filename:
 
         if p in inst.parameters:
@@ -973,7 +990,7 @@ def _generate_requests(
                 if len(final_filename) > 0:
                     final_filename = final_filename + '_' + strv
                 else: final_filename = strv
-    '''
+    
         
     if 'travel_time_matrix' in inst.parameters:
         if inst.parameters['travel_time_matrix']['value'] is True:
@@ -989,7 +1006,8 @@ def _generate_requests(
 
                         node_list.append(row['osmid_drive'])
                         node_list_seq.append(index)
-                        lvid = index
+                        #print(index)
+                        lvid = index+1
 
                 if location in inst.parameters:
 
@@ -999,6 +1017,7 @@ def _generate_requests(
 
                         node_list.append(d)
                         node_list_seq.append(lvid)
+                        print(lvid)
                         inst.parameters[location]['list_seq_id'+str(replicate_num)].append(lvid)
                         lvid += 1
 
@@ -1009,6 +1028,7 @@ def _generate_requests(
                         node_list.append(instance_data[d][location+'node_drive'])
                         instance_data[d][location+'id'] = lvid
                         node_list_seq.append(lvid)
+                        print(lvid)
                         lvid += 1
 
             if replicate_num < 0:
@@ -1019,7 +1039,8 @@ def _generate_requests(
                 all_instance_data.update({'travel_time_matrix': travel_time_json
                                 })
                 
-                print('leave ttm')          
+                print('leave ttm')
+                print(len(node_list), len(node_list_seq))          
                 if 'graphml' in inst.parameters:
                     if inst.parameters['graphml']['value'] is True:
                         #creates a graph that will serve as the travel time matrix for the given set of requests
@@ -1061,6 +1082,7 @@ def _generate_requests(
 
                 output_file_ttm_csv = os.path.join(inst.save_dir_ttm, 'travel_time_matrix_' + final_filename + '_' + str(replicate_num) + '.csv')
             
+                '''
                 ttml = []
                 for u in node_list_seq:
                     d = {}
@@ -1072,11 +1094,12 @@ def _generate_requests(
                         d[sv] = dist_uv
                     ttml.append(d)
                     del d
-
-                ttmpd = pd.DataFrame(ttml)
+                ''' 
+                ttmpd = pd.DataFrame(travel_time)
 
                 ttmpd.to_csv(output_file_ttm_csv)
-                ttmpd.set_index(['osmid_origin'], inplace=True)
+                print('leave ttm file')    
+                #ttmpd.set_index(['osmid_origin'], inplace=True)
 
 
     save_dir = os.getcwd()+'/'+inst.output_folder_base
