@@ -2,7 +2,11 @@
 	"seed": 1,
 	"network": "Chicago, Illinois",
 	"problem": "ODBRP",
-	"max_speed_factor": 0.5,
+	"set_fixed_speed":
+    {
+        "vehicle_speed_data":20,
+        "vehicle_speed_data_unit":"kmh"
+    },
 	"replicas": 1,
 	"requests": 2400,
 	"instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure", "dynamism", "urgency", "geographic_dispersion"],
@@ -68,7 +72,7 @@
 			"name": "latest_arrival",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "earliest_departure + direct_travel_time + (reaction_time)"
+			"expression": "earliest_departure + direct_travel_time + (reaction_time) + 3600"
 		},
 		{  
 			"name": "origin",

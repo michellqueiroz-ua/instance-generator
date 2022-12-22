@@ -6,13 +6,15 @@ if __name__ == '__main__':
 
     caching.clear_cache()
 
+    #EDIT HERE
     place_name = "Chicago, Illinois"
     #inst_directory = '../examples/ODBRP_benchmark_configuration_files/300_ni/'
     inst_directory = '../examples/'
     base_save_folder_name = 'new_york' #give a unique folder name to save the instances
+    #EDIT HERE
+
     directory = os.fsencode(inst_directory)
 
-    
     #input_json(inst_directory+'/'+'Chicago,Illinois_ODBRP_7.0_8.0_300_0.0_300.0_0.0_180_1000.json')
     
     for instance in os.listdir(directory):

@@ -72,7 +72,7 @@
 			"name": "latest_arrival",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "earliest_departure + direct_travel_time + (reaction_time)"
+			"expression": "earliest_departure + direct_travel_time + (reaction_time) + 3600"
 		},
 		{  
 			"name": "origin",

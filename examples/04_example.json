@@ -4,8 +4,40 @@
 	"problem": "DARP",
 	"max_speed_factor": 0.5,
 	"replicas": 1,
-	"requests": 1000,
+	"requests": 100,
 	"instance_filename": ["network", "problem", "requests"],
+	"places":[
+		{
+			"name": "depot1",
+			"type": "location",
+			"lon": -87.738680,
+			"lat": 41.954958
+		},
+		{
+			"name": "depot2",
+			"type": "location",
+			"lon": -87.679628,
+			"lat": 41.899278
+		},
+		{
+			"name": "depot3",
+			"type": "location",
+			"lon": -87.678255,
+			"lat":  41.839457
+		},
+		{
+			"name": "depot4",
+			"type": "location",
+			"lon": -87.619032,
+			"lat": 41.763641
+		},
+		{
+			"name": "depot5",
+			"type": "location",
+			"lon": -87.566847,
+			"lat": 41.711383
+		}	
+	],
 	"parameters":[
 		{
 			"name": "min_early_departure",
@@ -26,9 +58,16 @@
 			"length_unit": "m"
 		},
 		{
+			"name": "depots",
+			"type": "array_locations",
+			"locs": "random",
+			"size": 5,
+			"value": ["depot1", "depot2", "depot3", "depot4", "depot5"]
+		},
+		{
 			"name": "graphml",
 			"type": "graphml",
-			"value": true
+			"value": false
 		}
 	],
 	"attributes": [
@@ -106,5 +145,5 @@
 			"constraints": ["direct_distance >= min_distance"]
 		}
 	],
-	"travel_time_matrix": ["bus_stations"]
+	"travel_time_matrix": ["bus_stations", "depots"]
 }

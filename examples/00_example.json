@@ -1,9 +1,9 @@
 {
 	"seed": 100,
-	"network": "Rennes, France",
+	"network": "Chicago, Illinois",
 	"get_fixed_lines": "deconet",
 	"replicas": 1,
-	"requests": 500,
+	"requests": 774047,
 	"locations": [
 		{
 			"name": "Depot Example",
