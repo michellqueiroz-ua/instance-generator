@@ -109,6 +109,7 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             'tourism':['aquarium','artwork','attraction','gallery','hostel','motel','museum','theme_park','zoo'],
         }
         
+        ox.settings.timeout = 1800
 
         pois_shop1 = ox.geometries_from_place(place_name, tags=tags_shop1)
         print(len(pois_shop1))
@@ -326,56 +327,52 @@ def plot_pois(network, save_dir_images):
     plt.savefig(pois_folder+'/pois_drive.png')
     plt.close(fig)
 
-def attribute_density_zones(inst, pois):
+def attribute_density_zones(network, pois):
 
-    inst.network.zones['number_pois'] = 0
+    network.zones['number_pois'] = 0
     
     for idx2, poi in pois.iterrows():
         #pnt = (poi['lat'], poi['lon'])
         pnt = Point(poi['lon'], poi['lat'])
-        for idx, zone in inst.network.zones.iterrows():
+        for idx, zone in network.zones.iterrows():
 
             zone_polygon = zone['polygon']
         
             if zone_polygon.contains(pnt): 
 
-                inst.network.zones.loc[idx, 'number_pois'] = zone['number_pois'] + 1
+                network.zones.loc[idx, 'number_pois'] = zone['number_pois'] + 1
                 break
 
-    total_sum = inst.network.zones['number_pois'].sum()
+    total_sum = network.zones['number_pois'].sum()
     print('total_sum: ', total_sum)
 
-    inst.network.zones['density_pois'] = (inst.network.zones['number_pois']/total_sum)*100
-    print(inst.network.zones['density_pois'].head())
-    #print(inst.network.zones['density_pois'].sum())
+    network.zones['density_pois'] = (network.zones['number_pois']/total_sum)*100
+    print(network.zones['density_pois'].head())
+    #print(network.zones['density_pois'].sum())
 
-#def inter_opp_zones(zones, idz):
+def calc_rank_between_zones(network):
 
-#    for idx2, zone2 in inst.network.zones.iterrows():
-
-def calc_rank_between_zones(inst):
-
-    inst.network.zones['center_osmid'] = np.nan
-    for idx, zone in inst.network.zones.iterrows():
+    network.zones['center_osmid'] = np.nan
+    for idx, zone in network.zones.iterrows():
 
         center_point = (zone['center_y'], zone['center_x'])
-        center_osmid = ox.nearest_nodes(inst.network.G_drive, center_point[1], center_point[0])
-        inst.network.zones.loc[idx, 'center_osmid'] = int(center_osmid)
+        center_osmid = ox.nearest_nodes(network.G_drive, center_point[1], center_point[0])
+        network.zones.loc[idx, 'center_osmid'] = int(center_osmid)
 
     zone_ranks = []
     
-    for idu, zoneu in inst.network.zones.iterrows():
+    for idu, zoneu in network.zones.iterrows():
         rank = {}
         rank['zone_id'] = idu
-        for idv, zonev in inst.network.zones.iterrows():
+        for idv, zonev in network.zones.iterrows():
             rank[idv] = 0
-            duv = inst.network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonev['center_osmid']))]
-            for idw, zonew in inst.network.zones.iterrows():
+            duv = network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonev['center_osmid']))]
+            for idw, zonew in network.zones.iterrows():
 
                 if ((idw != idu) and (idw != idv)):
-                    duw = inst.network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonew['center_osmid']))]
+                    duw = network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonew['center_osmid']))]
                     if duw < duv:
-                        rank[idv] += inst.network.zones.loc[idw, 'number_pois']
+                        rank[idv] += network.zones.loc[idw, 'number_pois']
 
         zone_ranks.append(rank)
         del rank
@@ -390,7 +387,7 @@ def calc_rank_between_zones(inst):
 
     return zone_ranks
 
-def calc_probability_travel_between_zones(inst, zone_ranks, alpha):
+def calc_probability_travel_between_zones(network, zone_ranks, alpha):
 
     zone_probabilities = []
 
@@ -449,7 +446,7 @@ def get_zone(zones, pt):
 
     return np.nan
 
-def rank_of_displacements(inst, zone_ranks, df):
+def rank_of_displacements(network, zone_ranks, df):
 
 
     df['zone_origin'] = np.nan
@@ -460,7 +457,7 @@ def rank_of_displacements(inst, zone_ranks, df):
 
         ray.shutdown()
         ray.init(num_cpus=cpu_count())
-        zones_id = ray.put(inst.network.zones)
+        zones_id = ray.put(network.zones)
         zone_origins = ray.get([get_zone.remote(zones_id, Point(trip['Pickup_Centroid_Longitude'], trip['Pickup_Centroid_Latitude'])) for idx2, trip in dfc.iterrows()]) 
 
         del zones_id
@@ -480,7 +477,7 @@ def rank_of_displacements(inst, zone_ranks, df):
 
         ray.shutdown()
         ray.init(num_cpus=cpu_count())
-        zones_id = ray.put(inst.network.zones)
+        zones_id = ray.put(network.zones)
         zone_destinations = ray.get([get_zone.remote(zones_id, Point(trip['Dropoff_Centroid_Longitude'], trip['Dropoff_Centroid_Latitude'])) for idx2, trip in dfc.iterrows()]) 
         
         del zones_id

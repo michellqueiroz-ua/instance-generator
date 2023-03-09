@@ -41,33 +41,38 @@ from scipy.stats.kde import gaussian_kde
 import ray
 
 
-def rank_model(place_name, df):
+def rank_model(network, place_name):
 
+    
     output_folder_base = place_name
+    
     save_dir = os.getcwd()+'/'+place_name
+    '''
     pickle_dir = os.path.join(save_dir, 'pickle')
     network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
 
     network_directory = os.getcwd()+'/'+place_name
-
+    
     if Path(network_class_file).is_file():
         inst = Instance(folder_to_network=place_name)
+    '''
 
     rows = 25
     columns = 25
     print('smaller zones')
-    inst.network.zones = inst.network.divide_network_grid(rows, columns, save_dir, output_folder_base)
+    network.zones = network.divide_network_grid(rows, columns, save_dir, output_folder_base)
 
-    pois = get_POIs_matrix_csv(inst.network.G_walk, inst.network.G_drive, place_name, save_dir, output_folder_base)
-    attribute_density_zones(inst, pois)
-    zone_ranks = calc_rank_between_zones(inst)
+    pois = get_POIs_matrix_csv(network.G_drive, place_name, save_dir, output_folder_base)
+    attribute_density_zones(network, pois)
+    zone_ranks = calc_rank_between_zones(network)
     alpha = 0.86
-    calc_probability_travel_between_zones(inst, zone_ranks, alpha)
+    calc_probability_travel_between_zones(network, zone_ranks, alpha)
 
     #df = pd.read_sql_query('SELECT Pickup_Centroid_Latitude, Pickup_Centroid_Longitude, Dropoff_Centroid_Latitude, Dropoff_Centroid_Longitude FROM table_record', database)
     
-    print('rank displacements')           
-    df = rank_of_displacements(inst, zone_ranks, df)
+    #print('rank displacements')           
+    '''
+    df = rank_of_displacements(network, zone_ranks, df)
 
     print(df['rank_trip'].describe())
     print(df['rank_trip'].mean())
@@ -86,18 +91,19 @@ def rank_model(place_name, df):
     y = pdf(x)
     plt.scatter(x, y)
     plt.savefig('scatter_rank_trips.png')
-
+    '''
     #dumping updated network file
     
-    print(inst.network.zones['density_pois'].head())
-    inst.network.zone_ranks = zone_ranks
+    print(network.zones['density_pois'].head())
+    network.zone_ranks = zone_ranks
     
+    '''
     pickle_dir = os.path.join(save_dir, 'pickle')
     network_class_file = pickle_dir+'/'+output_folder_base+'.network2.class.pkl'
     
     output_network_class = open(network_class_file, 'wb')
     pickle.dump(inst.network, output_network_class, pickle.HIGHEST_PROTOCOL)
-    
+    '''
 
 @ray.remote
 def get_osmid_node(G, idx, point):
@@ -1033,12 +1039,13 @@ def real_data_tests_chicago_database2(ed, ld):
     #rank model
     #rank_model("Chicago, Illinois", dfc)
 
+'''
 if __name__ == '__main__':
     
     ed = 420*60
     ld = 540*60
     real_data_tests_chicago_database2(ed, ld)
-
+'''
     
 
 

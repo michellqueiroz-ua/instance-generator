@@ -84,7 +84,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         if Path(network_class_file).is_file():
 
             inst = Instance(folder_to_network=place_name)
-
+            print('heeere')
             
             
             if 'set_fixed_speed' in data:
@@ -192,7 +192,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     inst.filename_json = filename_json    
     random.seed(value)
     np.random.seed(value)
-
+    
     if 'problem' in data:
 
         inst.parameters['problem'] = {}
@@ -1082,7 +1082,6 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     output_network_class = open(network_class_file, 'wb')
     pickle.dump(inst.network, output_network_class, pickle.HIGHEST_PROTOCOL)
 
-    print('hiiierxxx7')
     save_dir_csv = os.path.join(inst.output_folder_base, 'csv')
     path_bus_stations = os.path.join(save_dir_csv, inst.output_folder_base+'.stations.csv')
     inst.network.bus_stations = pd.DataFrame(inst.network.bus_stations)

@@ -193,7 +193,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
 
                                     elif type_coord == pu:
                                         
-                                        probabilities = network.zones['density_pop'].tolist()
+                                        probabilities = network.zones['density_pois'].tolist()
                                         random_zone_id = np.random.choice(a=zones, size=1, p=probabilities)
 
                                         random_zone_id = random_zone_id[0]
@@ -265,7 +265,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
 
                                     elif type_coord == do:
                                         
-                                        probabilities = network.zones['density_pop'].tolist()
+                                        probabilities = network.zones['density_pois'].tolist()
                                         random_zone_id = np.random.choice(a=zones, size=1, p=probabilities)
 
                                         random_zone_id = random_zone_id[0]
@@ -372,10 +372,10 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                         not_feasible_attribute = False
                         
                         node_drive = ox.nearest_nodes(network.G_drive, point[1], point[0])
-                        #node_walk = ox.nearest_nodes(network.G_walk, point[1], point[0])
+                        node_walk = ox.nearest_nodes(network.G_walk, point[1], point[0])
 
                         attributes[att+'node_drive'] = int(node_drive)
-                        #attributes[att+'node_walk'] = int(node_walk)
+                        attributes[att+'node_walk'] = int(node_walk)
 
                         attributes[att+'zone'] = int(random_zone_id)
 
@@ -397,13 +397,13 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                         break 
 
                 #remove this later
-                '''
+                
                 if att == 'destination':         
                     if not_feasible_attribute:
                 
                         feasible_data = False
                         break 
-                '''
+                
                 
                 if 'pdf' in GA.nodes[att]:
 
@@ -587,13 +587,15 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                             for r in range(5):
                                 all_zones.append(index_inside_zone+20+r)
                             
-
+                            print('zones')
+                            print(all_zones)
                             for z in all_zones:
 
                                 try:
                                     stationsz = zonescsv.loc[z]['stations']
                                     stationsz = json.loads(stationsz)
-                                    #print(stationsz) 
+                                    print('stations')
+                                    print(stationsz) 
 
                                     for index in stationsz:
 
@@ -664,6 +666,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                         check_constraint = eval_expression(constraint)
                         
                         if not check_constraint:
+                            print('hier')
                             print(constraint)
                             not_feasible_attribute = True
                             exhaustion_iterations += 1
@@ -712,8 +715,8 @@ def _generate_requests(
 
     #print('suuum1 ', inst.network.zones['density_pois'].sum())
 
-    if replicate_num == 0:
-        inst.network.zones['density_pop'] = inst.network.zones['density_pop']/100
+    #if replicate_num == 0:
+    #    inst.network.zones['density_pop'] = inst.network.zones['density_pop']/100
 
     #print('suuum2 ', inst.network.zones['density_pop'].sum())
 

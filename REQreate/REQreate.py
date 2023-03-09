@@ -8,9 +8,9 @@ if __name__ == '__main__':
 
     #EDIT HERE
     place_name = "Chicago, Illinois"
-    #inst_directory = '../examples/ODBRP_benchmark_configuration_files/300_ni/'
-    inst_directory = '../examples/'
-    base_save_folder_name = 'new_york' #give a unique folder name to save the instances
+    inst_directory = '../examples/ODBRP_benchmark_configuration_files/900_ni/'
+    #inst_directory = '../examples/testes/'
+    base_save_folder_name = '900_ni' #give a unique folder name to save the instances
     #EDIT HERE
 
     directory = os.fsencode(inst_directory)
@@ -45,6 +45,7 @@ if __name__ == '__main__':
 
             if (instance_filename.endswith(".json")):
                 print(instance_filename)
+                #print("here")
                 try:
                     input_json(inst_directory, instance_filename, base_save_folder_name)  
                 except FileNotFoundError:

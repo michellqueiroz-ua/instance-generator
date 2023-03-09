@@ -52,6 +52,7 @@ from speed_info import _get_max_speed_road
 from network_class import Network
 from instance_class import Instance
 from request_distribution_class import RequestDistributionTime
+from trip_patterns_general import rank_model
        
 def download_network_information(
     place_name,
@@ -127,7 +128,6 @@ def download_network_information(
             retain_all=True
         )
         '''
-        print('here')
         polygon = ox.utils_geo.bbox_to_poly(north, south, east, west)
     else:
         api_osm = osm.OsmApi()
@@ -147,7 +147,7 @@ def download_network_information(
         # extract the geometry from the GeoDataFrame to use in API query
         polygon = gdf_place["geometry"].unary_union 
 
-    print(polygon)
+    
     G_walk = ox.graph_from_polygon(
         polygon,
         network_type='walk', 
@@ -344,7 +344,12 @@ def download_network_information(
     network.shortest_path_walk = shortest_path_walk
     network.shortest_path_drive = shortest_path_drive
     network.shortest_dist_drive = shortest_dist_drive
-     
+
+    #save Points of Interest information
+    rank_model(network, place_name)
+    print('zone ranks')
+    print(network.zone_ranks)
+
     print('successfully retrieved network')
 
     network_class_file = pickle_dir+'/'+output_folder_base+'.network.class.pkl'

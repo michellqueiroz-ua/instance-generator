@@ -15,7 +15,7 @@ def assign_bus_stops_to_zones():
 
 if __name__ == '__main__':
 
-    place_name = "Antwerp, Belgium"
+    place_name = "Chicago, Illinois"
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
     network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
