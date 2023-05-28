@@ -62,7 +62,6 @@ dependencies:
   - lerc=2.2.1=h9c3ff4c_0
   - libblas=3.9.0=11_linux64_openblas
   - libcblas=3.9.0=11_linux64_openblas
-  - libcurl=7.79.0=h2574ce0_0
   - libdap4=3.20.6=hd7c4107_2
   - libdeflate=1.7=h7f98852_5
   - libedit=3.1.20191231=he28a2e2_2
@@ -205,6 +204,7 @@ dependencies:
     - jupyter-core==4.8.1
     - jupyterlab-pygments==0.1.2
     - jupyterlab-widgets==1.0.2
+    - libcurl=7.79.0=h2574ce0_0
     - matplotlib-inline==0.1.3
     - mistune==0.8.4
     - mpmath==1.2.1
