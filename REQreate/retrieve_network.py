@@ -18,7 +18,7 @@ from random import randint
 from random import seed
 from random import choices
 import ray
-from streamlit import caching
+#from streamlit import caching
 import sys
 from shapely.geometry import Point
 from shapely.geometry import MultiPoint
@@ -358,6 +358,6 @@ def download_network_information(
     pickle.dump(network, output_network_class, pickle.HIGHEST_PROTOCOL)
     
     output_network_class.close()
-    caching.clear_cache()
+    #caching.clear_cache()
 
     return network
