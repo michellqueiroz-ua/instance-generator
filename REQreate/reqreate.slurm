@@ -11,6 +11,6 @@
 #SBATCH -o stdout.file
 #SBATCH -e stderr.file
 
-conda activate ox
+source activate ox
 
 python REQreate.py
