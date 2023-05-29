@@ -12,7 +12,7 @@
 #SBATCH -e stderr.file
 
 module load calcua/supported
-source ~/$VSC_DATA/miniconda3/etc/profile.d/conda.sh
+source $VSC_DATA/miniconda3/etc/profile.d/conda.sh
 conda activate ox
 
 python REQreate.py
