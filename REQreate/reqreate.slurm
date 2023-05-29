@@ -11,6 +11,7 @@
 #SBATCH -o stdout.file
 #SBATCH -e stderr.file
 
-source activate ox
+module load calcua/supported
+conda activate ox
 
 python REQreate.py
