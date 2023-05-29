@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 
-#SBATCH --jobname=create_network
+#SBATCH --job-name=CreateNetwork
 #SBATCH --ntasks=1 –-cpus-per-task=8
 #SBATCH –-mem-per-cpu=6g
 #SBATCH --time=06:00:00
