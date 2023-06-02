@@ -19,7 +19,7 @@ from retrieve_network import download_network_information
 from compute_distance_matrix import _get_distance_matrix
 from shapely.geometry import Point
 from shapely.geometry import Polygon
-#from streamlit import caching
+from streamlit import caching
 import gc
 
 from dynamism import dynamism2
@@ -1106,7 +1106,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     gc.collect()
     inst.generate_requests(base_save_folder_name, inst_directory)
 
-    #caching.clear_cache()
+    caching.clear_cache()
         
     # convert instances from json to csv format
     save_dir_csv = os.path.join(inst.save_dir, 'csv_format')

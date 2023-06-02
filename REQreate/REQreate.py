@@ -1,10 +1,10 @@
 from input_json import input_json
-#from streamlit import caching
+from streamlit import caching
 import os
 
 if __name__ == '__main__':
 
-    #caching.clear_cache()
+    caching.clear_cache()
 
     #EDIT HERE
     place_name = "Chicago, Illinois"

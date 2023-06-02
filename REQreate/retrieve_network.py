@@ -358,6 +358,6 @@ def download_network_information(
     pickle.dump(network, output_network_class, pickle.HIGHEST_PROTOCOL)
     
     output_network_class.close()
-    #caching.clear_cache()
+    caching.clear_cache()
 
     return network
