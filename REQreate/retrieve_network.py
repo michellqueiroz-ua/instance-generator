@@ -18,7 +18,7 @@ from random import randint
 from random import seed
 from random import choices
 import ray
-#from streamlit import caching
+from streamlit import caching
 import sys
 from shapely.geometry import Point
 from shapely.geometry import MultiPoint
