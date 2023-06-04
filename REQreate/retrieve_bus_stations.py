@@ -4,6 +4,7 @@ import os
 import osmnx as ox
 import pandas as pd
 import ray
+import gc
 import warnings
 
 
@@ -102,8 +103,9 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
     retrieve the bus stops from the location
     '''
 
+    gc.collect()
     ray.shutdown()
-    ray.init(num_cpus=cpu_count())
+    ray.init(num_cpus=8, object_store_memory=14000000000)
 
     save_dir_csv = os.path.join(save_dir, 'csv')
 
@@ -160,6 +162,7 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
             bus_stations.set_index(['station_id'], inplace=True)
         '''
 
+    gc.collect()
     return bus_stations
 
 

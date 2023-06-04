@@ -278,7 +278,7 @@ def find_shortest_path_fl(u, v, fixed_lines):
 def get_all_shortest_paths_fix_lines(fixed_lines, network_nodes):
     
     ray.shutdown()
-    ray.init(num_cpus=cpu_count())
+    ray.init(num_cpus=8, object_store_memory=14000000000)
 
     print('shortest route fixed lines')
     shortest_path_line = []
@@ -583,7 +583,7 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base, 
     #num_of_cpu = cpu_count()
     nodes_covered_fixed_lines = []
     ray.shutdown()
-    ray.init(num_cpus=cpu_count())
+    ray.init(num_cpus=8, object_store_memory=14000000000)
 
     save_dir_csv = os.path.join(save_dir, 'csv')
 

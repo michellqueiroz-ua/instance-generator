@@ -2,7 +2,7 @@ import math
 import numpy as np
 import os
 import pandas as pd
-
+import gc
 import urllib.request
 import zipfile
 import random
@@ -126,12 +126,13 @@ def add_osmid_nodes(place_name, df):
         inst = Instance(folder_to_network=place_name)
 
     ray.shutdown()
-    ray.init(num_cpus=os.cpu_count())
+    ray.init(num_cpus=8, object_store_memory=14000000000)
     G_drive_id = ray.put(inst.network.G_drive)
     osmid_origins = ray.get([get_osmid_node.remote(G_drive_id, id1, (row1['Pickup_Centroid_Latitude'], row1['Pickup_Centroid_Longitude'])) for id1, row1 in df.iterrows()]) 
 
+    gc.collect()
     ray.shutdown()
-    ray.init(num_cpus=os.cpu_count())
+    ray.init(num_cpus=8, object_store_memory=14000000000)
     G_drive_id = ray.put(inst.network.G_drive)
     osmid_destinations = ray.get([get_osmid_node.remote(G_drive_id, id1, (row1['Dropoff_Centroid_Latitude'], row1['Dropoff_Centroid_Longitude'])) for id1, row1 in df.iterrows()]) 
 
@@ -151,6 +152,7 @@ def add_osmid_nodes(place_name, df):
         osmid_node = pairid[1]
         df.loc[idx, 'osmid_destination'] = osmid_node
         
+    gc.collect()
     ray.shutdown()
 
     return df

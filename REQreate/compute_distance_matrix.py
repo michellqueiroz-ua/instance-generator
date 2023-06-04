@@ -32,7 +32,7 @@ def shortest_path_nx_ss(G, u, weight):
 def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_base):
     
     ray.shutdown()
-    ray.init(num_cpus=cpu_count())
+    ray.init(num_cpus=8, object_store_memory=14000000000)
 
     save_dir_csv = os.path.join(save_dir, 'csv')
     path_dist_csv_file_walk = os.path.join(save_dir_csv, output_file_base+'.dist.walk.csv')
@@ -83,6 +83,7 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
 
         shortest_path_walk.to_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
+        ray.shutdown()
 
         return shortest_path_walk
 
@@ -113,7 +114,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
     else:
 
         ray.shutdown()
-        ray.init(num_cpus=cpu_count())
+        ray.init(num_cpus=8, object_store_memory=14000000000)
 
         print('calculating distance matrix walk network')
         count_divisions = 0
@@ -230,10 +231,12 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
 
         shortest_dist_drive = pd.read_csv(path_dist_csv_file_drive)
         shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
+
+        ray.shutdown()
     else:
 
         ray.shutdown()
-        ray.init(num_cpus=cpu_count())
+        ray.init(num_cpus=8, object_store_memory=14000000000)
 
         print('calculating shortest paths drive network')
 
@@ -284,5 +287,8 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
 
         shortest_dist_drive.to_csv(path_dist_csv_file_drive)
         shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
+
+        ray.shutdown()
+
 
     return shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes
