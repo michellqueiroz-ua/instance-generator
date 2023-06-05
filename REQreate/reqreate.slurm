@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=6g
-#SBATCH --time=12:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=michell.queiroz@uantwerpen.be
 #SBATCH -o stdout.file
