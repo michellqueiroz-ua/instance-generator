@@ -47,10 +47,10 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
 
         #remove duplicates from list
         bus_stops_ids2 = [] 
-        [bus_stops_ids2.concat(int(x)) for x in test_bus_stops_ids if x not in bus_stops_ids2] 
+        [bus_stops_ids2.append(int(x)) for x in test_bus_stops_ids if x not in bus_stops_ids2] 
 
         bus_stops_ids = [] 
-        [bus_stops_ids.concat(int(x)) for x in bus_stops_ids2 if x not in osmid_origins] 
+        [bus_stops_ids.append(int(x)) for x in bus_stops_ids2 if x not in osmid_origins] 
 
         
         G_walk_id = ray.put(G_walk)
@@ -73,7 +73,8 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
                     sv = str(v)
                     d[sv] = dist_uv
             
-            shortest_path_walk = shortest_path_walk.concat(d, ignore_index=True)
+            #shortest_path_walk = shortest_path_walk.concat(d, ignore_index=True)
+            shortest_path_walk = pd.concat([shortest_path_walk,d], ignore_index=True)
 
             j+=1
             del d
@@ -153,7 +154,10 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 del d
 
             xt = pd.DataFrame(shortest_path_length_walk)
-            shortest_path_walk = shortest_path_walk.concat(xt, ignore_index=True)
+            #shortest_path_walk = shortest_path_walk.concat(xt, ignore_index=True)
+            shortest_path_walk = pd.concat([shortest_path_walk, xt], ignore_index=True)
+            
+
             del shortest_path_length_walk
             del results
             gc.collect()
@@ -280,7 +284,8 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 del d
 
             xt = pd.DataFrame(shortest_path_length_drive)
-            shortest_dist_drive = shortest_dist_drive.concat(xt, ignore_index=True)    
+            #shortest_dist_drive = shortest_dist_drive.concat(xt, ignore_index=True) 
+            shortest_dist_drive = pd.concat([shortest_dist_drive, xt], ignore_index=True)    
             del shortest_path_length_drive
             del results
             gc.collect()
