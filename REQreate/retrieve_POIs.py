@@ -160,7 +160,9 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
+
             
             gc.collect()
 
@@ -173,7 +175,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
 
@@ -186,7 +189,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
 
@@ -199,7 +203,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
 
@@ -212,7 +217,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
 
@@ -225,7 +231,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
 
@@ -238,7 +245,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
 
@@ -251,7 +259,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
 
@@ -264,7 +273,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
 
@@ -277,7 +287,8 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             count += 1
 
             xt = pd.DataFrame(poisx)
-            pois = pois.append(xt, ignore_index=True)
+            #pois = pois.append(xt, ignore_index=True)
+            pois = pd.concat([pois, xt], ignore_index=True)
             
             gc.collect()
         
