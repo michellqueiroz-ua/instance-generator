@@ -550,7 +550,7 @@ def geographic_dispersion(place_name, inst1, day):
 
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
-    network_class_file = pickle_dir+'/'+place_name+'.network2.class.pkl'
+    network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
 
     network_directory = os.getcwd()+'/'+place_name
 
