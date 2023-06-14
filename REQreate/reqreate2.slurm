@@ -15,4 +15,4 @@ module load calcua/supported
 source $VSC_DATA/miniconda3/etc/profile.d/conda.sh
 conda activate ox
 
-python REQreate.py
+python REQreate2.py
