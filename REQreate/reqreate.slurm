@@ -3,7 +3,7 @@
 
 #SBATCH --job-name=CreateNetwork
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=12
 #SBATCH --mem-per-cpu=6g
 #SBATCH --time=72:00:00
 #SBATCH --mail-type=ALL

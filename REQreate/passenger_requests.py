@@ -948,7 +948,7 @@ def _generate_requests(
 
     gc.collect()
     ray.shutdown()
-    ray.init(num_cpus=4, object_store_memory=14000000000)
+    ray.init(num_cpus=8, object_store_memory=14000000000)
 
     GA_id = ray.put(inst.GA)
     network_id = ray.put(inst.network)
