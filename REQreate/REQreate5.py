@@ -8,9 +8,9 @@ if __name__ == '__main__':
 
     #EDIT HERE
     place_name = "Chicago, Illinois"
-    inst_directory = '../examples/ODBRP_benchmark_configuration_files/1800_ni/'
+    inst_directory = '../examples/ODBRP_benchmark_configuration_files/2700_ni/'
     #inst_directory = '../examples/testes/'
-    base_save_folder_name = '1800_ni' #give a unique folder name to save the instances
+    base_save_folder_name = '2700_ni' #give a unique folder name to save the instances
     #EDIT HERE
 
     directory = os.fsencode(inst_directory)
