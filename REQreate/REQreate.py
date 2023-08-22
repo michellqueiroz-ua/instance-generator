@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
     #EDIT HERE
     place_name = "Chicago, Illinois"
-    inst_directory = '../examples/ODBRP_benchmark_configuration_files/04_example.json/'
+    inst_directory = '../examples/ODBRP_benchmark_configuration_files/'
     #inst_directory = '../examples/testes/'
     base_save_folder_name = 'just_ttm' #give a unique folder name to save the instances
     #EDIT HERE
@@ -19,38 +19,40 @@ if __name__ == '__main__':
     
     for instance in os.listdir(directory):
 
-        instance_filename = os.fsdecode(instance)
-        instance_filename = instance_filename.replace("._", "")
+        if instance == '04_example.json':
 
-        #print(os.listdir(os.path.join(place_name, 'json_format', base_save_folder_name)))
+            instance_filename = os.fsdecode(instance)
+            instance_filename = instance_filename.replace("._", "")
 
-        final_list = []
+            #print(os.listdir(os.path.join(place_name, 'json_format', base_save_folder_name)))
 
-        if os.path.isdir(place_name+'/json_format/'+base_save_folder_name):
-            
-            file_list = os.listdir(os.path.join(place_name, 'json_format', base_save_folder_name))
+            final_list = []
 
-            
-            for filex in file_list:
-                filex = filex.replace('_1.json', "")
-                filex = filex.replace('_2.json', "")
-                filex = filex.replace('_3.json', "")
-                filex = filex.replace('_4.json', "")
-                filex = filex.replace('_5.json', "")
-                filex = filex+'.json'
+            if os.path.isdir(place_name+'/json_format/'+base_save_folder_name):
+                
+                file_list = os.listdir(os.path.join(place_name, 'json_format', base_save_folder_name))
 
-                final_list.append(filex)
+                
+                for filex in file_list:
+                    filex = filex.replace('_1.json', "")
+                    filex = filex.replace('_2.json', "")
+                    filex = filex.replace('_3.json', "")
+                    filex = filex.replace('_4.json', "")
+                    filex = filex.replace('_5.json', "")
+                    filex = filex+'.json'
 
-        if instance_filename not in final_list:
+                    final_list.append(filex)
 
-            if (instance_filename.endswith(".json")):
-                print(instance_filename)
-                #print("here")
-                try:
-                    input_json(inst_directory, instance_filename, base_save_folder_name)  
-                except FileNotFoundError:
-                    
-                    pass
-        else:
-            print('already FOUND')
+            if instance_filename not in final_list:
+
+                if (instance_filename.endswith(".json")):
+                    print(instance_filename)
+                    #print("here")
+                    try:
+                        input_json(inst_directory, instance_filename, base_save_folder_name)  
+                    except FileNotFoundError:
+                        
+                        pass
+            else:
+                print('already FOUND')
     
