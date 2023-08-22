@@ -19,12 +19,11 @@ if __name__ == '__main__':
     
     for instance in os.listdir(directory):
 
-        if instance == '04_example.json':
+        instance_filename = os.fsdecode(instance)
+        instance_filename = instance_filename.replace("._", "")
 
-            instance_filename = os.fsdecode(instance)
-            instance_filename = instance_filename.replace("._", "")
-
-            #print(os.listdir(os.path.join(place_name, 'json_format', base_save_folder_name)))
+        if instance_filename == '04_example.json':
+        #print(os.listdir(os.path.join(place_name, 'json_format', base_save_folder_name)))
 
             final_list = []
 
