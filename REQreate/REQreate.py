@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
     #EDIT HERE
     place_name = "Chicago, Illinois"
-    inst_directory = '../examples/travel_time'
+    inst_directory = '../examples/travel_time/'
     #inst_directory = '../examples/testes/'
     base_save_folder_name = 'just_ttm' #give a unique folder name to save the instances
     #EDIT HERE
