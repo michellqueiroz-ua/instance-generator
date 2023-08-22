@@ -344,8 +344,8 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
             if data['places'][x]['type'] == 'location': 
                 point = (data['places'][x]['lat'], data['places'][x]['lon'])
-                data['places'][x]['node_drive'] = ox.nearest_nodes(inst.network.G_drive, point)
-                data['places'][x]['node_walk'] = ox.nearest_nodes(inst.network.G_walk, point)
+                data['places'][x]['node_drive'] = ox.nearest_nodes(inst.network.G_drive, data['places'][x]['lat'], data['places'][x]['lon'])
+                data['places'][x]['node_walk'] = ox.nearest_nodes(inst.network.G_walk, data['places'][x]['lat'], data['places'][x]['lon'])
 
     
     if 'parameters' in data:
