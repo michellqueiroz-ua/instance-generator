@@ -174,10 +174,10 @@ def geographic_dispersion(inst, inst1, problem, filename1):
 
     else:
 
-        ttm_file_inst1 = 'travel_time_matrix_'+filename1
+        ttm_file_inst1 = 'travel_time_updated3.csv'
         ttmfilename1 = os.fsdecode(ttm_file_inst1)
-        ttm1 = pd.read_csv(ttm_directory+'/'+ttmfilename1)
-        ttm1.set_index(['osmid_origin'], inplace=True)
+        ttm1 = pd.read_csv(ttmfilename1)
+        #ttm1.set_index(['osmid_origin'], inplace=True)
 
         earliest_departure = 'earliest_departure'
         latest_arrival = 'latest_arrival'
@@ -664,10 +664,12 @@ if __name__ == '__main__':
         os.mkdir(save_dir_csv)
     
     inst.sorted_attributes = ['destination', 'origin', 'destinationx', 'originx', 'destinationy', 'originy', 'destinationnode_drive', 'originnode_drive', 'reaction_time', 'direct_distance', 'direct_travel_time', 'walk_speed', 'max_walking', 'time_walking', 'stops_orgn', 'stops_dest', 'lead_time', 'time_window_length', 'earliest_departure', 'time_stamp', 'latest_arrival', 'earliest_arrival', 'latest_departure']
-    for instance in os.listdir(os.path.join(inst.save_dir, 'json_format/new_york')):
+    
+    '''
+    for instance in os.listdir(os.path.join(inst.save_dir, 'json_format/')):
         
         if instance != ".DS_Store":
-            input_name = os.path.join(inst.save_dir, 'json_format/new_york', instance)
+            input_name = os.path.join(inst.save_dir, 'json_format/', instance)
             
             output_name_csv = instance.split('.')[0] + '.csv'
             output_name_csv = output_name_csv.replace(" ", "")
@@ -675,8 +677,9 @@ if __name__ == '__main__':
             converter = JsonConverter(file_name=input_name)
             converter.convert_normal(inst=inst, problem_type="DARP", path_instance_csv_file=os.path.join(save_dir_csv, output_name_csv))
             #converter.convert_localsolver(output_file_name=os.path.join(save_dir_localsolver, output_name_ls))
+    '''
 
-    csv_directory = network_directory+'/csv_format/new_york'
+    csv_directory = network_directory+'/csv_format/3000_ni/'
     directory = os.fsencode(csv_directory)
 
     #del inst.network.shortest_path_walk
@@ -707,13 +710,13 @@ if __name__ == '__main__':
             new_heatmap(inst, inst1)
             
 
-            #print('urgency')
-            #urgency(inst1)
+            print('urgency')
+            urgency(inst1)
 
             #print('dynamism')
             #dynamism(inst1, 25200, 25560)
 
-            problem = "DARP"
+            problem = "ODBRP"
             #geographic_dispersion(inst, inst1, problem, filename1)
     plt.close()
 

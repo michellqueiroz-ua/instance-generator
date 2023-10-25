@@ -76,7 +76,6 @@ def geographic_dispersion(inst, problem, filename1):
 
                     
                     if (row2[earliest_departure] >= row1[earliest_departure] - time_gap) and (row2[earliest_departure] <= row1[earliest_departure] + time_gap):
-                        
                         stps = row2[stops_orgn].strip('][').split(', ')
                         ltro.extend(stps)
 

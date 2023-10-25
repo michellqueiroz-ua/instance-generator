@@ -1,0 +1,145 @@
+{
+	"seed": 100,
+	"network": "Lisbon, Portugal",
+	"problem": "DARP",
+	"max_speed_factor": 0.5,
+	"replicas": 1,
+	"requests": 100,
+	"instance_filename": ["network", "problem", "requests"],
+	"places":[
+		{
+			"name": "hospital1",
+			"type": "location",
+			"lon": -9.175347287843007,
+			"lat": 38.7569274
+		},
+		{
+			"name": "hospital2",
+			"type": "location",
+			"lon": -9.147816962485063,
+			"lat": 38.73228033
+		}
+	],
+	"parameters":[
+		{
+			"name": "min_early_departure",
+			"type": "integer",
+			"value": 8,
+			"time_unit": "h"
+		},
+		{
+			"name": "max_early_departure",
+			"type": "integer",
+			"value": 18,
+			"time_unit": "h"
+		},
+		{
+			"name": "min_distance",
+			"type": "integer",
+			"value": 500,
+			"length_unit": "m"
+		},
+		{
+			"name": "graphml",
+			"type": "graphml",
+			"value": true
+		},
+		{
+			"name": "hospitals",
+			"type": "array_locations",
+			"locs": "random",
+			"size": 2,
+			"value": ["hospital1", "hospital2"]
+		}
+	],
+	"attributes": [
+		{  
+			"name": "origin",
+			"type": "location"
+		},
+		{  
+			"name": "destination",
+			"type": "location",
+			"subset_locations": "hospitals"
+		},
+		{
+			"name": "pickup_from",
+			"type": "integer",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"loc": 25200,
+						"scale": 36000
+					} ],
+			"constraints": [ "pickup_from >= 0", 
+							"pickup_from >= min_early_departure",
+							 "pickup_from <= max_early_departure"
+						   ]
+		},
+		{
+			"name": "pickup_to",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "pickup_from + 1800"
+		},
+		{
+			"name": "dropoff_from",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "pickup_to + direct_travel_time + 1800"
+		},
+		{
+			"name": "dropoff_to",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "dropoff_from + 1800"
+		},
+		{
+			"name": "drivingDuration",
+			"type": "integer",
+			"time_unit": "s",
+			"expression": "dtt(origin,destination)",
+			"constraints": ["drivingDuration >= 0"]
+		},
+		{
+			"name": "drivingDistance",
+			"type": "integer",
+			"length_unit": "m",
+			"expression": "dist_drive(origin,destination)",
+			"constraints": ["drivingDistance >= min_distance"]
+		},
+		{
+			"name": "executionDuration",
+			"type": "integer",
+			"pdf": [ {	"type": "uniform",
+						"loc": 420,
+						"scale": 0
+					} ]
+		},
+		{
+			"name": "canBeCombined",
+			"type": "integer",
+			"pdf": [ {	"type": "uniform",
+						"loc": 0,
+						"scale": 1
+					} ]
+		},
+		{
+			"name": "maximumDetourRelative",
+			"type": "real",
+			"pdf": [ {	"type": "uniform",
+						"loc": 0.25,
+						"scale": 0
+					} ]
+		},
+		{
+			"name": "maximumDetourAbsolute",
+			"type": "integer",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+						"loc": 10000,
+						"scale": 0
+					} ]
+		}
+	],
+	"travel_time_matrix": ["origin", "destination"]
+}

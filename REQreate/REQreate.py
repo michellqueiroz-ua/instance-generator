@@ -7,10 +7,10 @@ if __name__ == '__main__':
     #caching.clear_cache()
 
     #EDIT HERE
-    place_name = "Chicago, Illinois"
-    inst_directory = '../examples/travel_time/'
+    place_name = "Lisbon, Portugal"
+    inst_directory = '../examples/hospital_problem/'
     #inst_directory = '../examples/testes/'
-    base_save_folder_name = 'just_ttm' #give a unique folder name to save the instances
+    base_save_folder_name = 'instancesLisbon' #give a unique folder name to save the instances
     #EDIT HERE
 
     directory = os.fsencode(inst_directory)
