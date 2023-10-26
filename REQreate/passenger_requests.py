@@ -825,7 +825,7 @@ def _generate_requests(
                     point = (point.y, point.x)
                     node_drive = ox.nearest_nodes(inst.network.G_drive, point[1], point[0])
                     if node_drive not in inst.parameters[param]['list_node_drive'+str(replicate_num)]:
-                        inst.parameters[param]['list'+str(replicate_num)].append("random_loc"+len(inst.parameters[param]['list'+str(replicate_num)]))
+                        inst.parameters[param]['list'+str(replicate_num)].append("random_loc"+str(len(inst.parameters[param]['list'+str(replicate_num)])))
                         inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
 
 
