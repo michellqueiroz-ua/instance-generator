@@ -18,55 +18,7 @@
 			"type": "location",
 			"lon": -9.147816962485063,
 			"lat": 38.73228033
-		},
-        {
-            "name": "hospital4",
-            "type": "location",
-            "lon": -9.106043374239475,
-            "lat": 38.790228
-        },
-        {
-            "name": "hospital5",
-            "type": "location",
-            "lon": -9.182799896334426,
-            "lat": 38.75240979
-        },
-        {
-            "name": "hospital6",
-            "type": "location",
-            "lon": -9.192458216678133,
-            "lat": 38.7563422
-        },
-        {
-            "name": "hospital7",
-            "type": "location",
-            "lon": -9.151116216487697,
-            "lat": 38.73561121
-        },
-        {
-            "name": "hospital8",
-            "type": "location",
-            "lon": -9.166562435582462,
-            "lat": 38.75440942
-        },
-        {
-            "name": "hospital9",
-            "type": "location",
-            "lon": -9.172417516569944,
-            "lat": 38.75221198
-        },
-        {
-            "name": "hospital10",
-            "type": "location",
-            "lon": -9.228492687664295,
-            "lat": 38.75266289
-        },
-        {
-            "name": "hospital11",
-            "type": "location",
-            "lon": -9.136965161905168,
-            "lat": 38.74944379
-        }
+		}
 	],
 	"parameters":[
 		{
@@ -97,7 +49,7 @@
 			"type": "array_locations",
 			"locs": "random",
 			"size": 10,
-			"value": ["hospital1", "hospital2", "hospital4", "hospital5", "hospital6", "hospital7", "hospital8", "hospital9", "hospital10", "hospital11"]
+			"value": ["hospital1", "hospital2"]
 		}
 	],
 	"attributes": [
