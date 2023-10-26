@@ -765,7 +765,7 @@ def _generate_requests(
             distancesx = expon.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['requests']['value']+20000)
 
         if inst.parameters['method_pois']['value']['pdf']['type'] == 'gamma':
-            mux = (loc=inst.parameters['method_pois']['value']['pdf']['loc'] + inst.parameters['method_pois']['value']['pdf']['scale']) / 2
+            mux = (inst.parameters['method_pois']['value']['pdf']['loc'] + inst.parameters['method_pois']['value']['pdf']['scale']) / 2
             a_scale = mux / inst.parameters['method_pois']['value']['pdf']['aux']
             distancesx = gamma.rvs(a=inst.parameters['method_pois']['value']['pdf']['aux'], scale=a_scale, size=inst.parameters['requests']['value']+20000)
             aux = inst.parameters['method_pois']['value']['pdf']['aux']
