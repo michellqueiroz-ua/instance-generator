@@ -974,7 +974,10 @@ def _generate_requests(
     print("OUT HERE")
     ray.shutdown()
 
-    print(all_reqs["time_stamp"])
+    time_stamps_all = []
+    for i in all_reqs:
+        time_stamps_all.append(i["time_stamp"])
+    print(time_stamps_all)
     '''
     plt.hist(all_reqs["time_stamp"], bins=30, density=True, alpha=0.6, color="g")
     plt.title("Gamma Distribution")
@@ -984,7 +987,7 @@ def _generate_requests(
     # Save the plot as an image (e.g., PNG)
     plt.savefig("gamma_distribution_plot.png")
     '''
-    
+
     del GA_id
     del network_id
     del sorted_attributes_id
