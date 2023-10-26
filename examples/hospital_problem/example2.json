@@ -20,12 +20,6 @@
 			"lat": 38.73228033
 		},
         {
-            "name": "hospital3",
-            "type": "location",
-            "lon": -9.378719483071146,
-            "lat": 38.82077783
-        },
-        {
             "name": "hospital4",
             "type": "location",
             "lon": -9.106043374239475,
@@ -102,8 +96,8 @@
 			"name": "hospitals",
 			"type": "array_locations",
 			"locs": "random",
-			"size": 11,
-			"value": ["hospital1", "hospital2", "hospital3", "hospital4", "hospital5", "hospital6", "hospital7", "hospital8", "hospital9", "hospital10", "hospital11"]
+			"size": 10,
+			"value": ["hospital1", "hospital2", "hospital4", "hospital5", "hospital6", "hospital7", "hospital8", "hospital9", "hospital10", "hospital11"]
 		}
 	],
 	"attributes": [

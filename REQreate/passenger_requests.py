@@ -149,7 +149,9 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
 
                                             if pdfunc == 'gamma':
                                                 gamma.random_state = np.random.RandomState(seed=rseed)
-                                                radius = gamma.rvs(a=aux, loc=loc, scale=scale, size=1)
+                                                mux = (loc + scale) / 2
+                                                a_scale = mux / aux
+                                                radius = gamma.rvs(a=aux, scale=a_scale, size=1)
 
                                             if pdfunc == 'gilbrat':
                                                 gilbrat.random_state = np.random.RandomState(seed=rseed)
@@ -221,7 +223,9 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
 
                                             if pdfunc == 'gamma':
                                                 gamma.random_state = np.random.RandomState(seed=rseed)
-                                                radius = gamma.rvs(a=aux, loc=loc, scale=scale, size=1)
+                                                mux = (loc + scale) / 2
+                                                a_scale = mux / aux
+                                                radius = gamma.rvs(a=aux, scale=a_scale, size=1)
 
                                             if pdfunc == 'gilbrat':
                                                 gilbrat.random_state = np.random.RandomState(seed=rseed)
@@ -416,11 +420,16 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
 
                         if GA.nodes[att]['pdf'][0]['type'] == 'normal':
 
-                            norm.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = norm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
-                            
-                            if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
-                                attributes[att] = int(attributes[att])
+                            if ((att == 'time_stamp') and (len(time_stamps) > 0)):
+
+                                    attributes[att] = int(time_stamps[reqid])
+
+                            else:
+                                norm.random_state = np.random.RandomState(seed=rseed)
+                                attributes[att] = norm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                                
+                                if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
+                                    attributes[att] = int(attributes[att])
 
                         
                         if GA.nodes[att]['pdf'][0]['type'] == 'uniform':
@@ -465,7 +474,9 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                         if GA.nodes[att]['pdf'][0]['type'] == 'gamma':
 
                             gamma.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = gamma.rvs(a=GA.nodes[att]['pdf'][0]['aux'], loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            mux = (GA.nodes[att]['pdf'][0]['loc'] + GA.nodes[att]['pdf'][0]['scale']) / 2
+                            a_scale = mux / GA.nodes[att]['pdf'][0]['aux']
+                            attributes[att] = gamma.rvs(a=GA.nodes[att]['pdf'][0]['aux'], scale=a_scale, size=1)
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -754,7 +765,9 @@ def _generate_requests(
             distancesx = expon.rvs(loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['requests']['value']+20000)
 
         if inst.parameters['method_pois']['value']['pdf']['type'] == 'gamma':
-            distancesx = gamma.rvs(a=inst.parameters['method_pois']['value']['pdf']['aux'], loc=inst.parameters['method_pois']['value']['pdf']['loc'], scale=inst.parameters['method_pois']['value']['pdf']['scale'], size=inst.parameters['requests']['value']+20000)
+            mux = (loc=inst.parameters['method_pois']['value']['pdf']['loc'] + inst.parameters['method_pois']['value']['pdf']['scale']) / 2
+            a_scale = mux / inst.parameters['method_pois']['value']['pdf']['aux']
+            distancesx = gamma.rvs(a=inst.parameters['method_pois']['value']['pdf']['aux'], scale=a_scale, size=inst.parameters['requests']['value']+20000)
             aux = inst.parameters['method_pois']['value']['pdf']['aux']
 
         if inst.parameters['method_pois']['value']['pdf']['type'] == 'gilbrat':
@@ -960,6 +973,14 @@ def _generate_requests(
     all_reqs = ray.get([_generate_single_data.remote(GA_id, network_id, sorted_attributes_id, parameters_id, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsvid) for i in range(num_requests)]) 
     print("OUT HERE")
     ray.shutdown()
+
+    plt.hist(all_reqs["time_stamp"], bins=30, density=True, alpha=0.6, color="g")
+    plt.title("Gamma Distribution")
+    plt.xlabel("Value")
+    plt.ylabel("Frequency")
+
+    # Save the plot as an image (e.g., PNG)
+    plt.savefig("gamma_distribution_plot.png")
 
     del GA_id
     del network_id
