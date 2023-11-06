@@ -10,6 +10,7 @@
 #SBATCH --mail-user=michell.queiroz@uantwerpen.be
 #SBATCH -o stdout.file
 #SBATCH -e stderr.file
+#SBATCH --partition=skylake
 
 module load calcua/supported
 source $VSC_DATA/miniconda3/etc/profile.d/conda.sh
