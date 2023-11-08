@@ -974,6 +974,8 @@ def _generate_requests(
     print("OUT HERE")
     ray.shutdown()
 
+    
+    print(all_reqs)
     '''
     time_stamps_all = []
     for i in all_reqs:
