@@ -1066,7 +1066,7 @@ def _generate_requests(
                         print(lvid)
                         lvid += 1
 
-            if replicate_num < 0:
+            if replicate_num == 0:
                 print('ttm')
                 travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
                 travel_time_json = travel_time.tolist()
