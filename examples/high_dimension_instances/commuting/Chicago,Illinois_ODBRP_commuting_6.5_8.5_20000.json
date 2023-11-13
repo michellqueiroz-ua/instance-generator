@@ -48,7 +48,7 @@
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
 						"loc": 23400,
-						"scale": 7200,
+						"scale": 7200
 					} ],
 			"constraints": [ "time_stamp >= 0", 
 							"time_stamp >= min_early_departure",

@@ -75,7 +75,7 @@
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
 						"loc": 39600,
-						"scale": 25200,
+						"scale": 25200
 					} ],
 			"constraints": [ "time_stamp >= 0", 
 							"time_stamp >= min_early_departure",
@@ -118,7 +118,7 @@
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
 						"loc": 43200,
-						"scale": 3600,
+						"scale": 3600
 					} ],
 			"constraints": [ "time_stamp2 >= 0", 
 							"time_stamp2 >= min_early_departure2",
@@ -161,7 +161,7 @@
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
 						"loc": 54000,
-						"scale": 3600,
+						"scale": 3600
 					} ],
 			"constraints": [ "time_stamp3 >= 0", 
 							"time_stamp3 >= min_early_departure3",
