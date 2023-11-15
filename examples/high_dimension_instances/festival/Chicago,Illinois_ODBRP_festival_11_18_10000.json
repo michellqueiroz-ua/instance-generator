@@ -32,25 +32,25 @@
 			"time_unit": "h"
 		},
 		{
-			"name": "min_early_departure2",
+			"name": "min2_early_departure",
 			"type": "float",
 			"value": 12,
 			"time_unit": "h"
 		},
 		{
-			"name": "max_early_departure2",
+			"name": "max2_early_departure",
 			"type": "float",
 			"value": 13,
 			"time_unit": "h"
 		},
 		{
-			"name": "min_early_departure3",
+			"name": "min3_early_departure",
 			"type": "float",
 			"value": 15,
 			"time_unit": "h"
 		},
 		{
-			"name": "max_early_departure3",
+			"name": "max3_early_departure",
 			"type": "float",
 			"value": 16,
 			"time_unit": "h"
@@ -113,20 +113,20 @@
 			"expression": "earliest_departure + direct_travel_time + (reaction_time) + 3600"
 		},
 		{  
-			"name": "time_stamp2",
+			"name": "time2_stamp",
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
 						"loc": 43200,
 						"scale": 3600
 					} ],
-			"constraints": [ "time_stamp2 >= 0", 
-							"time_stamp2 >= min_early_departure2",
-							 "time_stamp2 <= max_early_departure2"
+			"constraints": [ "time2_stamp >= 0", 
+							"time2_stamp >= min2_early_departure",
+							 "time2_stamp <= max2_early_departure"
 						   ]
 		},
 		{
-			"name": "reaction_time2",
+			"name": "reaction2_time",
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
@@ -135,41 +135,41 @@
 					} ]
 		},
 		{
-			"name": "earliest_departure2",
+			"name": "earliest2_departure",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "time_stamp2",
-			"constraints": [ "earliest_departure2 >= 0", 
-							"earliest_departure2 >= min_early_departure2"
+			"expression": "time2_stamp",
+			"constraints": [ "earliest2_departure >= 0", 
+							"earliest2_departure >= min2_early_departure"
 						   ]
 		},
 		{
-			"name": "latest_departure2",
+			"name": "latest2_departure",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "time_stamp2 + reaction_time2"
+			"expression": "time2_stamp + reaction2_time"
 		},
 		{
-			"name": "latest_arrival2",
+			"name": "latest2_arrival",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "earliest_departure2 + direct_travel_time + (reaction_time2) + 3600"
+			"expression": "earliest2_departure + direct_travel_time + (reaction2_time) + 3600"
 		},
 		{  
-			"name": "time_stamp3",
+			"name": "time3_stamp",
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
 						"loc": 54000,
 						"scale": 3600
 					} ],
-			"constraints": [ "time_stamp3 >= 0", 
-							"time_stamp3 >= min_early_departure3",
-							 "time_stamp3 <= max_early_departure3"
+			"constraints": [ "time3_stamp >= 0", 
+							"time3_stamp >= min3_early_departure",
+							 "time3_stamp <= max3_early_departure"
 						   ]
 		},
 		{
-			"name": "reaction_time3",
+			"name": "reaction3_time",
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
@@ -178,25 +178,25 @@
 					} ]
 		},
 		{
-			"name": "earliest_departure3",
+			"name": "earliest3_departure",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "time_stamp3",
-			"constraints": [ "earliest_departure3 >= 0", 
-							"earliest_departure3 >= min_early_departure3"
+			"expression": "time3_stamp",
+			"constraints": [ "earliest3_departure >= 0", 
+							"earliest3_departure >= min3_early_departure"
 						   ]
 		},
 		{
-			"name": "latest_departure3",
+			"name": "latest3_departure",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "time_stamp3 + reaction_time3"
+			"expression": "time3_stamp + reaction3_time"
 		},
 		{
-			"name": "latest_arrival3",
+			"name": "latest3_arrival",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "earliest_departure3 + direct_travel_time + (reaction_time3) + 3600"
+			"expression": "earliest3_departure + direct_travel_time + (reaction3_time) + 3600"
 		},
 		{  
 			"name": "origin",
