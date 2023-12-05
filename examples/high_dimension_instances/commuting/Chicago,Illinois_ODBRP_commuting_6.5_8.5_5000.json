@@ -26,13 +26,13 @@
 		{
 			"name": "min2_early_departure",
 			"type": "float",
-			"value": 7,
+			"value": 7.0,
 			"time_unit": "h"
 		},
 		{
 			"name": "max2_early_departure",
 			"type": "float",
-			"value": 8,
+			"value": 8.0,
 			"time_unit": "h"
 		},
 		{
