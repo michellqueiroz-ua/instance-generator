@@ -24,13 +24,13 @@
 			"time_unit": "h"
 		},
 		{
-			"name": "min_early_departure2",
+			"name": "min2_early_departure",
 			"type": "float",
 			"value": 7,
 			"time_unit": "h"
 		},
 		{
-			"name": "max_early_departure2",
+			"name": "max2_early_departure",
 			"type": "float",
 			"value": 8,
 			"time_unit": "h"
@@ -86,20 +86,20 @@
 			"expression": "earliest_departure + direct_travel_time + (reaction_time) + 3600"
 		},
 		{  
-			"name": "time_stamp2",
+			"name": "time2_stamp",
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
 						"loc": 27000,
-						"scale": 1800,
+						"scale": 1800
 					} ],
-			"constraints": [ "time_stamp2 >= 0", 
-							"time_stamp2 >= min_early_departure2",
-							 "time_stamp2 <= max_early_departure2"
+			"constraints": [ "time2_stamp >= 0", 
+							"time2_stamp >= min2_early_departure",
+							 "time2_stamp <= max2_early_departure"
 						   ]
 		},
 		{
-			"name": "reaction_time2",
+			"name": "reaction2_time",
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
@@ -108,25 +108,25 @@
 					} ]
 		},
 		{
-			"name": "earliest_departure2",
+			"name": "earliest2_departure",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "time_stamp2",
-			"constraints": [ "earliest_departure2 >= 0", 
-							"earliest_departure2 >= min_early_departure2"
+			"expression": "time2_stamp",
+			"constraints": [ "earliest2_departure >= 0", 
+							"earliest2_departure >= min2_early_departure"
 						   ]
 		},
 		{
-			"name": "latest_departure2",
+			"name": "latest2_departure",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "time_stamp2 + reaction_time2"
+			"expression": "time2_stamp + reaction2_time"
 		},
 		{
-			"name": "latest_arrival2",
+			"name": "latest2_arrival",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "earliest_departure2 + direct_travel_time + (reaction_time2) + 3600"
+			"expression": "earliest2_departure + direct_travel_time + (reaction2_time) + 3600"
 		},
 		{  
 			"name": "origin",
