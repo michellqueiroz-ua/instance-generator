@@ -451,7 +451,7 @@ class Network:
                 'center_x': center_x
             }
 
-            self.zones = self.zones.append(d, ignore_index=True)
+            self.zones = self.zones.concat(d, ignore_index=True)
 
         else:
 
@@ -466,7 +466,7 @@ class Network:
                 'center_x': center_x
             }
 
-            self.zones = self.zones.append(d, ignore_index=True)   
+            self.zones = self.zones.concat(d, ignore_index=True)   
 
         
     def add_new_school(self, name, x, y):
@@ -489,7 +489,7 @@ class Network:
             'lat':y,
             'lon':x,
         }
-        self.schools = self.schools.append(d, ignore_index=True)
+        self.schools = self.schools.concat(d, ignore_index=True)
 
     def add_new_stop(self, types, x, y):
 
@@ -506,7 +506,7 @@ class Network:
             'lon':x,
             'type': types
         }
-        self.bus_stations = self.bus_stations.append(d, ignore_index=True)
+        self.bus_stations = self.bus_stations.concat(d, ignore_index=True)
 
 
 
