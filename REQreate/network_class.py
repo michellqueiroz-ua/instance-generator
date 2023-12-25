@@ -451,7 +451,8 @@ class Network:
                 'center_x': center_x
             }
 
-            self.zones = self.zones.concat(d, ignore_index=True)
+            #self.zones = self.zones.concat(d, ignore_index=True)
+            self.zones = pd.concat([self.zones, pd.DataFrame([d])], ignore_index=True)
 
         else:
 
@@ -466,7 +467,8 @@ class Network:
                 'center_x': center_x
             }
 
-            self.zones = self.zones.concat(d, ignore_index=True)   
+            #self.zones = self.zones.concat(d, ignore_index=True) 
+            self.zones = pd.concat([self.zones, pd.DataFrame([d])], ignore_index=True)  
 
         
     def add_new_school(self, name, x, y):
@@ -489,7 +491,8 @@ class Network:
             'lat':y,
             'lon':x,
         }
-        self.schools = self.schools.concat(d, ignore_index=True)
+        #self.schools = self.schools.concat(d, ignore_index=True)
+        self.schools = pd.concat([self.schools, pd.DataFrame([d])], ignore_index=True)
 
     def add_new_stop(self, types, x, y):
 
@@ -506,7 +509,8 @@ class Network:
             'lon':x,
             'type': types
         }
-        self.bus_stations = self.bus_stations.concat(d, ignore_index=True)
+        #self.bus_stations = self.bus_stations.concat(d, ignore_index=True)
+        self.bus_stations = pd.concat([self.bus_stations, pd.DataFrame([d])], ignore_index=True)
 
 
 
