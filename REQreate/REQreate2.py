@@ -8,9 +8,9 @@ if __name__ == '__main__':
 
     #EDIT HERE
     place_name = "Chicago, Illinois"
-    inst_directory = '../examples/high_dimension_instances/nightlife2/'
+    inst_directory = '../examples/high_dimension_instances/commuting2/'
     #inst_directory = '../examples/testes/'
-    base_save_folder_name = 'nightlife2' #give a unique folder name to save the instances
+    base_save_folder_name = 'commuting2' #give a unique folder name to save the instances
     #EDIT HERE
 
     directory = os.fsencode(inst_directory)
