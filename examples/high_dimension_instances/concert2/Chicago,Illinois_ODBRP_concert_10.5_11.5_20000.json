@@ -92,7 +92,7 @@
 			"name": "latest_arrival",
 			"type": "integer",
 			"time_unit": "s",
-			"expression": "paramlat_arrival"
+			"expression": "paramlat_arrival + 10"
 		},
 		{  
 			"name": "origin",
