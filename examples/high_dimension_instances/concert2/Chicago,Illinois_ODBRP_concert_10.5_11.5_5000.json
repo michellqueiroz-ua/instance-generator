@@ -33,7 +33,7 @@
 		},
 		{
 			"name": "paramlat_arrival",
-			"type": "float",
+			"type": "integer",
 			"value": 73800,
 			"time_unit": "s"
 		},
