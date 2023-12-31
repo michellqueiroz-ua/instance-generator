@@ -32,12 +32,6 @@
 			"time_unit": "h"
 		},
 		{
-			"name": "paramlat_arrival",
-			"type": "integer",
-			"value": 73800,
-			"time_unit": "s"
-		},
-		{
 			"name": "graphml",
 			"type": "graphml",
 			"value": true
