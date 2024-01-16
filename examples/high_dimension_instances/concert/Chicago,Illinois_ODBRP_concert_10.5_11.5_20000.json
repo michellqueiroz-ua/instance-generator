@@ -22,13 +22,13 @@
 		{
 			"name": "min_early_departure",
 			"type": "float",
-			"value": 10.5,
+			"value": 22.5,
 			"time_unit": "h"
 		},
 		{
 			"name": "max_early_departure",
 			"type": "float",
-			"value": 11.5,
+			"value": 23.5,
 			"time_unit": "h"
 		},
 		{
@@ -50,8 +50,8 @@
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "gamma",
-						"loc": 37800,
-						"scale": 41400,
+						"loc": 81000,
+						"scale": 84600,
 						"aux":2.0
 					} ],
 			"constraints": [ "time_stamp >= 0", 
