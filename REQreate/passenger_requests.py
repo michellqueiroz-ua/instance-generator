@@ -360,7 +360,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                     point = (network.schools.loc[idxs[0], 'lat'], network.schools.loc[idxs[0], 'lon'])
                                 elif parameters[loc]['locs'] == 'random':
                                     idxs = random.choices(parameters[loc]['list'+str(replicate_num)], weights=GA.nodes[att]['weights'], k=1)
-                                    point = (parameters[loc]['list_lat'][idxs], parameters[loc]['list_lon'][idxs])
+                                    point = (parameters[loc]['list_lat'+str(replicate_num)][idxs], parameters[loc]['list_lon'+str(replicate_num)][idxs])
                                     #point = (network.schools.loc[idxs[0], 'lat'], network.schools.loc[idxs[0], 'lon'])
                             else:
 
@@ -369,7 +369,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                     point = (network.schools.loc[idxs, 'lat'], network.schools.loc[idxs, 'lon'])
                                 elif parameters[loc]['locs'] == 'random':
                                     idxs = random.choice(parameters[loc]['list'+str(replicate_num)])
-                                    point = (parameters[loc]['list_lat'][idxs], parameters[loc]['list_lon'][idxs])
+                                    point = (parameters[loc]['list_lat'+str(replicate_num)][idxs], parameters[loc]['list_lon'+str(replicate_num)][idxs])
                                     #point = (network.schools.loc[idxs, 'lat'], network.schools.loc[idxs, 'lon'])
                     
 
@@ -825,6 +825,14 @@ def _generate_requests(
                 for elem in inst.parameters[param]['list_node_drive']:
                     inst.parameters[param]['list_node_drive'+str(replicate_num)].append(elem)
 
+                inst.parameters[param]['list_lon'+str(replicate_num)] = []
+                for elem in inst.parameters[param]['list_lon']:
+                    inst.parameters[param]['list_lon'+str(replicate_num)].append(elem)
+
+                inst.parameters[param]['list_lat'+str(replicate_num)] = []
+                for elem in inst.parameters[param]['list_lat']:
+                    inst.parameters[param]['list_lat'+str(replicate_num)].append(elem)
+
                 while len(inst.parameters[param]['list'+str(replicate_num)]) < inst.parameters[param]['size']:
 
                     seed_location = (inst.seed*222)+param_num
@@ -835,6 +843,8 @@ def _generate_requests(
                     if node_drive not in inst.parameters[param]['list_node_drive'+str(replicate_num)]:
                         inst.parameters[param]['list'+str(replicate_num)].append("random_loc"+str(len(inst.parameters[param]['list'+str(replicate_num)])))
                         inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
+                        inst.parameters[param]['list_lon'+str(replicate_num)].append(point.x)
+                        inst.parameters[param]['list_lat'+str(replicate_num)].append(point.y)
 
 
             #generate random schools according to given input

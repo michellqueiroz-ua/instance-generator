@@ -8,8 +8,9 @@
 #SBATCH --time=72:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=michell.queiroz@uantwerpen.be
-#SBATCH -o stdout.file
-#SBATCH -e stderr.file
+#SBATCH -o stdout4.file
+#SBATCH -e stderr4.file
+#SBATCH --partition=skylake
 
 module load calcua/supported
 source $VSC_DATA/miniconda3/etc/profile.d/conda.sh
