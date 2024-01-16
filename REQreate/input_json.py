@@ -474,6 +474,8 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
                         inst.parameters[j['name']]['list_node_drive'] = []
                         inst.parameters[j['name']]['list_node_walk'] = []
+                        inst.parameters[j['name']]['list_lon'] = []
+                        inst.parameters[j['name']]['list_lat'] = []
 
                         if 'locs' in j:
                             
@@ -508,6 +510,8 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                                         if x['name'] in inst.parameters[j['name']]['list']:
                                             inst.parameters[j['name']]['list_node_drive'].append(x['node_drive'])
                                             inst.parameters[j['name']]['list_node_walk'].append(x['node_walk'])
+                                            inst.parameters[j['name']]['list_lon'].append(x['lon'])
+                                            inst.parameters[j['name']]['list_lat'].append(x['lat'])
 
                         else: raise ValueError('locs for a array_locations parameter is mandatory')
 
