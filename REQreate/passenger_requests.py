@@ -337,14 +337,20 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                                 point = (network.schools.loc[idxs, 'lat'], network.schools.loc[idxs, 'lon'])
                                             elif parameters[loc]['locs'] == 'random':
                                                 idxs = random.choice(parameters[loc]['list'+str(replicate_num)])
-                                                print("heerexx ", idxs)
+                                                #print("heerexx ", idxs)
                                                 point = (parameters[loc]['list_lat'+str(replicate_num)][idxs], parameters[loc]['list_lon'+str(replicate_num)][idxs])
-                                                print("heere ", point)
+                                                #print("heere ", point)
 
                                             else:
                                                 point = network._get_random_coord(network.polygon, seed_location)
+                                    else:
+                                        point = network._get_random_coord(network.polygon, seed_location) 
                             
-                            point = (point.y, point.x)
+                            try: 
+                                point = (point.y, point.x)
+
+                            except AttributeError:
+                                pass
 
                         else:
 
@@ -397,7 +403,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                 elif parameters[loc]['locs'] == 'random':
                                     idxs = random.choice(parameters[loc]['list'+str(replicate_num)])
                                     point = (parameters[loc]['list_lat'+str(replicate_num)][idxs[0]], parameters[loc]['list_lon'+str(replicate_num)][idxs[0]])
-                                    print("heere ", point)
+                                    #print("heere ", point)
                                     #point = (network.schools.loc[idxs, 'lat'], network.schools.loc[idxs, 'lon'])
                     
 
