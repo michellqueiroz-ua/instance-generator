@@ -315,7 +315,33 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                     point = network._get_random_coord_radius(attributes['originy'], attributes['originx'], radius, network.polygon, seed_location)
 
                                 else:
-                                    point = network._get_random_coord(network.polygon, seed_location)
+                                    if 'subset_locations' in GA.nodes[att]:
+
+                                        loc = GA.nodes[att]['subset_locations']
+                                        
+                                        if 'weights' in GA.nodes[att]:
+
+                                            if parameters[loc]['locs'] == 'schools':
+                                                idxs = random.choices(parameters[loc]['list_ids'+str(replicate_num)], weights=GA.nodes[att]['weights'], k=1)
+                                                point = (network.schools.loc[idxs[0], 'lat'], network.schools.loc[idxs[0], 'lon'])
+                                            elif parameters[loc]['locs'] == 'random':
+                                                idxs = random.choices(parameters[loc]['list'+str(replicate_num)], weights=GA.nodes[att]['weights'], k=1)
+                                                point = (parameters[loc]['list_lat'+str(replicate_num)][idxs[0]], parameters[loc]['list_lon'+str(replicate_num)][idxs[0]])
+                                                #point = (network.schools.loc[idxs[0], 'lat'], network.schools.loc[idxs[0], 'lon'])
+                                            else:
+                                                point = network._get_random_coord(network.polygon, seed_location)
+                                        else:
+
+                                            if parameters[loc]['locs'] == 'schools':
+                                                idxs = random.choice(parameters[loc]['list_ids'+str(replicate_num)])
+                                                point = (network.schools.loc[idxs, 'lat'], network.schools.loc[idxs, 'lon'])
+                                            elif parameters[loc]['locs'] == 'random':
+                                                idxs = random.choice(parameters[loc]['list'+str(replicate_num)])
+                                                point = (parameters[loc]['list_lat'+str(replicate_num)][idxs[0]], parameters[loc]['list_lon'+str(replicate_num)][idxs[0]])
+                                                print("heere ", point)
+
+                                            else:
+                                                point = network._get_random_coord(network.polygon, seed_location)
                             
                             point = (point.y, point.x)
 
