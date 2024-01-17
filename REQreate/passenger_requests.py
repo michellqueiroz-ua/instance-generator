@@ -846,8 +846,10 @@ def _generate_requests(
             if inst.parameters[param]['locs'] == 'random':
 
                 inst.parameters[param]['list'+str(replicate_num)] = []
+                count_ids = 0
                 for elem in inst.parameters[param]['list']:
-                    inst.parameters[param]['list'+str(replicate_num)].append(elem)
+                    inst.parameters[param]['list'+str(replicate_num)].append(count_ids)
+                    count_ids += 1
 
                 inst.parameters[param]['list_node_drive'+str(replicate_num)] = []    
                 for elem in inst.parameters[param]['list_node_drive']:
