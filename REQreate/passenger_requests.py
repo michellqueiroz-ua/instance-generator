@@ -326,7 +326,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                                 point = (network.schools.loc[idxs[0], 'lat'], network.schools.loc[idxs[0], 'lon'])
                                             elif parameters[loc]['locs'] == 'random':
                                                 idxs = random.choices(parameters[loc]['list'+str(replicate_num)], weights=GA.nodes[att]['weights'], k=1)
-                                                point = (parameters[loc]['list_lat'+str(replicate_num)][idxs[0]], parameters[loc]['list_lon'+str(replicate_num)][idxs[0]])
+                                                point = (parameters[loc]['list_lat'+str(replicate_num)][idxs], parameters[loc]['list_lon'+str(replicate_num)][idxs])
                                                 #point = (network.schools.loc[idxs[0], 'lat'], network.schools.loc[idxs[0], 'lon'])
                                             else:
                                                 point = network._get_random_coord(network.polygon, seed_location)
@@ -338,7 +338,7 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                                             elif parameters[loc]['locs'] == 'random':
                                                 idxs = random.choice(parameters[loc]['list'+str(replicate_num)])
                                                 print("heerexx ", idxs)
-                                                point = (parameters[loc]['list_lat'+str(replicate_num)][idxs[0]], parameters[loc]['list_lon'+str(replicate_num)][idxs[0]])
+                                                point = (parameters[loc]['list_lat'+str(replicate_num)][idxs], parameters[loc]['list_lon'+str(replicate_num)][idxs])
                                                 print("heere ", point)
 
                                             else:
