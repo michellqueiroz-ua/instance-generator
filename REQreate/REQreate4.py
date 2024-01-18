@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
     #EDIT HERE
     place_name = "Chicago, Illinois"
-    inst_directory = '../examples/ODBRP_benchmark_configuration_files/festival/'
+    inst_directory = '../examples/high_dimension_instances/festival/'
     #inst_directory = '../examples/testes/'
     base_save_folder_name = 'festival' #give a unique folder name to save the instances
     #EDIT HERE
