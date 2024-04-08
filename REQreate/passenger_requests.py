@@ -879,8 +879,8 @@ def _generate_requests(
                     if node_drive not in inst.parameters[param]['list_node_drive'+str(replicate_num)]:
                         inst.parameters[param]['list'+str(replicate_num)].append("random_loc"+str(len(inst.parameters[param]['list'+str(replicate_num)])))
                         inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
-                        inst.parameters[param]['list_lon'+str(replicate_num)].append(point.x)
-                        inst.parameters[param]['list_lat'+str(replicate_num)].append(point.y)
+                        inst.parameters[param]['list_lon'+str(replicate_num)].append(point[0])
+                        inst.parameters[param]['list_lat'+str(replicate_num)].append(point[1])
 
 
             #generate random schools according to given input
