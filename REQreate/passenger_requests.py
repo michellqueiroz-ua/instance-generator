@@ -334,11 +334,13 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
 
                                             if parameters[loc]['locs'] == 'schools':
                                                 idxs = random.choice(parameters[loc]['list_ids'+str(replicate_num)])
+                                                #idxs = np.random.randint(0, parameters[loc]['size'])
                                                 point = (network.schools.loc[idxs, 'lat'], network.schools.loc[idxs, 'lon'])
                                             elif parameters[loc]['locs'] == 'random':
-                                                idxs = random.choice(parameters[loc]['list'+str(replicate_num)])
-                                                print("heerexx ", idxs)
-                                                idxs = int(idxs)
+                                                #idxs = random.choice(parameters[loc]['list'+str(replicate_num)])
+                                                idxs = np.random.randint(0, parameters[loc]['size'])
+                                                #print("heerexx ", idxs)
+                                                #idxs = int(idxs)
                                                 point = (parameters[loc]['list_lat'+str(replicate_num)][idxs], parameters[loc]['list_lon'+str(replicate_num)][idxs])
                                                 #print("heere ", point)
 
