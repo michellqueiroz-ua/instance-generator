@@ -84,7 +84,7 @@ if __name__ == '__main__':
         print(type(polygon1))
         pnt = Point(lon, lat)
         if polygon1.contains(pnt):
-            stationslis.append(indexs)
+            stationslis.append(index)
 
 
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
         print(type(polygon2))
         pnt = Point(lon, lat)
         if polygon2.contains(pnt):
-            stationslis2.append(indexs)
+            stationslis2.append(index)
 
     data = {
         'Name': ['zone70', 'zone30'],
