@@ -99,7 +99,7 @@
 		{  
 			"name": "origin",
 			"type": "location",
-			"subset_zones": "zonesorgn",
+			"subset_zones": "zonesorg",
 			"weights": [70, 30]
 		},
 		{  
