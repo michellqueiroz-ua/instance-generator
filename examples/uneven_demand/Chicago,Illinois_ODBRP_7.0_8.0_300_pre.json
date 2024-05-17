@@ -14,8 +14,8 @@
 		{
 			"name": "zonexx",
 			"type": "zone",
-			"lon": -1.6902891077472344,
-			"lat": 48.09282962664396,
+			"lon": -87.689840,
+			"lat": 41.767025,
 			"length_lon": 2000,
 			"length_lat": 2000,
 			"length_unit": "m" 

@@ -58,8 +58,9 @@ if __name__ == '__main__':
     dist_lat = 2000
     dist_lon = 2000  
 
-    lat = 48.09282962664396
-    lng = -1.6902891077472344
+    lat = 41.767025
+    lng = -87.689840
+    
 
     delta_lat = (dist_lat / earth_radius) * (180 / math.pi)
     delta_lng = (dist_lon / earth_radius) * (180 / math.pi) / math.cos(lat * math.pi / 180)
