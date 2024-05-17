@@ -28,7 +28,7 @@ if __name__ == '__main__':
     save_dir_csv = os.path.join(inst.save_dir, 'csv')
 
     #zones = pd.read_csv(save_dir_csv+'/'+place_name+'.zones.csv')
-    stations = pd.read_csv(save_dir_csv+'/'+place_name+'.stations.csv')
+    #stations = pd.read_csv(save_dir_csv+'/'+place_name+'.stations.csv')
 
     #zone1 70% requests
     pt = inst.network.polygon.centroid
@@ -76,22 +76,26 @@ if __name__ == '__main__':
     all_stations = []
     #for indexz, zone in zones.iterrows():
     stationslis = []
-    for indexs, station in stations.iterrows():
+    for index, row in inst.network.bus_stations.iterrows():
 
+        lon = inst.network.bus_stations.loc[index, 'lon']
+        lat = inst.network.bus_stations.loc[index, 'lat']
         #polygon = shapely.wkt.loads(zone['polygon'])
         print(type(polygon1))
-        pnt = Point(station['lon'], station['lat'])
+        pnt = Point(lon, lat)
         if polygon1.contains(pnt):
             stationslis.append(indexs)
 
 
 
     stationslis2 = []
-    for indexs, station in stations.iterrows():
+    for index, row in inst.network.bus_stations.iterrows():
 
+        lon = inst.network.bus_stations.loc[index, 'lon']
+        lat = inst.network.bus_stations.loc[index, 'lat']
         #polygon = shapely.wkt.loads(zone['polygon'])
         print(type(polygon2))
-        pnt = Point(station['lon'], station['lat'])
+        pnt = Point(lon, lat)
         if polygon2.contains(pnt):
             stationslis2.append(indexs)
 
