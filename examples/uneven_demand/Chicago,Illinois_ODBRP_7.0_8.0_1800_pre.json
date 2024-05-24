@@ -1,5 +1,5 @@
 {
-	"seed": 105,
+	"seed": 118,
 	"network": "Chicago, Illinois",
 	"problem": "ODBRP",
 	"set_fixed_speed":
@@ -8,7 +8,7 @@
         "vehicle_speed_data_unit":"kmh"
     },
 	"replicas": 10,
-	"requests": 300,
+	"requests": 1800,
 	"instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure", "dynamism", "urgency", "geographic_dispersion"],
 	"places": [
 		{
