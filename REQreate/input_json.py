@@ -1131,6 +1131,11 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         inst_base = inst_base.replace('_3.json', "")
         inst_base = inst_base.replace('_4.json', "")
         inst_base = inst_base.replace('_5.json', "")
+        inst_base = inst_base.replace('_6.json', "")
+        inst_base = inst_base.replace('_7.json', "")
+        inst_base = inst_base.replace('_8.json', "")
+        inst_base = inst_base.replace('_9.json', "")
+        inst_base = inst_base.replace('_10.json', "")
         inst_base = inst_base+'.json'
                
         if (instance != ".DS_Store") and (inst_base == base_filename):

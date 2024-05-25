@@ -37,6 +37,11 @@ if __name__ == '__main__':
                 filex = filex.replace('_3.json', "")
                 filex = filex.replace('_4.json', "")
                 filex = filex.replace('_5.json', "")
+                filex = filex.replace('_6.json', "")
+                filex = filex.replace('_7.json', "")
+                filex = filex.replace('_8.json', "")
+                filex = filex.replace('_9.json', "")
+                filex = filex.replace('_10.json', "")
                 filex = filex+'.json'
 
                 final_list.append(filex)
