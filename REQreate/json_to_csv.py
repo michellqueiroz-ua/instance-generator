@@ -90,7 +90,7 @@ if __name__ == '__main__':
             data = json.load(f)
         
         list_names = []
-
+        
         if 'places' in data:
 
             location_names = []
@@ -109,6 +109,43 @@ if __name__ == '__main__':
                             list_names.append(j['name'])
                         else:
                             raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+                    
+                    else: raise ValueError('name parameter for places is mandatory')
+                    
+                    location_names.append(j['name'])
+                    
+                    if ('centroid' in j) or (('lat' in j) and ('lon' in j)):
+                           
+                        if ('lon' in j) and ('lat' in j):
+                            lon = j['lon']
+                            lat = j['lat']
+                        else:
+                            if j['centroid'] is True:
+
+                                pt = inst.network.polygon.centroid
+                                lon = pt.x
+                                lat = pt.y
+
+                            else: raise ValueError('lon/lat or centroid parameter for locations is mandatory')
+
+                    else: raise ValueError('lon/lat or centroid parameter for locations is mandatory')
+
+                    if not inst.network.polygon.contains(Point(lon,lat)):
+                        raise ValueError('location for '+namelocation+' is not within the boundaries of network')
+
+                    
+                    if 'class' in j: 
+                        classlocs = ['school', 'coordinate', 'bus_stop']
+
+                        if j['class'] not in classlocs:
+                            raise ValueError('location '+str(j['type'])+' is not supported')
+
+                        if j['class'] == 'school':
+                            inst.network.add_new_school(name=namelocation, x=lon, y=lat)
+
+                        if j['class'] == 'bus_stop':
+                            inst.network.add_new_stop(types=0, x=lon, y=lat)
+                    
 
                 if j['type'] == 'zone':
 
@@ -125,6 +162,77 @@ if __name__ == '__main__':
                         
                     else: raise ValueError('name parameter for zone is mandatory')
 
+                    if 'lon' in j:
+                        lon = j['lon']
+                    
+                        if 'lat' in j:
+                            lat = j['lat']
+                        else: raise ValueError('lat parameter for zone is mandatory when lon is set')
+
+                    else:
+                        if 'centroid' in j:
+                            if j['centroid'] is True:
+                                pt = inst.network.polygon.centroid
+                                lon = pt.x
+                                lat = pt.y
+
+                            else: raise ValueError('either lon/lat must be given or centroid must be set to true')
+
+                        else: raise ValueError('either lon/lat or centroid parameters must be set')
+
+                    if not inst.network.polygon.contains(Point(lon,lat)):
+
+                        raise ValueError('location for '+nameszone+' is not within the boundaries of network')
+
+                    if 'length_unit' in j:
+                        lunit = j['length_unit']
+                        if (lunit != 'km') and (lunit != 'm') and (lunit != 'mi'):
+                            raise ValueError('length_unit must be m, km or mi')
+
+                        length_unit  = j['length_unit']
+                    else:
+                        length_unit = "m"
+
+                    mult = get_multiplier_length_unit(length_unit)
+
+                    if 'length_lon' in j:
+                        if not (isinstance(j['length_lon'], (int, float))): 
+                            raise TypeError('length_lon for type length must be a number (integer, float)')
+                        if j['length_lon'] < 0:
+                            raise TypeError('negative number is not allowed for type length')
+                        length_lon  = j['length_lon']*mult
+                    else:
+                        length_lon = 0
+
+                    if 'length_lat' in j:
+                        if not (isinstance(j['length_lat'], (int, float))): 
+                            raise TypeError('length_lat for type length must be a number (integer, float)')
+                        if j['length_lat'] < 0:
+                            raise TypeError('negative number is not allowed for type length')
+                        length_lat  = j['length_lat']*mult
+                    else:
+                        length_lat = 0
+
+                    if 'radius' in j:
+                        if not (isinstance(j['radius'], (int, float))): 
+                            raise TypeError('radius for type length must be a number (integer, float)')
+                        if j['radius'] < 0:
+                            raise TypeError('negative number is not allowed for type length')
+                        radius  = j['radius']
+                    else:
+                        radius = 0
+
+                    inst.network.add_new_zone(name=nameszone, center_x=lon, center_y=lat, length_x=length_lon, length_y=length_lat, radius=radius)
+
+            for x in range(len(data['places'])):
+
+                if data['places'][x]['type'] == 'location': 
+                    
+                    point = (data['places'][x]['lat'], data['places'][x]['lon'])
+                    data['places'][x]['node_drive'] = ox.nearest_nodes(inst.network.G_drive, data['places'][x]['lon'], data['places'][x]['lat'])
+                    data['places'][x]['node_walk'] = ox.nearest_nodes(inst.network.G_walk, data['places'][x]['lon'], data['places'][x]['lat'])
+
+        
         if 'parameters' in data:
 
             inst.parameters['all_locations'] = {}
@@ -145,6 +253,219 @@ if __name__ == '__main__':
                         list_names.append(j['name'])
                     else:
                         raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+
+                    
+                    if 'value' in j:
+                        
+                        mult = 1
+                        if 'time_unit' in j:
+                            
+                            tunit = j['time_unit']
+                            if (tunit != 's') and (tunit != 'min') and (tunit != 'h'):
+                                raise ValueError('time_unit must be s, min or h')
+
+                            if not (isinstance(j['value'], (int, float))): 
+                                raise TypeError('value be a number (integer, float)')
+                            if j['value'] < 0:
+                                raise TypeError('negative number is not allowed for time')
+                            mult = get_multiplier_time_unit(j['time_unit'])
+
+                            inst.parameters[j['name']]['value'] = j['value']*mult
+
+                        elif 'speed_unit' in j:
+                            mult = get_multiplier_speed_unit(j['speed_unit'])
+
+                            sunit = j['speed_unit']
+                            if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'miph'):
+                                raise ValueError('speed_unit must be mps, kmh or miph')
+
+                            if not (isinstance(j['value'], (int, float))): 
+                                raise TypeError('value for type speed must be a number (integer, float)')
+
+                            if j['value'] < 0:
+                                raise TypeError('negative number is not allowed for type speed')
+
+                            inst.parameters[j['name']]['value'] = j['value']*mult
+
+                        elif 'length_unit' in j:
+                            mult = get_multiplier_length_unit(j['length_unit'])
+
+                            lunit = j['length_unit']
+                            if (lunit != 'km') and (lunit != 'm') and (lunit != 'mi'):
+                                raise ValueError('length_unit must be m, km or mi')
+
+                            if not (isinstance(j['value'], (int, float))): 
+                                raise TypeError('value for type length must be a number (integer, float)')
+
+                            if j['value'] < 0:
+                                raise TypeError('negative number is not allowed for type length')
+                        
+                            inst.parameters[j['name']]['value'] = j['value']*mult
+
+                        else:
+
+                            inst.parameters[j['name']]['value'] = j['value']
+
+
+                    else: inst.parameters[j['name']]['value'] = np.nan
+
+                    if 'type' in j:
+
+                        types = ['string', 'integer', 'float', 'speed', 'length', 'array_primitives', 'array_locations', 'array_zones', 'matrix', 'graphml']
+                        if not (j['type'] in types):
+                            raise ValueError('type ' +j['type']+' is not supported')
+
+                        inst.parameters[j['name']]['type'] = j['type']
+
+                        if j['type'] == 'integer':
+                            if not (isinstance(j['value'], (int))): 
+                                raise TypeError('value for '+j['name']+' must be integer')
+
+                        if j['type'] == 'string':
+                            if not (isinstance(j['value'], (str))): 
+                                raise TypeError('value for '+j['name']+' must be string')
+
+                        if j['type'] == 'float':
+                            if not (isinstance(j['value'], (float))): 
+                                raise TypeError('value for '+j['name']+' must be float')
+
+                        if j['type'] == 'array_locations':
+                            inst.parameters['all_locations']['value'].append(j['name'])
+
+
+                            if 'size' in j:
+                                
+                                if (isinstance(j['size'], (int))): 
+                                    inst.parameters[j['name']]['size'] = j['size']
+                                else: raise TypeError('size must be an integer number')
+
+                                if j['size'] < 0:
+                                    raise TypeError('size must be a positive integer number')
+
+                            if 'value' in j:
+                                                            
+                                if (isinstance(j['value'], (list))): 
+                                    inst.parameters[j['name']]['list'] = j['value']
+                                else: raise TypeError('value parameter must be an array')
+
+                                for elem in inst.parameters[j['name']]['list']:
+
+                                    if elem not in location_names:
+                                        raise ValueError('locaton '+elem+' does not exist')
+
+                            else:
+                                inst.parameters[j['name']]['list'] = []
+
+                            inst.parameters[j['name']]['list_node_drive'] = []
+                            inst.parameters[j['name']]['list_node_walk'] = []
+                            inst.parameters[j['name']]['list_lon'] = []
+                            inst.parameters[j['name']]['list_lat'] = []
+
+                            if 'locs' in j:
+                                
+                                if (isinstance(j['locs'], (str))): 
+                                    inst.parameters[j['name']]['locs'] = j['locs']
+                                else:
+                                    raise TypeError('locs must be a string')
+
+                                loctypes = ['random', 'schools']
+                                if not (inst.parameters[j['name']]['locs'] in loctypes):
+                                    raise ValueError('loc ' +inst.parameters[j['name']]['locs']+' is not supported')
+
+                                if j['locs'] == 'schools':
+
+                                    inst.parameters[j['name']]['list_ids'] = []
+                                    for s in inst.parameters[j['name']]['list']:
+                                        idxs = inst.network.schools.index[inst.network.schools['school_name'] == s].tolist()
+
+                                        if len(idxs) > 0:
+                                            index_school = idxs[0]
+                                            inst.parameters[j['name']]['list_ids'].append(index_school)
+                                            inst.parameters[j['name']]['list_node_drive'].append(inst.network.schools.loc[index_school, 'osmid_drive'])
+                                            inst.parameters[j['name']]['list_node_walk'].append(inst.network.schools.loc[index_school, 'osmid_walk'])
+                                        else:
+                                            raise ValueError('no school named after '+s)
+                                        #print(index_school)
+                                else:
+
+                                    for x in data['places']:
+
+                                        if x['type'] == 'location':
+                                            if x['name'] in inst.parameters[j['name']]['list']:
+                                                inst.parameters[j['name']]['list_node_drive'].append(x['node_drive'])
+                                                inst.parameters[j['name']]['list_node_walk'].append(x['node_walk'])
+                                                inst.parameters[j['name']]['list_lon'].append(x['lon'])
+                                                inst.parameters[j['name']]['list_lat'].append(x['lat'])
+
+                            else: raise ValueError('locs for a array_locations parameter is mandatory')
+
+                        if j['type'] == 'array_zones':
+
+                            inst.parameters[j['name']]['zones'] = []
+                            if 'size' in j:
+                                
+                                if (isinstance(j['size'], (int))): 
+                                    inst.parameters[j['name']]['size'] = j['size']
+                                else: raise TypeError('size parameter must be integer')
+
+                                if j['size'] < 0:
+                                    raise TypeError('size must be a positive integer number')
+
+                            if 'value' in j:
+
+                                if (isinstance(j['value'], (list))): 
+                                    inst.parameters[j['name']]['list'] = j['value']
+                                else: raise TypeError('value parameter must be an array')
+
+                                for z in j['value']:
+
+                                    idxs = inst.network.zones.index[inst.network.zones['name'] == z].tolist()
+
+                                    if len(idxs) > 0:
+                                        index_zone = idxs[0]
+                                        inst.parameters[j['name']]['zones'].append(index_zone)
+                                    else:
+                                        raise ValueError('no zone named after '+z)
+
+                            else:
+                                inst.parameters[j['name']]['list'] = []
+                                
+                            
+
+                else: raise ValueError('name for a parameter is mandatory')
+
+        
+        if ('min_dtt' in inst.parameters) and ('max_dtt' in inst.parameters):
+
+            inst.parameters['set_geographic_dispersion'] = {}
+            inst.parameters['set_geographic_dispersion']['type'] = 'builtin'
+            inst.parameters['set_geographic_dispersion']['value'] = True 
+            print('set geographic dispersion TRUE')
+        else:
+            inst.parameters['set_geographic_dispersion'] = {}
+            inst.parameters['set_geographic_dispersion']['type'] = 'builtin'
+            inst.parameters['set_geographic_dispersion']['value'] = False
+
+        
+        if 'replicas' in data:
+
+            inst.set_number_replicas(number_replicas=data['replicas'])
+
+        else: inst.set_number_replicas(number_replicas=1)
+
+        if 'requests' in data:
+
+            inst.parameters['requests'] = {}
+            inst.parameters['requests']['value'] = data['requests']
+            inst.parameters['requests']['type'] = 'integer'
+
+        if 'instance_filename' in data:
+
+            inst.instance_filename = data['instance_filename']
+
+            for x in data['instance_filename']:
+                if ((x not in inst.parameters) and (x not in inst.properties)):
+                    raise ValueError(x+ ' is not a parameter, therefore not valid for instance_filename')
 
         GA = nx.DiGraph()
 
