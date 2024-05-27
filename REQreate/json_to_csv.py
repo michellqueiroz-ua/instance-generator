@@ -71,7 +71,7 @@ if __name__ == '__main__':
             output_name_csv = output_name_csv.replace(" ", "")
 
             converter = JsonConverter(file_name=input_name)
-            converter.convert_normal(inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
+            converter.convert_normal(inst=inst, problem_type="ODBRP", path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
             
             inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
 
