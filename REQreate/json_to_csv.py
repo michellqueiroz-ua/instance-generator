@@ -1126,9 +1126,9 @@ if __name__ == '__main__':
                 full_final_filename = full_final_filename + '_' + str(replicate_number) + '.csv'
 
 
-                print(instance2)
-                print(output_name_csv)
-                print(full_final_filename)
+                #print(instance2)
+                #print(output_name_csv)
+                #print(full_final_filename)
 
                 #os.rename(os.path.join(save_dir_csv, output_name_csv), os.path.join(save_dir_csv, full_final_filename))
                 replicate_num = replicate_num + 1
