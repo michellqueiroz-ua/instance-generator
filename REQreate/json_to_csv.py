@@ -529,7 +529,7 @@ if __name__ == '__main__':
         
         inst.sorted_attributes = list(nx.topological_sort(GA))
         inst.GA = GA
-        #print(inst.sorted_attributes)
+        print(inst.sorted_attributes)
 
     
     #for instance in os.listdir(os.path.join(inst.save_dir, 'json_format', base_save_folder_name)):
