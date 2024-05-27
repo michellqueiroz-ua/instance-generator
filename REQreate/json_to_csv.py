@@ -106,6 +106,140 @@ if __name__ == '__main__':
         with open(filename_json, 'rb') as f:   # will close() when we leave this block
             data = json.load(f)
         
+        if 'network' in data:
+
+            place_name=data['network']
+            
+            save_dir = os.getcwd()+'/'+place_name
+            pickle_dir = os.path.join(save_dir, 'pickle')
+            network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
+
+
+            if Path(network_class_file).is_file():
+
+                inst = Instance(folder_to_network=place_name)
+                print('heeere')
+                
+                
+                if 'set_fixed_speed' in data:
+
+                    vehicle_speed_data = "set"
+                    if 'vehicle_speed_data_unit' in data['set_fixed_speed']:
+                        mult = get_multiplier_speed_unit(data['set_fixed_speed']['vehicle_speed_data_unit'])
+
+                        sunit = data['set_fixed_speed']['vehicle_speed_data_unit']
+                        if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'miph'):
+                            raise ValueError('vehicle_speed_data_unit must be mps, kmh or miph')
+
+                        if not (isinstance(data['set_fixed_speed']['vehicle_speed_data'], (int, float))): 
+                            raise TypeError('value for vehicle_speed_data speed must be a number (integer, float)')
+
+                        if data['set_fixed_speed']['vehicle_speed_data'] < 0:
+                            raise TypeError('negative number is not allowed for type speed')
+
+                        vehicle_speed = data['set_fixed_speed']['vehicle_speed_data']
+                        inst.network.vehicle_speed = vehicle_speed*mult
+                        print('VEHICLE SPEED')
+                        print(inst.network.vehicle_speed)
+                
+                
+            else:
+
+                if 'get_fixed_lines' in data:
+                    get_fixed_lines = data['get_fixed_lines']
+                else:
+                    get_fixed_lines = None
+
+                if 'max_speed_factor' in data:
+                    max_speed_factor = data['max_speed_factor']
+                else:
+                    max_speed_factor = 0.5
+
+                vehicle_speed = 0
+                if 'set_fixed_speed' in data:
+
+                    vehicle_speed_data = "set"
+                    if 'vehicle_speed_data_unit' in data['set_fixed_speed']:
+                        mult = get_multiplier_speed_unit(data['set_fixed_speed']['vehicle_speed_data_unit'])
+
+                        sunit = data['set_fixed_speed']['vehicle_speed_data_unit']
+                        if (sunit != 'kmh') and (sunit != 'mps') and (sunit != 'miph'):
+                            raise ValueError('vehicle_speed_data_unit must be mps, kmh or miph')
+
+                        if not (isinstance(data['set_fixed_speed']['vehicle_speed_data'], (int, float))): 
+                            raise TypeError('value for vehicle_speed_data speed must be a number (integer, float)')
+
+                        if data['set_fixed_speed']['vehicle_speed_data'] < 0:
+                            raise TypeError('negative number is not allowed for type speed')
+
+                        vehicle_speed = data['set_fixed_speed']['vehicle_speed_data']
+                        vehicle_speed = vehicle_speed*mult
+                    
+                else:
+                    vehicle_speed_data = "max"
+                    vehicle_speed = None
+
+                if 'point' in data:
+                    graph_from_point = True 
+                    lon = data['point']['lon']
+                    lat = data['point']['lat']
+                    dist = data['dist']
+                else:
+                    graph_from_point = False
+                    lon = -1
+                    lat = -1
+                    dist = -1
+
+                network = download_network_information(place_name=place_name, vehicle_speed_data=vehicle_speed_data, vehicle_speed=vehicle_speed, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines, graph_from_point=graph_from_point, lon=lon, lat=lat, dist=dist)
+
+                save_dir_fr = os.path.join(save_dir, 'fr_network')
+                if not os.path.isdir(save_dir_fr):
+                    os.mkdir(save_dir_fr)
+
+                output_name_fr = place_name+'.frn'
+
+                if get_fixed_lines is not None:
+                    output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)
+
+                inst = Instance(folder_to_network=place_name)
+
+            inst.parameters['network'] = {}
+            inst.parameters['network']['value'] = data['network']
+            inst.parameters['network']['type'] = 'network'
+
+        else: raise ValueError('network or point parameter is mandatory')
+
+        '''
+        print('hxxxxx')
+        #remove this later
+        inst.network.bus_stations = inst.network.bus_stations.iloc[0:0]
+        '''
+
+        if 'seed' in data:
+            inst.seed = data['seed']
+            value = data['seed']
+               
+        else: 
+            inst.seed = 1
+            value = 1
+
+        inst.filename_json = filename_json    
+        random.seed(value)
+        np.random.seed(value)
+        
+        if 'problem' in data:
+
+            inst.parameters['problem'] = {}
+            inst.parameters['problem']['type'] = "string"
+            inst.parameters['problem']['value'] = data['problem']
+
+        if 'problem' in data:
+
+            inst.parameters['problem'] = {}
+            inst.parameters['problem']['type'] = "string"
+            inst.parameters['problem']['value'] = data['problem']
+
+
         list_names = []
         
         if 'places' in data:
