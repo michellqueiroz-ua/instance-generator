@@ -1,5 +1,6 @@
 import os
 from instance_class import Instance
+from output_files import JsonConverter
 
 if __name__ == '__main__':
 
@@ -18,6 +19,28 @@ if __name__ == '__main__':
 
         instance_filename = os.fsdecode(instance)
         instance_filename = instance_filename.replace("._", "")
+    '''
+
+    '''
+    final_filename = ''
+    for p in inst.instance_filename:
+
+        if p in inst.parameters:
+            if 'value' in inst.parameters[p]:
+                strv = str(inst.parameters[p]['value'])
+                strv = strv.replace(" ", "")
+
+                if len(final_filename) > 0:
+                    if p == 'min_early_departure':
+                        strv = inst.parameters[p]['value']/3600
+                        strv = str(strv)
+
+                    if p == 'max_early_departure':
+                        strv = inst.parameters[p]['value']/3600
+                        strv = str(strv)
+
+                    final_filename = final_filename + '_' + strv
+                else: final_filename = strv
     '''
 
     replicate_num = 1
@@ -46,7 +69,21 @@ if __name__ == '__main__':
             
             output_name_csv = instance.split('.json')[0] + '.csv'
             output_name_csv = output_name_csv.replace(" ", "")
+
+            converter = JsonConverter(file_name=input_name)
+            converter.convert_normal(inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
             
+            inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
+
+
+            full_final_filename = inst.filename_json.replace(inst_directory, "")
+            full_final_filename = full_final_filename.replace(".json", "")
+            full_final_filename = full_final_filename + '_' + str(replicate_num) + '.csv'
+
+
             print(instance)
             print(output_name_csv)
+            print(full_final_filename)
 
+            os.rename(os.path.join(save_dir_csv, output_name_csv), os.path.join(save_dir_csv, full_final_filename))
+            replicate_num = replicate_num + 1
