@@ -1109,7 +1109,7 @@ if __name__ == '__main__':
                 inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
 
                 replicate_number = 1
-                sub_string_rep "_"+str(replicate_number)+ ".json"
+                sub_string_rep = "_"+str(replicate_number)+ ".json"
 
                 not_found = True
                 while not_found:
