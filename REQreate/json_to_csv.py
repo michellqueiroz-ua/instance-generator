@@ -1120,6 +1120,7 @@ if __name__ == '__main__':
                             not_found = False
                         else:
                             replicate_number = replicate_number + 1
+                            sub_string_rep = "_"+str(replicate_number)+ ".json"
 
                     full_final_filename = inst.filename_json.replace(inst_directory, "")
                     full_final_filename = full_final_filename.replace(".json", "")
