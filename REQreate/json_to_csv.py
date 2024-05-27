@@ -1096,8 +1096,8 @@ if __name__ == '__main__':
                 print(inst.save_dir)
                 print(base_save_folder_name)
                 print(instance2)
-                instance2 = instance2.decode('utf-8')
-                print(instance2)
+                #instance2 = instance2.decode('utf-8')
+                #print(instance2)
                 input_name = os.path.join(inst.save_dir, 'json_format', base_save_folder_name, instance2)
                 
                 output_name_csv = instance2.split('.json')[0] + '.csv'
