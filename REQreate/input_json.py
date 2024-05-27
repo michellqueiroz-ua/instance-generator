@@ -1140,6 +1140,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                
         if (instance != ".DS_Store") and (inst_base == base_filename):
 
+            
             input_name = os.path.join(inst.save_dir, 'json_format', base_save_folder_name, instance)
             
             output_name_csv = instance.split('.json')[0] + '.csv'
