@@ -1075,60 +1075,60 @@ if __name__ == '__main__':
             print(inst.sorted_attributes)
 
     
-        for instance2 in os.listdir(os.path.join(inst.save_dir, 'json_format', base_save_folder_name)):
+            for instance2 in os.listdir(os.path.join(inst.save_dir, 'json_format', base_save_folder_name)):
 
-            '''
-            filename_json = inst_directory+instance_filename
-            base_filename = filename_json.replace(inst_directory, "")
-            inst_base = instance.replace(inst.save_dir+'/json_format/'+base_save_folder_name+'/', "")
-            inst_base = inst_base.replace('_1.json', "")
-            inst_base = inst_base.replace('_2.json', "")
-            inst_base = inst_base.replace('_3.json', "")
-            inst_base = inst_base.replace('_4.json', "")
-            inst_base = inst_base.replace('_5.json', "")
-            inst_base = inst_base.replace('_6.json', "")
-            inst_base = inst_base.replace('_7.json', "")
-            inst_base = inst_base.replace('_8.json', "")
-            inst_base = inst_base.replace('_9.json', "")
-            inst_base = inst_base.replace('_10.json', "")
-            inst_base = inst_base+'.json'
-            '''
+                '''
+                filename_json = inst_directory+instance_filename
+                base_filename = filename_json.replace(inst_directory, "")
+                inst_base = instance.replace(inst.save_dir+'/json_format/'+base_save_folder_name+'/', "")
+                inst_base = inst_base.replace('_1.json', "")
+                inst_base = inst_base.replace('_2.json', "")
+                inst_base = inst_base.replace('_3.json', "")
+                inst_base = inst_base.replace('_4.json', "")
+                inst_base = inst_base.replace('_5.json', "")
+                inst_base = inst_base.replace('_6.json', "")
+                inst_base = inst_base.replace('_7.json', "")
+                inst_base = inst_base.replace('_8.json', "")
+                inst_base = inst_base.replace('_9.json', "")
+                inst_base = inst_base.replace('_10.json', "")
+                inst_base = inst_base+'.json'
+                '''
 
-            if (instance2 != ".DS_Store"):
+                if (instance2 != ".DS_Store"):
 
-                print(inst.save_dir)
-                print(base_save_folder_name)
-                print(instance2)
-                #instance2 = instance2.decode('utf-8')
-                #print(instance2)
-                input_name = os.path.join(inst.save_dir, 'json_format', base_save_folder_name, instance2)
-                
-                output_name_csv = instance2.split('.json')[0] + '.csv'
-                output_name_csv = output_name_csv.replace(" ", "")
+                    print(inst.save_dir)
+                    print(base_save_folder_name)
+                    print(instance2)
+                    #instance2 = instance2.decode('utf-8')
+                    #print(instance2)
+                    input_name = os.path.join(inst.save_dir, 'json_format', base_save_folder_name, instance2)
+                    
+                    output_name_csv = instance2.split('.json')[0] + '.csv'
+                    output_name_csv = output_name_csv.replace(" ", "")
 
-                converter = JsonConverter(file_name=input_name)
-                converter.convert_normal(inst=inst, problem_type="ODBRP", path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
-                
-                #inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
+                    converter = JsonConverter(file_name=input_name)
+                    converter.convert_normal(inst=inst, problem_type="ODBRP", path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
+                    
+                    #inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
 
-                replicate_number = 1
-                sub_string_rep = "_"+str(replicate_number)+ ".json"
+                    replicate_number = 1
+                    sub_string_rep = "_"+str(replicate_number)+ ".json"
 
-                not_found = True
-                while not_found:
-                    if sub_string_rep in instance2:
-                        not_found = False
-                    else:
-                        replicate_number = replicate_number + 1
+                    not_found = True
+                    while not_found:
+                        if sub_string_rep in instance2:
+                            not_found = False
+                        else:
+                            replicate_number = replicate_number + 1
 
-                full_final_filename = inst.filename_json.replace(inst_directory, "")
-                full_final_filename = full_final_filename.replace(".json", "")
-                full_final_filename = full_final_filename + '_' + str(replicate_number) + '.csv'
+                    full_final_filename = inst.filename_json.replace(inst_directory, "")
+                    full_final_filename = full_final_filename.replace(".json", "")
+                    full_final_filename = full_final_filename + '_' + str(replicate_number) + '.csv'
 
 
-                #print(instance2)
-                #print(output_name_csv)
-                #print(full_final_filename)
+                    #print(instance2)
+                    #print(output_name_csv)
+                    #print(full_final_filename)
 
-                #os.rename(os.path.join(save_dir_csv, output_name_csv), os.path.join(save_dir_csv, full_final_filename))
-                replicate_num = replicate_num + 1
+                    #os.rename(os.path.join(save_dir_csv, output_name_csv), os.path.join(save_dir_csv, full_final_filename))
+                    replicate_num = replicate_num + 1
