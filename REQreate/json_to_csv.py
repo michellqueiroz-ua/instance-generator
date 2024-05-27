@@ -1106,7 +1106,7 @@ if __name__ == '__main__':
                 converter = JsonConverter(file_name=input_name)
                 converter.convert_normal(inst=inst, problem_type="ODBRP", path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
                 
-                inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
+                #inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
 
                 replicate_number = 1
                 sub_string_rep = "_"+str(replicate_number)+ ".json"
