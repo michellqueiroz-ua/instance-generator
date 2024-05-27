@@ -67,6 +67,9 @@ if __name__ == '__main__':
     if not os.path.isdir(save_dir_csv):
         os.mkdir(save_dir_csv)
 
+    if not os.path.isdir(save_dir_csv+'/'+base_save_folder_name):
+        os.mkdir(save_dir_csv+'/'+base_save_folder_name)
+
     '''
     for instance in os.listdir(directory):
 
