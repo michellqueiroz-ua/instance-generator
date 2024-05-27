@@ -55,6 +55,30 @@ if __name__ == '__main__':
         #f = open(filename_json,)
         with open(filename_json, 'rb') as f:   # will close() when we leave this block
             data = json.load(f)
+        
+        list_names = []
+
+        if 'parameters' in data:
+
+        inst.parameters['all_locations'] = {}
+        inst.parameters['all_locations']['type'] = 'builtin'
+        inst.parameters['all_locations']['value'] = []
+        inst.parameters['all_locations']['value'].append('bus_stations')
+
+        for j in data['parameters']:
+
+            if 'name' in j:
+
+                if not (isinstance(j['name'], (str))): 
+                    raise TypeError('name for an attribute must be a string')
+
+                word = j['name']
+                if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
+                    inst.parameters[j['name']] = {}
+                    list_names.append(j['name'])
+                else:
+                    raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+
 
         GA = nx.DiGraph()
 
