@@ -58,27 +58,60 @@ if __name__ == '__main__':
         
         list_names = []
 
+        if 'places' in data:
+
+            location_names = []
+            for j in data['places']:
+
+                if j['type'] == 'location':
+                    
+                    if 'name' in j:
+                        if not (isinstance(j['name'], (str))): 
+                            raise TypeError('name for a location must be a string')
+                        
+
+                        word = j['name']
+                        if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
+                            namelocation = j['name']
+                            list_names.append(j['name'])
+                        else:
+                            raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+
+                if j['type'] == 'zone':
+
+                    if 'name' in j:
+                        if not (isinstance(j['name'], (str))): 
+                            raise TypeError('name for a zone must be a string')
+
+                        word = j['name']
+                        if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
+                            nameszone  = j['name']
+                            list_names.append(j['name'])
+                        else:
+                            raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
+                        
+                    else: raise ValueError('name parameter for zone is mandatory')
+
         if 'parameters' in data:
 
-        inst.parameters['all_locations'] = {}
-        inst.parameters['all_locations']['type'] = 'builtin'
-        inst.parameters['all_locations']['value'] = []
-        inst.parameters['all_locations']['value'].append('bus_stations')
+            inst.parameters['all_locations'] = {}
+            inst.parameters['all_locations']['type'] = 'builtin'
+            inst.parameters['all_locations']['value'] = []
+            inst.parameters['all_locations']['value'].append('bus_stations')
 
-        for j in data['parameters']:
+            for j in data['parameters']:
 
-            if 'name' in j:
+                if 'name' in j:
 
-                if not (isinstance(j['name'], (str))): 
-                    raise TypeError('name for an attribute must be a string')
+                    if not (isinstance(j['name'], (str))): 
+                        raise TypeError('name for an attribute must be a string')
 
-                word = j['name']
-                if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
-                    inst.parameters[j['name']] = {}
-                    list_names.append(j['name'])
-                else:
-                    raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
-
+                    word = j['name']
+                    if not ((any(word in x for x in list_names)) or (any(x in word for x in list_names))):  
+                        inst.parameters[j['name']] = {}
+                        list_names.append(j['name'])
+                    else:
+                        raise ValueError('name '+j['name']+' is already a substring of another declared name. This is not allowed. Please change and try again.')
 
         GA = nx.DiGraph()
 
