@@ -1,4 +1,5 @@
 import os
+import json
 from instance_class import Instance
 from output_files import JsonConverter
 import networkx as nx
