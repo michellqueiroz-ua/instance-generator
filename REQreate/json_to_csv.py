@@ -5,6 +5,39 @@ from output_files import JsonConverter
 import networkx as nx
 import pandas as pd
 
+def get_multiplier_time_unit(time_unit):
+
+    mult = 1
+    if time_unit == 'min':
+        mult = 60
+
+    elif time_unit == 'h':
+        mult = 3600
+    
+    return mult
+
+def get_multiplier_length_unit(length_unit):
+
+    mult = 1
+    if length_unit == 'km':
+        mult = 1000
+
+    elif length_unit == 'mi':
+        mult = 1609.34
+    
+    return mult
+
+def get_multiplier_speed_unit(speed_unit):
+
+    mult = 1
+    if speed_unit == "kmh":
+        mult = float(1/3.6)
+
+    elif speed_unit == "miph":
+        mult = float(1/2.237)
+
+    return mult
+
 if __name__ == '__main__':
 
     place_name = "Chicago, Illinois"
