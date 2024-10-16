@@ -23,9 +23,9 @@ michell.queiroz@uantwerpen.be
 
 <!--- 2. Download the conda environment file [here](). --->
 
-<!---3. Create the environment from the environment.yml file:--->
+<!--- 3. Create the environment from the environment.yml file: --->
 
-	<!---conda env create -f REQreate_environment.yml --->
+<!--- conda env create -f REQreate_environment.yml --->
 
 3. Install OSMnx (necessary to retrieve the networks)
 	[Tutorial 1 OSMnx](https://osmnx.readthedocs.io/en/stable/installation.html)
