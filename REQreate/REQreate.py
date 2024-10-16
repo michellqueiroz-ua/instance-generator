@@ -7,23 +7,17 @@ if __name__ == '__main__':
     #caching.clear_cache()
 
     #EDIT HERE
-    place_name = "Lisbon, Portugal"
-    inst_directory = '../examples/hospital_problem/'
-    #inst_directory = '../examples/testes/'
-    base_save_folder_name = 'instancesLisbon' #give a unique folder name to save the instances
+    place_name = "Chicago, Illinois"
+    inst_directory = '../examples/basic_examples/' #directory to which the configuration files are saved
+    base_save_folder_name = 'instancesEXAMPLES' #give a unique folder name to save the instances
     #EDIT HERE
 
     directory = os.fsencode(inst_directory)
 
-    #input_json(inst_directory+'/'+'Chicago,Illinois_ODBRP_7.0_8.0_300_0.0_300.0_0.0_180_1000.json')
-    
     for instance in os.listdir(directory):
 
         instance_filename = os.fsdecode(instance)
         instance_filename = instance_filename.replace("._", "")
-
-        
-        #print(os.listdir(os.path.join(place_name, 'json_format', base_save_folder_name)))
 
         final_list = []
 

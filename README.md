@@ -7,7 +7,7 @@ REQreate is a tool to generate instances for on-demand transportation problems. 
 Attributes and parameters that define an instance are described in a configuration file given as input to REQreate. The used syntax is JSON.
 Each configuration file can generate one or more instances and it should be given as parameter in the REQreate.py file.
 Edit "REQreate.py" indicating the desired configuration file and a name for the output folder and simply run "python REQreate.py" on your terminal.
-Check out [this folder](https://github.com/michellqueiroz-ua/instance-generator/tree/master/examples) for examples of configuration files.
+Check out [this folder](https://github.com/michellqueiroz-ua/instance-generator/tree/master/examples/basic_examples) for examples of configuration files.
 
 # Questions? Do not hesitate to send an e-mail to:
 
