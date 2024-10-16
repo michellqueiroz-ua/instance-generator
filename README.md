@@ -9,7 +9,7 @@ Each configuration file can generate one or more instances and it should be give
 Edit "REQreate.py" indicating the desired configuration file and a name for the output folder and simply run "python REQreate.py" on your terminal.
 Check out [this folder](https://github.com/michellqueiroz-ua/instance-generator/tree/master/examples) for examples of configuration files.
 
-#Questions? Do not hesitate to send an e-mail to:
+# Questions? Do not hesitate to send an e-mail to:
 
 michell.queiroz@uantwerpen.be
 
@@ -21,14 +21,14 @@ michell.queiroz@uantwerpen.be
 	[Tutorial 1](https://problemsolvingwithpython.com/01-Orientation/01.00-Welcome/)
 	[Tutorial 2](https://docs.anaconda.com/anaconda/install/)
 
-2. Download the conda environment file [here]().
+<2. Download the conda environment file [here]().>
 
-3. Create the environment from the environment.yml file:
+<3. Create the environment from the environment.yml file:>
 
-	conda env create -f REQreate_environment.yml
+	<conda env create -f REQreate_environment.yml>
 
-4. Everytime you use the tool, activate the environment
+3. Everytime you use the tool, activate the environment
 
-	conda activate reqreate
+	conda activate
 
 
