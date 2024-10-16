@@ -1032,7 +1032,7 @@ def _generate_requests(
     ray.shutdown()
 
     
-    print(all_reqs)
+    
     '''
     time_stamps_all = []
     for i in all_reqs:
@@ -1124,7 +1124,7 @@ def _generate_requests(
                         lvid += 1
 
             if replicate_num < 0:
-                print('ttm')
+                
                 travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
                 travel_time_json = travel_time.tolist()
 
@@ -1190,7 +1190,7 @@ def _generate_requests(
                 ttmpd = pd.DataFrame(travel_time)
 
                 ttmpd.to_csv(output_file_ttm_csv)
-                print('leave ttm file')    
+                    
                 #ttmpd.set_index(['osmid_origin'], inplace=True)
 
 
@@ -1198,7 +1198,6 @@ def _generate_requests(
     save_dir_images = os.path.join(save_dir, 'images')
     plot_requests(inst.network, save_dir_images, origin_points, destination_points)
 
-    print("heeere")
     final_filename = inst.filename_json.replace(inst_directory, "")
     final_filename = final_filename.replace(".json", "")
     

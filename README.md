@@ -9,6 +9,10 @@ Each configuration file can generate one or more instances and it should be give
 Edit "REQreate.py" indicating the desired configuration file and a name for the output folder and simply run "python REQreate.py" on your terminal.
 Check out [this folder](https://github.com/michellqueiroz-ua/instance-generator/tree/master/examples) for examples of configuration files.
 
+#Questions? Do not hesitate to send an e-mail to:
+
+michell.queiroz@uantwerpen.be
+
 # Installation requirements
 
 1. Have python 3.8 or a newer version installed
