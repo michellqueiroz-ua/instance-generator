@@ -21,11 +21,11 @@ michell.queiroz@uantwerpen.be
 	[Tutorial 1](https://problemsolvingwithpython.com/01-Orientation/01.00-Welcome/)
 	[Tutorial 2](https://docs.anaconda.com/anaconda/install/)
 
-<2. Download the conda environment file [here]().>
+<!--- 2. Download the conda environment file [here](). --->
 
-<3. Create the environment from the environment.yml file:>
+//3. Create the environment from the environment.yml file:
 
-	<conda env create -f REQreate_environment.yml>
+	//conda env create -f REQreate_environment.yml>
 
 3. Everytime you use the tool, activate the environment
 
