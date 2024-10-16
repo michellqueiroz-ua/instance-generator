@@ -18,17 +18,20 @@ michell.queiroz@uantwerpen.be
 1. Have python 3.8 or a newer version installed
 
 2. Install anaconda
-	[Tutorial 1](https://problemsolvingwithpython.com/01-Orientation/01.00-Welcome/)
-	[Tutorial 2](https://docs.anaconda.com/anaconda/install/)
+	[Tutorial 1 anaconda](https://problemsolvingwithpython.com/01-Orientation/01.00-Welcome/)
+	[Tutorial 2 anaconda](https://docs.anaconda.com/anaconda/install/)
 
 <!--- 2. Download the conda environment file [here](). --->
 
 <!---3. Create the environment from the environment.yml file:--->
 
-	<!---conda env create -f REQreate_environment.yml>--->
+	<!---conda env create -f REQreate_environment.yml --->
 
-3. Everytime you use the tool, activate the environment
+3. Install OSMnx (necessary to retrieve the networks)
+	[Tutorial 1 OSMnx](https://osmnx.readthedocs.io/en/stable/installation.html)
 
-	conda activate
+4. Everytime you use the tool, activate the ox environment
+
+	conda activate ox
 
 
