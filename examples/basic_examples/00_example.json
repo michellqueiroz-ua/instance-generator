@@ -3,16 +3,16 @@
 	"network": "Chicago, Illinois",
 	"get_fixed_lines": "deconet",
 	"replicas": 1,
-	"requests": 774047,
+	"requests": 1000,
 	"locations": [
 		{
-			"name": "Depot Example",
+			"name": "Depot_Example",
 			"type": "place",
 			"lon": -1.6457340723441525,
 			"lat": 48.100199454954804
 		},
 		{
-			"name": "School Example",
+			"name": "School_Example",
 			"type": "place",
 			"lon": -1.742000418660542,
 			"lat": 48.09010529664507
@@ -31,7 +31,7 @@
 			"type": "zone",
 			"centroid": true,
 			"radius": 1000
-		},
+		}
 	],
 	"parameters":[
 		{
@@ -49,7 +49,7 @@
 			"name": "depots",
 			"type": "list_places", 
 			"size": 2,
-			"list": ["Depot Example"],
+			"list": ["Depot_Example"],
 			"locs": "random"
 		},
 		{
@@ -86,7 +86,7 @@
 			"name": "destination",
 			"type": "coordinate",
 			"subset_zones": "zonesdest"
-		},
+		}
 	],
 	"instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure"]
 }
