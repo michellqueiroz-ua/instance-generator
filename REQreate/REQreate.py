@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
     #EDIT HERE
     place_name = "Chicago, Illinois"
-    inst_directory = '../examples/basic_examples/' #directory to which the configuration files are saved
+    inst_directory = '../examples/basic_examples/example_1' #directory to which the configuration files are saved
     base_save_folder_name = 'instancesEXAMPLES' #give a unique folder name to save the instances
     #EDIT HERE
 

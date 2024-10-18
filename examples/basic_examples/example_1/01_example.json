@@ -106,8 +106,8 @@
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
-						"mean": 30600,
-						"std": 3600
+						"loc": 30600,
+						"scale": 3600
 					} ],
 			"constraints": [ "earliest_departure >= 0", 
 							"earliest_departure >= min_early_departure",
@@ -119,8 +119,8 @@
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
-						"min": 600,
-						"max": 900
+						"loc": 600,
+						"scale": 900
 					} ],
 			"output_csv": false
 		},
@@ -134,8 +134,9 @@
 			"name": "earliest_Pdeparture",
 			"type": "integer",
 			"time_unit": "s",
-			"pdf": [ {	"type": "poisson",
-						"lam": 25200
+			"pdf": [ {	"type": "normal",
+						"loc": 25200,
+						"scale": 3600
 					} ],
 			"constraints": [ "earliest_Pdeparture >= 0", 
 							"earliest_Pdeparture >= min_early_departure",
@@ -159,8 +160,8 @@
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
-						"min": 0,
-						"max": 300
+						"loc": 0,
+						"scale": 300
 					} ]
 		},
 		{  
@@ -175,8 +176,8 @@
 			"type": "integer",
 			"time_unit": "s",
 			"pdf": [ {	"type": "uniform",
-						"min": 550,
-						"max": 600
+						"loc": 550,
+						"scale": 600
 					} ],
 			"output_csv": false
 		},
@@ -185,8 +186,8 @@
 			"type": "real",
 			"speed_unit": "mps",
 			"pdf": [ {	"type": "uniform",
-						"min": 1.38889,
-						"max": 1.38889
+						"loc": 1.38889,
+						"scale": 1.38889
 					} ],
 			"output_csv": false
 		},
@@ -245,8 +246,8 @@
 			"name": "ambulatory",
 			"type": "integer",
 			"pdf": [ {	"type": "uniform",
-						"min": 0,
-						"max": 1
+						"loc": 0,
+						"scale": 1
 					} ],
 			"weights": ["randomized_weights"]
 		},
@@ -254,8 +255,8 @@
 			"name": "accompanying",
 			"type": "integer",
 			"pdf": [ {	"type": "uniform",
-						"min": 0,
-						"max": 2
+						"loc": 0,
+						"scale": 2
 					} ],
 			"weights": [70, 20, 10]
 		},
@@ -263,8 +264,8 @@
 			"name": "inbound_outbound",
 			"type": "integer",
 			"pdf": [ {	"type": "uniform",
-						"min": 0,
-						"max": 1
+						"loc": 0,
+						"scale": 1
 					} ]
 		}
 	],
