@@ -1123,75 +1123,79 @@ def _generate_requests(
                         print(lvid)
                         lvid += 1
 
-            if replicate_num < 0:
+            if replicate_num == 0:
                 
-                travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
-                travel_time_json = travel_time.tolist()
-
-                all_instance_data.update({'travel_time_matrix': travel_time_json
-                                })
-                
-                print('leave ttm')
-                print(len(node_list), len(node_list_seq))          
-                if 'graphml' in inst.parameters:
-                    if inst.parameters['graphml']['value'] is True:
-                        #creates a graph that will serve as the travel time matrix for the given set of requests
-                        gtt = nx.DiGraph() 
-
-                        if 'bus_stations' in inst.parameters['travel_time_matrix']['locations']:
-
-                            for index, row in inst.network.bus_stations.iterrows():
-
-                                gtt.add_node(index, type='bus_stations')
-
-                        for param in inst.parameters:
-
-                            if param in inst.parameters['travel_time_matrix']['locations']:
-
-                                for d in inst.parameters[param]['list_seq_id'+str(replicate_num)]:
-
-                                    node = d
-                                    gtt.add_node(node, type=param)
-
-                        for att in inst.sorted_attributes:
-                            
-                            if att in inst.parameters['travel_time_matrix']['locations']:
-
-                                for d in instance_data:
-
-                                    node = instance_data[d][att+'id']
-                                    gtt.add_node(node, type=att)
-
-                        for u in node_list_seq:
-                            for v in node_list_seq:
-
-                                gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
-
-                        output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
-
-                        nx.write_graphml(gtt, output_name_graphml)
-
-
                 output_file_ttm_csv = os.path.join(inst.save_dir_ttm, 'travel_time_matrix_' + final_filename + '_' + str(replicate_num) + '.csv')
-            
-                '''
-                ttml = []
-                for u in node_list_seq:
-                    d = {}
-                    d['osmid_origin'] = u
-                    for v in node_list_seq:
 
-                        dist_uv = int(travel_time_json[u][v])
-                        sv = str(v)
-                        d[sv] = dist_uv
-                    ttml.append(d)
-                    del d
-                ''' 
-                ttmpd = pd.DataFrame(travel_time)
-
-                ttmpd.to_csv(output_file_ttm_csv)
+                if not os.path.exists(output_file_ttm_csv):
                     
-                #ttmpd.set_index(['osmid_origin'], inplace=True)
+                    travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
+                    travel_time_json = travel_time.tolist()
+
+                    all_instance_data.update({'travel_time_matrix': travel_time_json
+                                    })
+                    
+                    print('leave ttm')
+                    print(len(node_list), len(node_list_seq))          
+                    if 'graphml' in inst.parameters:
+                        if inst.parameters['graphml']['value'] is True:
+                            #creates a graph that will serve as the travel time matrix for the given set of requests
+                            gtt = nx.DiGraph() 
+
+                            if 'bus_stations' in inst.parameters['travel_time_matrix']['locations']:
+
+                                for index, row in inst.network.bus_stations.iterrows():
+
+                                    gtt.add_node(index, type='bus_stations')
+
+                            for param in inst.parameters:
+
+                                if param in inst.parameters['travel_time_matrix']['locations']:
+
+                                    for d in inst.parameters[param]['list_seq_id'+str(replicate_num)]:
+
+                                        node = d
+                                        gtt.add_node(node, type=param)
+
+                            for att in inst.sorted_attributes:
+                                
+                                if att in inst.parameters['travel_time_matrix']['locations']:
+
+                                    for d in instance_data:
+
+                                        node = instance_data[d][att+'id']
+                                        gtt.add_node(node, type=att)
+
+                            for u in node_list_seq:
+                                for v in node_list_seq:
+
+                                    gtt.add_edge(u, v, travel_time=travel_time_json[u][v])
+
+                            output_name_graphml = os.path.join(inst.save_dir_graphml, inst.output_folder_base + '_' + str(replicate_num) + '.graphml')
+
+                            nx.write_graphml(gtt, output_name_graphml)
+
+
+                    
+                
+                    '''
+                    ttml = []
+                    for u in node_list_seq:
+                        d = {}
+                        d['osmid_origin'] = u
+                        for v in node_list_seq:
+
+                            dist_uv = int(travel_time_json[u][v])
+                            sv = str(v)
+                            d[sv] = dist_uv
+                        ttml.append(d)
+                        del d
+                    ''' 
+                    ttmpd = pd.DataFrame(travel_time)
+
+                    ttmpd.to_csv(output_file_ttm_csv)
+                        
+                    #ttmpd.set_index(['osmid_origin'], inplace=True)
 
 
     save_dir = os.getcwd()+'/'+inst.output_folder_base
