@@ -1,7 +1,7 @@
 {
 	"seed": 100,
 	"network": "Chicago, Illinois",
-	"get_fixed_lines": "deconet",
+	"problem": "DARP",
 	"replicas": 1,
 	"requests": 1000,
 	"locations": [
@@ -60,5 +60,5 @@
 					} ]
 		}
 	],
-	"instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure"]
+	"instance_filename": ["network", "problem", "requests", "min_early_departure"]
 }
