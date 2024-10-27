@@ -58,7 +58,7 @@
 						"loc": 0,
 						"scale": 3
 					} ]
-		},
+		}
 	],
 	"instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure"]
 }
