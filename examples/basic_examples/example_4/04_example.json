@@ -1,0 +1,64 @@
+{
+	"seed": 100,
+	"network": "Chicago, Illinois",
+	"get_fixed_lines": "deconet",
+	"replicas": 1,
+	"requests": 1000,
+	"locations": [
+	],
+	"parameters":[
+		{
+			"name": "min_early_departure",
+			"type": "time",
+			"value": 8,
+			"time_unit": "h"
+		}
+	],
+	"attributes": [
+		{
+			"name": "earliest_departure",
+			"type": "time",
+			"time_unit": "s",
+			"pdf": [ {	"type": "normal",
+						"loc": 30600,
+						"scale": 3600
+					} ],
+			"constraints": [ "earliest_departure >= min_early_departure"]
+		},
+		{
+			"name": "latest_arrival",
+			"type": "time",
+			"time_unit": "s",
+			"expression": "earliest_departure + 1800"
+		},
+		{  
+			"name": "origin",
+			"type": "location"
+		},
+		{  
+			"name": "destination",
+			"type": "location"
+		},
+		{ 
+			"name": "stops_orgn",
+			"type": "array_primitives",
+			"expression": "stops(origin)",
+			"constraints": ["len(stops_orgn) > 0"]
+		},
+		{ 
+			"name": "stops_dest",
+			"type": "array_primitives",
+			"expression": "stops(destination)",
+			"constraints": ["len(stops_dest) > 0", "not (set(stops_orgn) & set(stops_dest))"]
+		},
+		{
+			"name": "service_exclusive",
+			"type": "integer",
+			"pdf": [ {	"type": "uniform",
+						"loc": 0,
+						"scale": 3
+					} ]
+		},
+	],
+	"instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure"]
+}
