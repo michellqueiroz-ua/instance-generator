@@ -13,8 +13,8 @@
 			"name": "total_demand",
 			"type": "integer",
 			"pdf": [ {	"type": "normal",
-						"mean": 1000,
-						"std": 500
+						"loc": 1000,
+						"scale": 500
 					} ],
 			"constraints": [ "total_demand >= 0"]
 		},
@@ -22,8 +22,8 @@
 			"name": "share_sss",
 			"type": "integer",
 			"pdf": [ {	"type": "normal",
-						"mean": 50,
-						"std": 20
+						"loc": 50,
+						"scale": 20
 					} ],
 			"constraints": [ "share_sss >= 0", "share_sss <= 100"]
 		},
@@ -52,8 +52,8 @@
 			"name": "initial_price_sss",
 			"type": "integer",
 			"pdf": [ {	"type": "normal",
-						"mean": 350,
-						"std": 150
+						"loc": 350,
+						"scale": 150
 					} ],
 			"constraints": [ "initial_price_sss >= 150", "initial_price_sss <= 600"]
 		},
@@ -61,8 +61,8 @@
 			"name": "price_diff_road",
 			"type": "integer",
 			"pdf": [ {	"type": "normal",
-						"mean": 10,
-						"std": 30
+						"loc": 10,
+						"scale": 30
 					} ]
 		},
 		{
