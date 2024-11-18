@@ -1,0 +1,75 @@
+{
+	"seed": 100,
+	"network": "Chicago, Illinois",
+	"replicas": 1,
+	"requests": 10,
+	"problem": "PRICE",
+	"locations": [
+	],
+	"parameters":[
+	],
+	"attributes": [
+		{
+			"name": "total_demand",
+			"type": "integer",
+			"pdf": [ {	"type": "normal",
+						"mean": 1000,
+						"std": 500
+					} ],
+			"constraints": [ "total_demand >= 0"]
+		},
+		{
+			"name": "share_sss",
+			"type": "integer",
+			"pdf": [ {	"type": "normal",
+						"mean": 50,
+						"std": 20
+					} ],
+			"constraints": [ "share_sss >= 0", "share_sss <= 100"]
+		},
+		{  
+			"name": "share_road",
+			"type": "integer",
+			"expression": "100 - share_sss"
+		},
+		{  
+			"name": "origin_node",
+			"type": "integer",
+			"pdf": [ {	"type": "uniform",
+						"loc": 0,
+						"scale": 1
+					} ]
+		},
+		{  
+			"name": "destination_node",
+			"type": "integer",
+			"pdf": [ {	"type": "uniform",
+						"loc": 2,
+						"scale": 1
+					} ]
+		},
+		{
+			"name": "initial_price_sss",
+			"type": "integer",
+			"pdf": [ {	"type": "normal",
+						"mean": 350,
+						"std": 150
+					} ],
+			"constraints": [ "initial_price_sss >= 150", "initial_price_sss <= 600"]
+		},
+		{
+			"name": "price_diff_road",
+			"type": "integer",
+			"pdf": [ {	"type": "normal",
+						"mean": 10,
+						"std": 30
+					} ]
+		},
+		{
+			"name": "initial_price_road",
+			"type": "integer",
+			"expression": "initial_price_sss + price_diff_road*initial_price_sss"
+		}
+	],
+	"instance_filename": ["problem", "requests"]
+}
