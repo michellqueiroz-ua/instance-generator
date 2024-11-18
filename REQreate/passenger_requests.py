@@ -741,7 +741,10 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
             
 
         if feasible_data:
-            attributes['seed_location'] = seed_location
+            try:
+                attributes['seed_location'] = seed_location
+            except Exception as e:
+                attributes['seed_location'] = -1
             attributes['reqid'] = reqid
             return attributes
 
