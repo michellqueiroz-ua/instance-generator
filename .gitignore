@@ -37,6 +37,9 @@ Maastricht*/
 cache/
 *.pkl
 
+# User-generated configurations
+examples/webapp_instances/*.json
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
