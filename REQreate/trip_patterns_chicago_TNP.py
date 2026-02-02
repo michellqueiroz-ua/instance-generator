@@ -38,7 +38,22 @@ from retrieve_POIs import rank_of_displacements
 from multiprocessing import cpu_count
 from scipy.stats.kde import gaussian_kde
 
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    class DummyRay:
+        @staticmethod
+        def remote(func):
+            return func
+        @staticmethod
+        def shutdown():
+            pass
+        @staticmethod
+        def init(**kwargs):
+            pass
+    ray = DummyRay()
 import gc
 
 from matplotlib.colors import LogNorm

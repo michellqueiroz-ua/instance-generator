@@ -3,7 +3,33 @@ from multiprocessing import cpu_count
 import os
 import osmnx as ox
 import pandas as pd
-import ray
+from osmnx.distance import great_circle
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    # Create a dummy decorator when ray is not available
+    class DummyRay:
+        @staticmethod
+        def remote(func):
+            class RemoteWrapper:
+                def remote(*args, **kwargs):
+                    return func(*args, **kwargs)
+            return RemoteWrapper
+        @staticmethod
+        def shutdown():
+            pass
+        @staticmethod
+        def init(*args, **kwargs):
+            pass
+        @staticmethod
+        def put(obj):
+            return obj
+        @staticmethod
+        def get(objs):
+            return objs
+    ray = DummyRay()
 import gc
 import warnings
 
@@ -80,10 +106,10 @@ def get_bus_station(G_walk, G_drive, index, poi):
         bus_station_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
         
         u, v, key = ox.nearest_edges(G_walk, bus_station_point[1], bus_station_point[0])
-        bus_station_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
+        bus_station_node_walk = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
         
         u, v, key = ox.nearest_edges(G_drive, bus_station_point[1], bus_station_point[0])
-        bus_station_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
+        bus_station_node_drive = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
         
         d = {
             #'station_id': index,
@@ -126,7 +152,7 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
             'highway':'bus_stop',
         }
         #poi_bus_stations = ox.geometries_from_polygon(polygon_drive, tags=tags)
-        poi_bus_stations = ox.geometries_from_place(place_name, tags=tags)
+        poi_bus_stations = ox.features_from_place(place_name, tags=tags)
 
         print('number pois: ', len(poi_bus_stations))
         G_walk_id = ray.put(G_walk)

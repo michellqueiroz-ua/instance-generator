@@ -29,7 +29,22 @@ import osmnx as ox
 #from fitter import Fitter, get_common_distributions, get_distributions
 #import powerlaw
 from pathlib import Path
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    class DummyRay:
+        @staticmethod
+        def remote(func):
+            return func
+        @staticmethod
+        def shutdown():
+            pass
+        @staticmethod
+        def init(**kwargs):
+            pass
+    ray = DummyRay()
 from instance_class import Instance
 from multiprocessing import cpu_count
 import pickle

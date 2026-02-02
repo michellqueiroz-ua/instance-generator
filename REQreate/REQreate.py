@@ -7,9 +7,9 @@ if __name__ == '__main__':
     #caching.clear_cache()
 
     #EDIT HERE
-    place_name = "Chicago, Illinois"
-    inst_directory = '../examples/basic_examples/example_4/' #directory to which the configuration files are saved
-    base_save_folder_name = 'instancesEXAMPLES' #give a unique folder name to save the instances
+    place_name = "Maastricht, Netherlands"
+    inst_directory = 'examples/maastricht/' #directory to which the configuration files are saved
+    base_save_folder_name = 'instancesMAASTRICHT' #give a unique folder name to save the instances
     #EDIT HERE
 
     directory = os.fsencode(inst_directory)

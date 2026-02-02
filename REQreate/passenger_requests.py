@@ -9,14 +9,23 @@ import osmnx as ox
 import pandas as pd
 import pickle
 import random
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    print("Warning: Ray not available. Using sequential processing.")
 import re
 import shapely
 from shapely.geometry import Point
 from scipy.stats import cauchy
 from scipy.stats import expon
 from scipy.stats import gamma
-from scipy.stats import gilbrat
+try:
+    from scipy.stats import gilbrat
+except ImportError:
+    # gilbrat was removed in newer scipy versions, use lognorm as equivalent
+    gilbrat = None
 from scipy.stats import lognorm
 from scipy.stats import norm
 from scipy.stats import powerlaw
@@ -27,6 +36,7 @@ from multiprocessing import cpu_count
 import gc
 from datetime import datetime
 from dynamism import dynamism
+from logger_utils import get_logger
 
 def eval_expression(input_string):
     
@@ -77,13 +87,12 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
     plt.close(fig)
 
 
-@ray.remote
-def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, method_poi, distancex, pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv):
+def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid, method_poi, distancex, pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv):
     
     attributes = {}
     feasible_data = False
     first_time = True
-    print(reqid)
+    # Removed debug print: print(reqid)
     loc_attempts = 0
     att_attempts = 0
     while not feasible_data:
@@ -643,15 +652,15 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                             for r in range(5):
                                 all_zones.append(index_inside_zone+20+r)
                             
-                            print('zones')
-                            print(all_zones)
+                            #print('zones')
+                            #print(all_zones)
                             for z in all_zones:
 
                                 try:
                                     stationsz = zonescsv.loc[z]['stations']
                                     stationsz = json.loads(stationsz)
-                                    print('stations')
-                                    print(stationsz) 
+                                    #print('stations')
+                                    #print(stationsz) 
 
                                     for index in stationsz:
 
@@ -722,8 +731,8 @@ def _generate_single_data(GA, network, sorted_attributes, parameters, reqid, met
                         check_constraint = eval_expression(constraint)
                         
                         if not check_constraint:
-                            print('hier')
-                            print(constraint)
+                            #print('hier')
+                            #print(constraint)
                             not_feasible_attribute = True
                             exhaustion_iterations += 1
                             if 'expression' in GA.nodes[att]:
@@ -758,7 +767,11 @@ def _generate_requests(
     inst_directory,
 ):
     
-    print("Now generating " + " request_data")
+    logger = get_logger()
+    if logger:
+        logger.section('GENERATING PASSENGER REQUESTS')
+    else:
+        print("\nGenerating passenger requests...")
 
     origin_points=[]
     destination_points=[]
@@ -944,8 +957,8 @@ def _generate_requests(
                 for ts in range(len(time_stamps)):
                     time_stamps[ts] = inst.GA.nodes['time_stamp']['pdf'][0]['loc']
                 dynamismlvl = dynamism(time_stamps, inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc'])
-                print('dynamism zero')
-                print(dynamismlvl)
+                if logger:
+                    logger.info(f"Dynamism level: {dynamismlvl:.2%}")
                 not_reached_dynamism = False
 
             for ts in range(len(time_stamps)):
@@ -958,7 +971,7 @@ def _generate_requests(
                     dynamismlvl = dynamism(time_stamps, inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc'])
                     dynamismlvl *= 100
                     dynamismlvl = int(dynamismlvl)
-                    print(dynamismlvl, inst.GA.nodes['time_stamp']['dynamism'])
+                    # Removed debug print
                     if not ((dynamismlvl >= inst.GA.nodes['time_stamp']['dynamism'] - 1) and (dynamismlvl <= inst.GA.nodes['time_stamp']['dynamism'])):
                         #time_stamps[ts] = int(np.random.randint(low=inst.GA.nodes['time_stamp']['pdf'][0]['loc'], high=(inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc']), size=1))
                         time_stamps[ts] = int(uniform.rvs(loc=inst.GA.nodes['time_stamp']['pdf'][0]['loc'], scale=inst.GA.nodes['time_stamp']['pdf'][0]['scale'], size=1))
@@ -1013,26 +1026,40 @@ def _generate_requests(
                         if (reaction_times[r] >= 0) and (reaction_times[r] <= inst.GA.nodes['reaction_time']['pdf'][0]['loc']):    
                             break
 
-        print(reaction_times)
-
-    print(num_requests)
+    if logger:
+        logger.info(f"Generating {num_requests} requests...")
+    else:
+        print(f"Generating {num_requests} requests...")
+    
     instance_data = {}
     all_instance_data = {}  
 
     gc.collect()
-    ray.shutdown()
-    ray.init(num_cpus=12, object_store_memory=14000000000)
+    
+    if RAY_AVAILABLE:
+        ray.shutdown()
+        ray.init(num_cpus=12, object_store_memory=14000000000)
 
-    GA_id = ray.put(inst.GA)
-    network_id = ray.put(inst.network)
-    zonescsvid = ray.put(zonescsv)
-    sorted_attributes_id = ray.put(inst.sorted_attributes)
-    parameters_id = ray.put(inst.parameters)
-    print("HERE")
-    print(inst.sorted_attributes)
-    all_reqs = ray.get([_generate_single_data.remote(GA_id, network_id, sorted_attributes_id, parameters_id, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsvid) for i in range(num_requests)]) 
-    print("OUT HERE")
-    ray.shutdown()
+        GA_id = ray.put(inst.GA)
+        network_id = ray.put(inst.network)
+        zonescsvid = ray.put(zonescsv)
+        sorted_attributes_id = ray.put(inst.sorted_attributes)
+        parameters_id = ray.put(inst.parameters)
+        
+        all_reqs = ray.get([_generate_single_data.remote(GA_id, network_id, sorted_attributes_id, parameters_id, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsvid) for i in range(num_requests)]) 
+        
+        ray.shutdown()
+    else:
+        # Sequential processing
+        all_reqs = []
+        for i in range(num_requests):
+            if (i + 1) % 10 == 0 or i == 0:  # Progress every 10 requests
+                if logger:
+                    logger.progress(f"Generated {i + 1}/{num_requests} requests")
+                else:
+                    print(f"Generated {i + 1}/{num_requests} requests")
+            req = _generate_single_data_impl(inst.GA, inst.network, inst.sorted_attributes, inst.parameters, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv)
+            all_reqs.append(req)
 
     
     
@@ -1053,10 +1080,11 @@ def _generate_requests(
     plt.savefig("gamma_distribution_plot.png")
     '''
 
-    del GA_id
-    del network_id
-    del sorted_attributes_id
-    del parameters_id
+    if RAY_AVAILABLE:
+        del GA_id
+        del network_id
+        del sorted_attributes_id
+        del parameters_id
     gc.collect()
 
     i = 0
@@ -1132,14 +1160,17 @@ def _generate_requests(
 
                 if not os.path.exists(output_file_ttm_csv):
                     
+                    if logger:
+                        logger.progress("Computing travel time matrix...")
+                    
                     travel_time = inst.network._get_travel_time_matrix("list", node_list=node_list)
                     travel_time_json = travel_time.tolist()
 
                     all_instance_data.update({'travel_time_matrix': travel_time_json
                                     })
                     
-                    print('leave ttm')
-                    print(len(node_list), len(node_list_seq))          
+                    if logger:
+                        logger.success(f"Travel time matrix: {len(node_list)}x{len(node_list)}")          
                     if 'graphml' in inst.parameters:
                         if inst.parameters['graphml']['value'] is True:
                             #creates a graph that will serve as the travel time matrix for the given set of requests
@@ -1216,3 +1247,10 @@ def _generate_requests(
 
     del all_instance_data
     gc.collect()
+
+# Create ray-decorated version if ray is available
+if RAY_AVAILABLE:
+    _generate_single_data = ray.remote(_generate_single_data_impl)
+else:
+    # Non-ray version for sequential execution
+    _generate_single_data = _generate_single_data_impl

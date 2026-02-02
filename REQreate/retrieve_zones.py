@@ -62,7 +62,7 @@ def retrieve_zones(G_walk, G_drive, place_name, save_dir, output_folder_base, BB
             'place':'neighbourhood',
         }
         
-        poi_zones = ox.geometries_from_place(place_name, tags=tags)
+        poi_zones = ox.features_from_place(place_name, tags=tags)
         print('poi zones len', len(poi_zones))
 
         if len(poi_zones) > 0:

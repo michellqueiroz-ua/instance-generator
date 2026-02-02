@@ -25,7 +25,22 @@ from matplotlib.colors import LogNorm
 from fitter import Fitter, get_common_distributions, get_distributions
 from multiprocessing import cpu_count
 
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    class DummyRay:
+        @staticmethod
+        def remote(func):
+            return func
+        @staticmethod
+        def shutdown():
+            pass
+        @staticmethod
+        def init(**kwargs):
+            pass
+    ray = DummyRay()
 import gc
 
 @ray.remote

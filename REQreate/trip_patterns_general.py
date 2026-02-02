@@ -38,7 +38,22 @@ from retrieve_POIs import rank_of_displacements
 
 from scipy.stats.kde import gaussian_kde
 
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    class DummyRay:
+        @staticmethod
+        def remote(func):
+            return func
+        @staticmethod
+        def shutdown():
+            pass
+        @staticmethod
+        def init(**kwargs):
+            pass
+    ray = DummyRay()
 
 
 def rank_model(network, place_name):

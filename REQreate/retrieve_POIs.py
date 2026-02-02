@@ -5,7 +5,31 @@ import osmnx as ox
 import pandas as pd
 import networkx as nx
 import numpy as np
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    class DummyRay:
+        @staticmethod
+        def remote(func):
+            class RemoteWrapper:
+                def remote(*args, **kwargs):
+                    return func(*args, **kwargs)
+            return RemoteWrapper
+        @staticmethod
+        def shutdown():
+            pass
+        @staticmethod
+        def init(*args, **kwargs):
+            pass
+        @staticmethod
+        def put(obj):
+            return obj
+        @staticmethod
+        def get(objs):
+            return objs
+    ray = DummyRay()
 import warnings
 import gc
 from shapely.geometry import Point
@@ -111,27 +135,27 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
         
         ox.settings.timeout = 1800
 
-        pois_shop1 = ox.geometries_from_place(place_name, tags=tags_shop1)
+        pois_shop1 = ox.features_from_place(place_name, tags=tags_shop1)
         print(len(pois_shop1))
-        pois_shop2 = ox.geometries_from_place(place_name, tags=tags_shop2)
+        pois_shop2 = ox.features_from_place(place_name, tags=tags_shop2)
         print(len(pois_shop2))
-        pois_shop3 = ox.geometries_from_place(place_name, tags=tags_shop3)
+        pois_shop3 = ox.features_from_place(place_name, tags=tags_shop3)
         print(len(pois_shop3))
-        pois_shop4 = ox.geometries_from_place(place_name, tags=tags_shop4)
+        pois_shop4 = ox.features_from_place(place_name, tags=tags_shop4)
         print(len(pois_shop4))
-        pois_shop5 = ox.geometries_from_place(place_name, tags=tags_shop5)
+        pois_shop5 = ox.features_from_place(place_name, tags=tags_shop5)
         print(len(pois_shop5))
 
-        pois_amenity = ox.geometries_from_place(place_name, tags=tags_amenity)
+        pois_amenity = ox.features_from_place(place_name, tags=tags_amenity)
         print(len(pois_amenity))
-        pois_building = ox.geometries_from_place(place_name, tags=tags_building)
+        pois_building = ox.features_from_place(place_name, tags=tags_building)
         print(len(pois_building))
-        pois_leisure = ox.geometries_from_place(place_name, tags=tags_leisure)
+        pois_leisure = ox.features_from_place(place_name, tags=tags_leisure)
         print(len(pois_leisure))
-        pois_office = ox.geometries_from_place(place_name, tags=tags_office)
+        pois_office = ox.features_from_place(place_name, tags=tags_office)
         print(len(pois_office))
         
-        pois_tourism = ox.geometries_from_place(place_name, tags=tags_tourism)
+        pois_tourism = ox.features_from_place(place_name, tags=tags_tourism)
         print(len(pois_tourism))
 
         #sum_pois = len(pois_amenity) + len(pois_building) + len(pois_leisure) + len(pois_office) + len(pois_shop1) + len(pois_tourism)
@@ -364,15 +388,21 @@ def attribute_density_zones(network, pois):
 def calc_rank_between_zones(network):
 
     network.zones['center_osmid'] = np.nan
+    total_zones = len(network.zones)
     for idx, zone in network.zones.iterrows():
-
+        if idx % 10 == 0:
+            print(f'Finding zone centers: {idx}/{total_zones}')
         center_point = (zone['center_y'], zone['center_x'])
         center_osmid = ox.nearest_nodes(network.G_drive, center_point[1], center_point[0])
         network.zones.loc[idx, 'center_osmid'] = int(center_osmid)
 
+    print('Calculating zone ranks...')
     zone_ranks = []
+    total_zones = len(network.zones)
     
     for idu, zoneu in network.zones.iterrows():
+        if idu % 10 == 0:
+            print(f'Processing zone {idu}/{total_zones}')
         rank = {}
         rank['zone_id'] = idu
         for idv, zonev in network.zones.iterrows():

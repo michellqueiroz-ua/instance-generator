@@ -112,15 +112,27 @@ class Network:
         #returns estimated travel time in seconds between origin_node to destination_node
         eta = -1
         try:
-            
-            #travel_time = nx.dijkstra_path_length(self.G_drive, int(origin_node), int(destination_node), weight='travel_time')
-            travel_time = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
-            speed = 5.56 #20kmh remove this later maybe? (look two lines above)
-            travel_time = travel_time/speed
-           
-            #print(travel_timex, travel_time)
-            if str(travel_time) != 'nan':
-                eta = int(travel_time)
+            # Use actual precomputed shortest path with travel_time weight if available
+            # Otherwise fall back to distance/speed estimation
+            if hasattr(self, 'shortest_path_drive') and self.shortest_path_drive is not None:
+                try:
+                    travel_time = self.shortest_path_drive.loc[int(origin_node), str(destination_node)]
+                    if str(travel_time) != 'nan':
+                        eta = int(travel_time)
+                except (KeyError, AttributeError):
+                    # Fall back to distance/speed method
+                    travel_time = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
+                    speed = 5.56  # 20kmh fallback speed
+                    travel_time = travel_time/speed
+                    if str(travel_time) != 'nan':
+                        eta = int(travel_time)
+            else:
+                # Use distance/speed method (legacy behavior)
+                travel_time = self.shortest_dist_drive.loc[int(origin_node), str(destination_node)]
+                speed = 5.56  # 20kmh
+                travel_time = travel_time/speed
+                if str(travel_time) != 'nan':
+                    eta = int(travel_time)
 
         except KeyError:
             eta = -1
@@ -407,6 +419,26 @@ class Network:
                     zones.append(d)
 
         zones = pd.DataFrame(zones)
+        
+        # Assign bus stations to zones
+        print('Assigning bus stations to zones...')
+        all_stations = []
+        for indexz, zone in zones.iterrows():
+            stationslis = []
+            for indexs, station in self.bus_stations.iterrows():
+                pnt = Point(station['lon'], station['lat'])
+                if zone['polygon'].contains(pnt):
+                    stationslis.append(indexs)
+            all_stations.append(stationslis)
+        
+        zones['stations'] = all_stations
+        
+        # Print statistics
+        zones_with_stations = sum(1 for s in all_stations if len(s) > 0)
+        total_assignments = sum(len(s) for s in all_stations)
+        print(f'Zones with stations: {zones_with_stations}/{len(zones)}')
+        print(f'Total station assignments: {total_assignments}')
+        
         zones.to_csv(path_zones_csv_file)
 
         if len(zones) > 0:

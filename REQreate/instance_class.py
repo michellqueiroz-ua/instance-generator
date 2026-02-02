@@ -10,7 +10,11 @@ from request_distribution_class import RequestDistributionTime
 from spatial_distribution_class import SpatialDistribution
 from shapely.geometry import Point
 from passenger_requests import _generate_requests
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
 import gc
 from multiprocessing import cpu_count
 

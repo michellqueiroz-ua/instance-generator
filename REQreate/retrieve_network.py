@@ -17,7 +17,22 @@ import pickle
 from random import randint
 from random import seed
 from random import choices
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    class DummyRay:
+        @staticmethod
+        def remote(func):
+            return func
+        @staticmethod
+        def shutdown():
+            pass
+        @staticmethod
+        def init(**kwargs):
+            pass
+    ray = DummyRay()
 #from streamlit import caching
 import sys
 from shapely.geometry import Point
@@ -53,6 +68,7 @@ from network_class import Network
 from instance_class import Instance
 from request_distribution_class import RequestDistributionTime
 from trip_patterns_general import rank_model
+from logger_utils import get_logger
        
 def download_network_information(
     place_name,
@@ -80,8 +96,12 @@ def download_network_information(
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
 
-    #retrieve network
-    print(place_name)
+    # Initialize logger
+    logger = get_logger()
+    if logger:
+        logger.section(f"GENERATING NETWORK: {place_name}")
+    else:
+        print(f"\n{'='*60}\nGENERATING NETWORK: {place_name}\n{'='*60}")
 
     save_dir_json = os.path.join(save_dir, 'json_format')
     if not os.path.isdir(save_dir_json):
@@ -135,12 +155,10 @@ def download_network_information(
         if isinstance(place_name, (str, dict)):
             # if it is a string (place name) or dict (structured place query), then
             # it is a single place
-            gdf_place = ox.geocoder.geocode_to_gdf(
-                place_name, which_result=None, buffer_dist=None
-            )
+            gdf_place = ox.geocoder.geocode_to_gdf(place_name)
         elif isinstance(place_name, list):
             # if it is a list, it contains multiple places to get
-            gdf_place = ox.geocoder.geocode_to_gdf(place_name, buffer_dist=None)
+            gdf_place = ox.geocoder.geocode_to_gdf(place_name)
         else:
             raise TypeError("query must be dict, string, or list of strings")
 
@@ -160,16 +178,18 @@ def download_network_information(
         retain_all=True
     )
 
-    print('Now genarating network_data')
+    if logger:
+        logger.subsection('Network Graphs')
+        logger.info(f"Walk network: {len(G_walk.nodes())} nodes")
+        logger.info(f"Drive network: {len(G_drive.nodes())} nodes")
     
-    print('num walk nodes', len(G_walk.nodes()))
-    print('num drive nodes', len(G_drive.nodes()))
+    G_walk = ox.truncate.largest_component(G_walk, strongly=True)
+    G_drive = ox.truncate.largest_component(G_drive, strongly=True)
 
-    G_walk = ox.utils_graph.get_largest_component(G_walk, strongly=True)
-    G_drive = ox.utils_graph.get_largest_component(G_drive, strongly=True)
-
-    print('scc num walk nodes', len(G_walk.nodes()))
-    print('scc num drive nodes', len(G_drive.nodes()))
+    if logger:
+        logger.info(f"After SCC: Walk={len(G_walk.nodes())} nodes, Drive={len(G_drive.nodes())} nodes")
+    else:
+        print(f"Walk: {len(G_walk.nodes())} nodes, Drive: {len(G_drive.nodes())} nodes (after SCC)")
     
     if vehicle_speed_data != "max" and vehicle_speed_data != "set":
         avg_uber_speed_data, speed_mean_overall = get_uber_speed_data_mean(G_drive, vehicle_speed_data, day_of_the_week)
@@ -177,9 +197,13 @@ def download_network_information(
         print(avg_uber_speed_data.head())
         print('speed mean overall', speed_mean_overall)
     
-    print('Now retrieving bus stops')
+    if logger:
+        logger.subsection('Bus Stations')
     bus_stations = get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base)
-    print('number of bus stations: ', len(bus_stations))
+    if logger:
+        logger.success(f"Retrieved {len(bus_stations)} bus stations")
+    else:
+        print(f"Bus stations: {len(bus_stations)}")
 
     max_speed_mean_overall = 0
     counter_max_speeds = 0
@@ -231,17 +255,20 @@ def download_network_information(
     del G_walk
     gc.collect()
 
-    print('Downloading zones from location')
+    if logger:
+        logger.subsection('Zones and Schools')
     
-    #create graph to plot zones here
     zones = network.divide_network_grid(rows, columns, save_dir, output_folder_base)           
-    print('number of zones', len(zones))
+    if logger:
+        logger.success(f"Created {len(zones)} zones")
 
-    print('Downloading schools from location')
     schools = retrieve_schools(network.G_walk, network.G_drive, place_name, save_dir, output_folder_base)
     schools = schools.reset_index(drop=True)
               
-    print('number of schools', len(schools))
+    if logger:
+        logger.success(f"Retrieved {len(schools)} schools")
+    else:
+        print(f"Zones: {len(zones)}, Schools: {len(schools)}")
 
     network.zones = zones
     network.schools = schools
@@ -347,10 +374,12 @@ def download_network_information(
 
     #save Points of Interest information
     rank_model(network, place_name)
-    print('zone ranks')
-    print(network.zone_ranks)
-
-    print('successfully retrieved network')
+    if logger:
+        logger.subsection('POI Rankings')
+        logger.info(f"Zone ranks calculated: {len(network.zone_ranks)} zones")
+        logger.success('Network generation complete!')
+    else:
+        print('Network successfully retrieved')
 
     network_class_file = pickle_dir+'/'+output_folder_base+'.network.class.pkl'
     

@@ -25,6 +25,7 @@ import gc
 from dynamism import dynamism2
 from urgency import urgency
 from geographic_dispersion import geographic_dispersion
+from logger_utils import init_logger
 
 def get_multiplier_time_unit(time_unit):
 
@@ -66,6 +67,12 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     with open(filename_json, 'rb') as f:   # will close() when we leave this block
         data = json.load(f)
 
+    # Initialize logger
+    if 'network' in data:
+        place_name = data['network']
+        logger = init_logger(place_name)
+        logger.section(f"PROCESSING CONFIGURATION: {instance_filename}")
+
     #true = True
     #false = False
 
@@ -84,7 +91,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         if Path(network_class_file).is_file():
 
             inst = Instance(folder_to_network=place_name)
-            print('heeere')
+            logger.success('Loaded existing network from cache')
             
             
             if 'set_fixed_speed' in data:
@@ -105,8 +112,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
                     vehicle_speed = data['set_fixed_speed']['vehicle_speed_data']
                     inst.network.vehicle_speed = vehicle_speed*mult
-                    print('VEHICLE SPEED')
-                    print(inst.network.vehicle_speed)
+                    logger.info(f"Vehicle speed: {inst.network.vehicle_speed:.2f} m/s")
             
             
         else:

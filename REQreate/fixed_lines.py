@@ -1,4 +1,9 @@
-from google_drive_downloader import GoogleDriveDownloader as gdd
+try:
+    from google_drive_downloader import GoogleDriveDownloader as gdd
+except ImportError:
+    # Fallback if google_drive_downloader is not available
+    print("Warning: google_drive_downloader not available. Fixed lines features may not work.")
+    gdd = None
 import math
 import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
@@ -8,7 +13,11 @@ import os
 import osmapi as osm
 import osmnx as ox
 import pandas as pd
-import ray
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
 import requests
 import warnings
 
@@ -251,8 +260,7 @@ def _check_subway_routes_serve_passenger(network, origin_node_walk, destination_
     
     return subway_routes
 
-@ray.remote
-def find_shortest_path_fl(u, v, fixed_lines):
+def find_shortest_path_fl_impl(u, v, fixed_lines):
     #u = int(nodeu['stop_I'])
     #v = int(nodev['stop_I'])
     
@@ -277,8 +285,9 @@ def find_shortest_path_fl(u, v, fixed_lines):
 
 def get_all_shortest_paths_fix_lines(fixed_lines, network_nodes):
     
-    ray.shutdown()
-    ray.init(num_cpus=8, object_store_memory=14000000000)
+    if RAY_AVAILABLE:
+        ray.shutdown()
+        ray.init(num_cpus=8, object_store_memory=14000000000)
 
     print('shortest route fixed lines')
     shortest_path_line = []
@@ -318,8 +327,7 @@ def get_all_shortest_paths_fix_lines(fixed_lines, network_nodes):
 
     return shortest_path_line
 
-@ray.remote
-def get_nodes_osm(G_walk, G_drive, lat, lon):
+def get_nodes_osm_impl(G_walk, G_drive, lat, lon):
 
     node_point = (lat, lon)
     #network_nodes.loc[index, 'lat']
@@ -582,8 +590,9 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base, 
 
     #num_of_cpu = cpu_count()
     nodes_covered_fixed_lines = []
-    ray.shutdown()
-    ray.init(num_cpus=8, object_store_memory=14000000000)
+    if RAY_AVAILABLE:
+        ray.shutdown()
+        ray.init(num_cpus=8, object_store_memory=14000000000)
 
     save_dir_csv = os.path.join(save_dir, 'csv')
 
@@ -593,8 +602,9 @@ def get_fixed_lines_deconet(network, folder_path, save_dir, output_folder_base, 
         print('DECONET data files do not exist for this specific city.')
         return -1
 
-    gdd.download_file_from_google_drive(file_id=file_id_nn,
-                                    dest_path=folder_path+'/network_nodes.csv')
+    if gdd is not None:
+        gdd.download_file_from_google_drive(file_id=file_id_nn,
+                                        dest_path=folder_path+'/network_nodes.csv')
 
     gdd.download_file_from_google_drive(file_id=file_id_sn,
                                     dest_path=folder_path+'/network_subway.csv')
@@ -868,3 +878,12 @@ def plot_fixed_lines(network, save_dir):
     fig, ax = ox.plot_graph(network.G_walk, node_size=ns, show=False, node_color=nc, node_zorder=2, save=True, filepath=stops_folder+'/fixed_lines_nodes_walk.png')
     plt.close(fig)
 
+
+# Create ray-decorated versions if ray is available
+if RAY_AVAILABLE:
+    find_shortest_path_fl = ray.remote(find_shortest_path_fl_impl)
+    get_nodes_osm = ray.remote(get_nodes_osm_impl)
+else:
+    # Non-ray versions for sequential execution
+    find_shortest_path_fl = find_shortest_path_fl_impl
+    get_nodes_osm = get_nodes_osm_impl
