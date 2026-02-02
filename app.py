@@ -43,92 +43,320 @@ if page == "Create New Instance":
                 help="Name for the output folder (defaults to location name)"
             )
         
-        st.subheader("🚍 Vehicle & Network Settings")
-        col1, col2, col3 = st.columns(3)
+        st.subheader("🚍 Network Settings")
+        col1, col2 = st.columns(2)
         
         with col1:
-            vehicle_capacity = st.number_input("Vehicle Capacity", min_value=1, value=6, help="Maximum passengers per vehicle")
-            num_vehicles = st.number_input("Number of Vehicles", min_value=1, value=10)
+            vehicle_speed = st.number_input("Vehicle Speed (km/h)", min_value=5.0, value=20.0, step=5.0, help="Average vehicle speed for travel time calculations")
+            max_walking_distance = st.number_input("Max Walking Distance (m)", min_value=100, value=1000, step=100, help="Maximum distance passengers can walk to/from bus stops")
             
         with col2:
-            num_bus_stations = st.number_input("Number of Bus Stations", min_value=10, value=237)
-            max_walking_distance = st.number_input("Max Walking Distance (m)", min_value=100, value=1000, step=100)
-            
-        with col3:
-            vehicle_speed = st.number_input("Vehicle Speed (km/h)", min_value=5.0, value=20.0, step=5.0)
-            walk_speed = st.number_input("Walking Speed (km/h)", min_value=1.0, value=5.0, step=0.5)
+            walk_speed = st.number_input("Walking Speed (km/h)", min_value=1.0, value=5.0, step=0.5, help="Average walking speed for passengers")
+        
+        st.caption("ℹ️ Note: Number of bus stations is automatically retrieved from OpenStreetMap")
         
         st.subheader("👥 Request Settings")
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         
         with col1:
             num_requests = st.number_input("Number of Requests", min_value=1, value=10, help="Total passenger requests to generate")
-            replicate_num = st.number_input("Replicate Number", min_value=0, value=1, help="Seed for reproducibility")
+            replicate_num = st.number_input("Replicate Number", min_value=0, value=1, help="Generate multiple instances with same configuration (used as random seed)")
+            problem_type = st.selectbox(
+                "Problem Type / Request Format",
+                ["DARP", "ODBRP"],
+                help="DARP: Origin/Destination coordinates (general ride-sharing). ODBRP: Bus stops origin/destination (bus-based systems)"
+            )
             
         with col2:
-            start_time = st.time_input("Start Time", value=pd.to_datetime("07:00").time())
-            end_time = st.time_input("End Time", value=pd.to_datetime("08:00").time())
-            
-        with col3:
-            time_horizon = st.number_input("Time Horizon (seconds)", min_value=0, value=14400, help="Total simulation time")
-            dynamism = st.slider("Dynamism", min_value=0.0, max_value=1.0, value=0.0, step=0.1, 
-                               help="0 = all requests known in advance, 1 = all requests arrive dynamically")
+            st.markdown("**Request Arrival Time Horizon**")
+            start_time = st.time_input("Start Time", value=pd.to_datetime("07:00").time(), help="Earliest request arrival time")
+            end_time = st.time_input("End Time", value=pd.to_datetime("08:00").time(), help="Latest request arrival time")
         
         st.subheader("⚙️ Advanced Settings")
         col1, col2 = st.columns(2)
         
         with col1:
-            max_delay = st.number_input("Max Delay (seconds)", min_value=0, value=600)
-            reaction_time = st.number_input("Reaction Time (seconds)", min_value=0, value=120)
+            dynamism = st.slider("Dynamism", min_value=0.0, max_value=1.0, value=0.0, step=0.1, 
+                               help="Fraction of requests that arrive dynamically during operation. 0 = all requests known in advance (static), 1 = all requests arrive in real-time (dynamic)")
+            max_delay = st.number_input("Max Delay (seconds)", min_value=0, value=600,
+                                       help="Maximum ride time increase allowed (compared to direct trip). Represents passenger tolerance for detours")
             
         with col2:
+            reaction_time = st.number_input("Reaction Time / Urgency (seconds)", min_value=0, value=120,
+                                           help="Time between request arrival and desired pickup. Lower values = more urgent requests")
             request_distribution = st.selectbox(
                 "Request Distribution",
                 ["uniform", "rank_model"],
-                help="How to distribute requests across the network"
+                help="How to distribute requests spatially: uniform = random across network, rank_model = based on POI density"
             )
-            use_travel_time = st.checkbox("Use Travel Time Matrix", value=True, 
-                                        help="Use precomputed travel times (recommended)")
+        
+        use_travel_time = st.checkbox("Use Travel Time Matrix", value=True, 
+                                    help="Use precomputed travel times (recommended for accuracy)")
         
         # Submit button
         submitted = st.form_submit_button("🚀 Generate Instance", use_container_width=True)
         
         if submitted:
-            # Convert times to seconds
+            # Convert times to seconds and hours
             start_seconds = start_time.hour * 3600 + start_time.minute * 60
             end_seconds = end_time.hour * 3600 + end_time.minute * 60
+            start_hours = start_time.hour + start_time.minute / 60.0
+            end_hours = end_time.hour + end_time.minute / 60.0
             
-            # Create configuration JSON
-            config = {
-                "location_name": place_name,
-                "output_folder": output_name if output_name else place_name,
-                "vehicle_capacity": vehicle_capacity,
-                "number_vehicles": num_vehicles,
-                "num_bus_stations": num_bus_stations,
-                "max_walking_distance": max_walking_distance,
-                "vehicle_speed": vehicle_speed,
-                "walk_speed": walk_speed,
-                "num_requests": num_requests,
-                "replicate_num": replicate_num,
-                "start_time": start_seconds,
-                "end_time": end_seconds,
-                "time_horizon": time_horizon,
-                "dynamism": dynamism,
-                "max_delay": max_delay,
-                "reaction_time": reaction_time,
-                "request_distribution": request_distribution,
-                "use_travel_time": use_travel_time
-            }
+            # Create output folder name (clean version for filenames)
+            folder_name = output_name if output_name else place_name.replace(", ", "_").replace(" ", "_")
+            folder_name_clean = folder_name.replace(",", "").replace(" ", "_")
             
-            # Save temporary config file
-            config_path = "temp_config.json"
+            # Build configuration JSON based on problem type
+            if problem_type == "ODBRP":
+                # ODBRP configuration with bus stops
+                config = {
+                    "seed": replicate_num,
+                    "network": place_name,
+                    "problem": "ODBRP",
+                    "set_fixed_speed": {
+                        "vehicle_speed_data": vehicle_speed,
+                        "vehicle_speed_data_unit": "kmh"
+                    },
+                    "replicas": 1,
+                    "requests": num_requests,
+                    "instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure"],
+                    "parameters": [
+                        {
+                            "name": "min_early_departure",
+                            "type": "float",
+                            "value": start_hours,
+                            "time_unit": "h"
+                        },
+                        {
+                            "name": "max_early_departure",
+                            "type": "float",
+                            "value": end_hours,
+                            "time_unit": "h"
+                        },
+                        {
+                            "name": "graphml",
+                            "type": "graphml",
+                            "value": True
+                        }
+                    ],
+                    "attributes": [
+                        {
+                            "name": "time_stamp",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "pdf": [{
+                                "type": "uniform",
+                                "loc": start_seconds,
+                                "scale": end_seconds - start_seconds
+                            }],
+                            "constraints": [
+                                "time_stamp >= 0",
+                                "time_stamp >= min_early_departure",
+                                "time_stamp <= max_early_departure"
+                            ],
+                            "dynamism": int(dynamism * 100)
+                        },
+                        {
+                            "name": "reaction_time",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "pdf": [{
+                                "type": "uniform",
+                                "loc": reaction_time,
+                                "scale": 0
+                            }]
+                        },
+                        {
+                            "name": "earliest_departure",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": "time_stamp",
+                            "constraints": [
+                                "earliest_departure >= 0",
+                                "earliest_departure >= min_early_departure"
+                            ]
+                        },
+                        {
+                            "name": "latest_departure",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": "time_stamp + reaction_time"
+                        },
+                        {
+                            "name": "latest_arrival",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": f"earliest_departure + direct_travel_time + {max_delay}"
+                        },
+                        {
+                            "name": "origin",
+                            "type": "location"
+                        },
+                        {
+                            "name": "destination",
+                            "type": "location"
+                        },
+                        {
+                            "name": "stops_orgn",
+                            "type": "array_primitives",
+                            "expression": "stops(origin)",
+                            "constraints": ["len(stops_orgn) > 0"]
+                        },
+                        {
+                            "name": "stops_dest",
+                            "type": "array_primitives",
+                            "expression": "stops(destination)",
+                            "constraints": ["len(stops_dest) > 0", "not (set(stops_orgn) & set(stops_dest))"]
+                        },
+                        {
+                            "name": "max_walking",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "pdf": [{
+                                "type": "uniform",
+                                "loc": max_walking_distance / walk_speed,
+                                "scale": 0
+                            }],
+                            "output_csv": False
+                        },
+                        {
+                            "name": "walk_speed",
+                            "type": "real",
+                            "speed_unit": "mps",
+                            "pdf": [{
+                                "type": "uniform",
+                                "loc": walk_speed / 3.6,
+                                "scale": 0
+                            }],
+                            "output_csv": False
+                        },
+                        {
+                            "name": "direct_travel_time",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": "dtt(origin,destination)"
+                        },
+                        {
+                            "name": "direct_distance",
+                            "type": "integer",
+                            "length_unit": "m",
+                            "expression": "dist_drive(origin,destination)"
+                        }
+                    ],
+                    "travel_time_matrix": ["bus_stations"] if use_travel_time else []
+                }
+            else:  # DARP
+                # DARP configuration with coordinates
+                config = {
+                    "seed": replicate_num,
+                    "network": place_name,
+                    "problem": "DARP",
+                    "set_fixed_speed": {
+                        "vehicle_speed_data": vehicle_speed,
+                        "vehicle_speed_data_unit": "kmh"
+                    },
+                    "replicas": 1,
+                    "requests": num_requests,
+                    "instance_filename": ["network", "problem", "requests", "min_early_departure", "max_early_departure"],
+                    "parameters": [
+                        {
+                            "name": "min_early_departure",
+                            "type": "float",
+                            "value": start_hours,
+                            "time_unit": "h"
+                        },
+                        {
+                            "name": "max_early_departure",
+                            "type": "float",
+                            "value": end_hours,
+                            "time_unit": "h"
+                        },
+                        {
+                            "name": "graphml",
+                            "type": "graphml",
+                            "value": True
+                        }
+                    ],
+                    "attributes": [
+                        {
+                            "name": "time_stamp",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "pdf": [{
+                                "type": "uniform",
+                                "loc": start_seconds,
+                                "scale": end_seconds - start_seconds
+                            }],
+                            "constraints": [
+                                "time_stamp >= 0",
+                                "time_stamp >= min_early_departure",
+                                "time_stamp <= max_early_departure"
+                            ],
+                            "dynamism": int(dynamism * 100)
+                        },
+                        {
+                            "name": "pickup_from",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": "time_stamp"
+                        },
+                        {
+                            "name": "pickup_to",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": f"pickup_from + {reaction_time}"
+                        },
+                        {
+                            "name": "dropoff_from",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": "pickup_to + drivingDuration"
+                        },
+                        {
+                            "name": "dropoff_to",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": f"dropoff_from + {max_delay}"
+                        },
+                        {
+                            "name": "origin",
+                            "type": "location"
+                        },
+                        {
+                            "name": "destination",
+                            "type": "location"
+                        },
+                        {
+                            "name": "drivingDuration",
+                            "type": "integer",
+                            "time_unit": "s",
+                            "expression": "dtt(origin,destination)"
+                        },
+                        {
+                            "name": "drivingDistance",
+                            "type": "integer",
+                            "length_unit": "m",
+                            "expression": "dist_drive(origin,destination)"
+                        }
+                    ]
+                }
+            
+            # Create configuration directory if it doesn't exist
+            config_dir = "examples/webapp_instances/"
+            os.makedirs(config_dir, exist_ok=True)
+            
+            # Save configuration file with descriptive name (no spaces or commas)
+            config_filename = f"{folder_name_clean}_{problem_type}_{num_requests}req.json"
+            config_path = os.path.join(config_dir, config_filename)
+            
             with open(config_path, 'w') as f:
                 json.dump(config, f, indent=2)
             
-            st.success(f"✅ Configuration created for {place_name}")
+            st.success(f"✅ Configuration created: {config_filename}")
             
             # Show configuration
-            with st.expander("View Configuration"):
+            with st.expander("View Configuration JSON"):
                 st.json(config)
             
             # Run generation
@@ -141,73 +369,22 @@ if page == "Create New Instance":
             progress_bar = st.progress(0)
             
             try:
-                # Run the generation script
-                process = subprocess.Popen(
-                    ["python", "REQreate/REQreate.py"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1
-                )
+                # Import and run input_json directly with our configuration
+                import sys
+                sys.path.insert(0, 'REQreate')
+                from input_json import input_json
                 
-                log_lines = []
-                progress_value = 0
+                # Run the generation (input_json expects directory with trailing slash)
+                base_save_folder = f"instances_{folder_name_clean}"
+                input_json("examples/webapp_instances/", config_filename, base_save_folder)
                 
-                # Read output in real-time
-                while True:
-                    output = process.stdout.readline()
-                    if output == '' and process.poll() is not None:
-                        break
-                    if output:
-                        log_lines.append(output.strip())
-                        log_placeholder.text_area("Generation Log", "\n".join(log_lines[-20:]), height=300)
-                        
-                        # Update progress based on keywords
-                        if "Network Graphs" in output:
-                            progress_value = 0.1
-                        elif "Bus Stations" in output:
-                            progress_value = 0.2
-                        elif "Zones" in output:
-                            progress_value = 0.3
-                        elif "POIs" in output:
-                            progress_value = 0.5
-                        elif "Generating request" in output:
-                            progress_value = 0.8
-                        elif "leave ttm" in output:
-                            progress_value = 1.0
-                        
-                        progress_bar.progress(progress_value)
+                progress_bar.progress(1.0)
+                st.success(f"✅ Instance generated successfully!")
+                st.info(f"📁 Instance saved in: {place_name}/")
                 
-                # Check exit code
-                if process.returncode == 0:
-                    st.success("✅ Instance generated successfully!")
-                    st.balloons()
-                    
-                    # Show output location
-                    output_folder = output_name if output_name else place_name
-                    st.info(f"📁 Output saved to: `{output_folder}/`")
-                    
-                    # Show generated files
-                    csv_folder = os.path.join(output_folder, "csv")
-                    if os.path.exists(csv_folder):
-                        csv_files = [f for f in os.listdir(csv_folder) if f.endswith('.csv')]
-                        if csv_files:
-                            st.subheader("Generated Files")
-                            for file in csv_files[:5]:  # Show first 5 files
-                                st.text(f"✓ {file}")
-                else:
-                    st.error("❌ Generation failed. Check the log above for errors.")
-                    stderr = process.stderr.read()
-                    if stderr:
-                        st.code(stderr, language="text")
-                        
             except Exception as e:
-                st.error(f"❌ Error running generation: {str(e)}")
-            
-            finally:
-                # Clean up temp config
-                if os.path.exists(config_path):
-                    os.remove(config_path)
+                st.error(f"❌ Generation failed: {str(e)}")
+                st.exception(e)
 
 elif page == "View Existing Instances":
     st.header("📂 Existing Instances")

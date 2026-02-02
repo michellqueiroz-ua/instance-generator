@@ -1156,7 +1156,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
             converter = JsonConverter(file_name=input_name)
             converter.convert_normal(inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
             
-            inst1 = pd.read_csv(os.path.join(save_dir_csv, output_name_csv))
+            inst1 = pd.read_csv(os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
 
             full_final_filename = final_filename
 
@@ -1189,7 +1189,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
             full_final_filename = full_final_filename.replace(".json", "")
             full_final_filename = full_final_filename + '_' + str(replicate_num) + '.csv'
 
-            os.rename(os.path.join(save_dir_csv, output_name_csv), os.path.join(save_dir_csv, full_final_filename))
+            os.rename(os.path.join(save_dir_csv, base_save_folder_name, output_name_csv), os.path.join(save_dir_csv, base_save_folder_name, full_final_filename))
             replicate_num = replicate_num + 1
 
     f.close()

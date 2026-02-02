@@ -21,6 +21,7 @@ setuptools.setup(
         'shapely',
         'matplotlib',
         'streamlit',
+        'googledrivedownloader',
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
