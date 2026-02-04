@@ -60,6 +60,7 @@ from retrieve_bus_stations import get_bus_stations_matrix_csv
 from retrieve_bus_stations import plot_bus_stations
 from retrieve_zones import retrieve_zones
 from retrieve_schools import retrieve_schools
+from retrieve_hospitals import retrieve_hospitals
 from compute_distance_matrix import _get_distance_matrix
 from compute_distance_matrix import _update_distance_matrix_walk
 from speed_info import _calc_mean_max_speed
@@ -256,7 +257,7 @@ def download_network_information(
     gc.collect()
 
     if logger:
-        logger.subsection('Zones and Schools')
+        logger.subsection('Zones, Schools, and Hospitals')
     
     zones = network.divide_network_grid(rows, columns, save_dir, output_folder_base)           
     if logger:
@@ -267,15 +268,23 @@ def download_network_information(
               
     if logger:
         logger.success(f"Retrieved {len(schools)} schools")
+    
+    hospitals = retrieve_hospitals(network.G_walk, network.G_drive, place_name, save_dir, output_folder_base)
+    hospitals = hospitals.reset_index(drop=True)
+    
+    if logger:
+        logger.success(f"Retrieved {len(hospitals)} hospitals")
     else:
-        print(f"Zones: {len(zones)}, Schools: {len(schools)}")
+        print(f"Zones: {len(zones)}, Schools: {len(schools)}, Hospitals: {len(hospitals)}")
 
     network.zones = zones
     network.schools = schools
+    network.hospitals = hospitals
     
     print(dir())
     del zones 
     del schools
+    del hospitals
     gc.collect() 
     
     plot_bus_stations(network, save_dir_images)

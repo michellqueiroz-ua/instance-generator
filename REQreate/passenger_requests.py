@@ -333,6 +333,9 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                                             if parameters[loc]['locs'] == 'schools':
                                                 idxs = random.choices(parameters[loc]['list_ids'+str(replicate_num)], weights=GA.nodes[att]['weights'], k=1)
                                                 point = (network.schools.loc[idxs[0], 'lat'], network.schools.loc[idxs[0], 'lon'])
+                                            elif parameters[loc]['locs'] == 'hospitals':
+                                                idxs = random.choices(parameters[loc]['list_ids'+str(replicate_num)], weights=GA.nodes[att]['weights'], k=1)
+                                                point = (network.hospitals.loc[idxs[0], 'lat'], network.hospitals.loc[idxs[0], 'lon'])
                                             elif parameters[loc]['locs'] == 'random':
                                                 idxs = random.choices(parameters[loc]['list'+str(replicate_num)], weights=GA.nodes[att]['weights'], k=1)
                                                 point = (parameters[loc]['list_lat'+str(replicate_num)][idxs], parameters[loc]['list_lon'+str(replicate_num)][idxs])
@@ -345,6 +348,9 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                                                 idxs = random.choice(parameters[loc]['list_ids'+str(replicate_num)])
                                                 #idxs = np.random.randint(0, parameters[loc]['size'])
                                                 point = (network.schools.loc[idxs, 'lat'], network.schools.loc[idxs, 'lon'])
+                                            elif parameters[loc]['locs'] == 'hospitals':
+                                                idxs = random.choice(parameters[loc]['list_ids'+str(replicate_num)])
+                                                point = (network.hospitals.loc[idxs, 'lat'], network.hospitals.loc[idxs, 'lon'])
                                             elif parameters[loc]['locs'] == 'random':
                                                 #idxs = random.choice(parameters[loc]['list'+str(replicate_num)])
                                                 idxs = np.random.randint(0, parameters[loc]['size'])
@@ -922,6 +928,29 @@ def _generate_requests(
                         inst.parameters[param]['list_ids'+str(replicate_num)].append(random_school_id)
                         node_drive = inst.network.schools.loc[int(random_school_id), 'osmid_drive']
                         inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
+
+            #generate random hospitals according to given input
+            if inst.parameters[param]['locs'] == 'hospitals':
+
+                inst.parameters[param]['list_ids'+str(replicate_num)] = []
+                for elem in inst.parameters[param]['list_ids']:
+                    inst.parameters[param]['list_ids'+str(replicate_num)].append(elem)
+
+                inst.parameters[param]['list_node_drive'+str(replicate_num)] = []    
+                for elem in inst.parameters[param]['list_node_drive']:
+                    inst.parameters[param]['list_node_drive'+str(replicate_num)].append(elem)
+
+                # If size is specified and we need more hospitals, randomly select additional ones
+                if 'size' in inst.parameters[param]:
+                    while len(inst.parameters[param]['list_ids'+str(replicate_num)]) < inst.parameters[param]['size']:
+
+                        random_hospital_id = np.random.randint(0, len(inst.network.hospitals))
+                        random_hospital_id = int(random_hospital_id)
+
+                        if random_hospital_id not in inst.parameters[param]['list_ids'+str(replicate_num)]:
+                            inst.parameters[param]['list_ids'+str(replicate_num)].append(random_hospital_id)
+                            node_drive = inst.network.hospitals.loc[int(random_hospital_id), 'osmid_drive']
+                            inst.parameters[param]['list_node_drive'+str(replicate_num)].append(node_drive)
 
         #generate random zones according to given input                
         if inst.parameters[param]['type'] == 'array_zones':

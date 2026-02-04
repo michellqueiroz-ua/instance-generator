@@ -490,7 +490,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                             else:
                                 raise TypeError('locs must be a string')
 
-                            loctypes = ['random', 'schools']
+                            loctypes = ['random', 'schools', 'hospitals']
                             if not (inst.parameters[j['name']]['locs'] in loctypes):
                                 raise ValueError('loc ' +inst.parameters[j['name']]['locs']+' is not supported')
 
@@ -508,6 +508,24 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                                     else:
                                         raise ValueError('no school named after '+s)
                                     #print(index_school)
+                            elif j['locs'] == 'hospitals':
+
+                                inst.parameters[j['name']]['list_ids'] = []
+                                
+                                # If no specific hospitals listed, use all available hospitals
+                                if not inst.parameters[j['name']]['list']:
+                                    inst.parameters[j['name']]['list'] = inst.network.hospitals['hospital_name'].tolist()
+                                
+                                for h in inst.parameters[j['name']]['list']:
+                                    idxs = inst.network.hospitals.index[inst.network.hospitals['hospital_name'] == h].tolist()
+
+                                    if len(idxs) > 0:
+                                        index_hospital = idxs[0]
+                                        inst.parameters[j['name']]['list_ids'].append(index_hospital)
+                                        inst.parameters[j['name']]['list_node_drive'].append(inst.network.hospitals.loc[index_hospital, 'osmid_drive'])
+                                        inst.parameters[j['name']]['list_node_walk'].append(inst.network.hospitals.loc[index_hospital, 'osmid_walk'])
+                                    else:
+                                        raise ValueError('no hospital named after '+h)
                             else:
 
                                 for x in data['places']:

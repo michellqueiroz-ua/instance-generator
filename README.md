@@ -17,7 +17,9 @@ Or simply double-click `run_webapp.bat` (Windows)
 The web interface provides:
 - 🎨 Visual forms for all parameters
 - 📊 Browse and preview existing instances
-- 🔄 Real-time generation progress
+- �️ Interactive maps with request distribution visualization
+- 🔥 Heatmaps for demand density analysis
+- �🔄 Real-time generation progress
 - 📚 Built-in documentation
 - 💾 Easy data exploration
 
@@ -49,7 +51,7 @@ michell.queiroz@uantwerpen.be
 
 2. **Install required packages:**
 ```bash
-pip install osmnx networkx pandas numpy shapely matplotlib streamlit
+pip install osmnx networkx pandas numpy shapely matplotlib streamlit folium streamlit-folium plotly
 ```
 
 3. **Run the tool:**
