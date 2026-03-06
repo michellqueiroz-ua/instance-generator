@@ -54,5 +54,5 @@ examples/webapp_instances/*.json
 .DS_Store
 Thumbs.db
 
-# Streamlit
-.streamlit/
+# Streamlit cache (but keep config)
+.streamlit/secrets.toml

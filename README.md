@@ -25,6 +25,24 @@ The web interface provides:
 
 See [WEBAPP.md](WEBAPP.md) for detailed instructions.
 
+## 🌐 Deploy Online
+
+Want to share REQreate with others? Deploy it to Hugging Face Spaces for free!
+
+**Hugging Face Spaces** (Recommended):
+- ✅ Free tier with 16GB RAM
+- ✅ No timeout issues
+- ✅ 50GB persistent storage
+- ✅ Automatic HTTPS
+
+**Quick Deploy:**
+1. Create account at [huggingface.co](https://huggingface.co/join)
+2. Create new Space with Streamlit SDK
+3. Push your code to the Space repository
+4. App automatically builds and deploys
+
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed deployment instructions.
+
 ## How to use REQreate?
 
 ### Option 1: Web Interface (Recommended for new users)

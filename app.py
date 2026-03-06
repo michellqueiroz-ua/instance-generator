@@ -10,6 +10,9 @@ from map_utils import create_request_map, create_heatmap
 import ast
 import re
 from attribute_library import get_attributes_for_problem, get_required_attributes, build_attributes_list
+import zipfile
+import shutil
+from io import BytesIO
 
 def prepare_requests_for_map(df):
     """
@@ -39,6 +42,20 @@ def prepare_requests_for_map(df):
         df[['dest_lat', 'dest_lon']] = df['destination'].apply(lambda x: pd.Series(parse_coord(x)))
     
     return df
+
+def create_zip_download(folder_path, zip_name):
+    """
+    Create a ZIP file of the specified folder and return bytes for download.
+    """
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        folder_path = Path(folder_path)
+        for file_path in folder_path.rglob('*'):
+            if file_path.is_file():
+                arcname = file_path.relative_to(folder_path.parent)
+                zip_file.write(file_path, arcname)
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
 
 st.set_page_config(
     page_title="REQreate - Instance Generator",
@@ -507,6 +524,24 @@ if page == "Create New Instance":
                 st.info(f"📁 Instance saved in: {place_name}/csv_format/")
                 st.info(f"📄 File: {config_filename.replace('.json', '.csv')}")
                 
+                # Add download button
+                st.markdown("---")
+                st.subheader("📥 Download Instance")
+                
+                # Create ZIP of the entire location folder
+                try:
+                    zip_data = create_zip_download(place_name, f"{place_name}.zip")
+                    st.download_button(
+                        label="💾 Download Instance (ZIP)",
+                        data=zip_data,
+                        file_name=f"{place_name}_instance.zip",
+                        mime="application/zip",
+                        use_container_width=True
+                    )
+                    st.success("✅ Click the button above to download all files")
+                except Exception as e:
+                    st.warning(f"⚠️ Could not prepare download: {str(e)}")
+                
             except Exception as e:
                 st.error(f"❌ Generation failed: {str(e)}")
                 st.exception(e)
@@ -847,6 +882,22 @@ elif page == "View Existing Instances":
                             file_count = len([f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))])
                             if file_count > 0:
                                 st.text(f"📁 {subfolder}/ ({file_count} files)")
+                
+                # Add download button
+                st.markdown("---")
+                st.markdown("#### 📥 Download Instance")
+                try:
+                    zip_data = create_zip_download(selected_instance_path, f"{selected_instance}.zip")
+                    st.download_button(
+                        label="💾 Download All Files (ZIP)",
+                        data=zip_data,
+                        file_name=f"{selected_instance}_instance.zip",
+                        mime="application/zip",
+                        use_container_width=True
+                    )
+                    st.info("📦 ZIP includes all formats: CSV, JSON, GraphML, pickles, and visualizations")
+                except Exception as e:
+                    st.error(f"⚠️ Could not prepare download: {str(e)}")
 
 elif page == "Documentation":
     st.header("📚 Documentation")
