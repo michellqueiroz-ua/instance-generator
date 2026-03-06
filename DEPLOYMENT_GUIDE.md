@@ -12,7 +12,7 @@
 2. Fill in:
    - **Space name**: `instance-generator` (or your choice)
    - **License**: MIT
-   - **SDK**: Streamlit
+   - **SDK**: Docker
    - **Hardware**: CPU Basic (free tier)
    - **Visibility**: Public or Private (your choice)
 3. Click "Create Space"
@@ -27,14 +27,15 @@ You have two options:
 3. Upload all files from your repository:
    - `app.py`
    - `requirements.txt`
+   - `Dockerfile`
+   - `README_SPACES.md` (rename to README.md)
    - `attribute_library.py`
    - `map_utils.py`
    - `retrieve_hospitals.py`
    - `retrieve_network.py`
    - All files from `REQreate/` folder
    - `.streamlit/config.toml`
-4. Replace the default README.md with `README_SPACES.md` contents
-5. Commit the files
+4. Commit the files
 
 #### Option B: Push from Git (Recommended)
 ```bash
