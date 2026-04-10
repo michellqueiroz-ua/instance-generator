@@ -8,3 +8,16 @@ streamlit
 folium
 streamlit-folium
 plotly
+scipy
+osmapi
+requests
+geopandas
+geopy
+pyproj
+descartes
+pyshp
+sqlalchemy
+sqlalchemy-utils
+seaborn
+fitter
+powerlaw
