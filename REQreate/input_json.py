@@ -1005,7 +1005,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 else:    
                     GA.nodes[name]['static_probability'] = 0
 
-        for node in GA.nodes():
+        for node in list(GA.nodes()):
 
             if 'expression' in GA.nodes[node]:
                 expression = re.split(r"[(,) ]", GA.nodes[node]['expression'])

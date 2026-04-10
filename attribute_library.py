@@ -63,6 +63,61 @@ ODBRP_ATTRIBUTES = {
             "expression": "earliest_departure + direct_travel_time + 600"
         }
     },
+    "time2_stamp": {
+        "name": "time2_stamp",
+        "description": "Secondary request time stamp (for dual requests)",
+        "required": False,
+        "template": {
+            "name": "time2_stamp",
+            "type": "integer",
+            "time_unit": "s",
+            "expression": "time_stamp"
+        }
+    },
+    "reaction2_time": {
+        "name": "reaction2_time",
+        "description": "Secondary reaction time (for dual requests)",
+        "required": False,
+        "template": {
+            "name": "reaction2_time",
+            "type": "integer",
+            "time_unit": "s",
+            "expression": "reaction_time"
+        }
+    },
+    "earliest2_departure": {
+        "name": "earliest2_departure",
+        "description": "Secondary earliest departure time",
+        "required": False,
+        "template": {
+            "name": "earliest2_departure",
+            "type": "integer",
+            "time_unit": "s",
+            "expression": "earliest_departure"
+        }
+    },
+    "latest2_departure": {
+        "name": "latest2_departure",
+        "description": "Secondary latest departure time",
+        "required": False,
+        "template": {
+            "name": "latest2_departure",
+            "type": "integer",
+            "time_unit": "s",
+            "expression": "latest_departure"
+        }
+    },
+    "latest2_arrival": {
+        "name": "latest2_arrival",
+        "description": "Secondary latest arrival time",
+        "required": False,
+        "template": {
+            "name": "latest2_arrival",
+            "type": "integer",
+            "time_unit": "s",
+            "expression": "latest_arrival"
+        }
+    },
     "origin": {
         "name": "origin",
         "description": "Origin location (coordinates)",
@@ -106,25 +161,23 @@ ODBRP_ATTRIBUTES = {
     "max_walking": {
         "name": "max_walking",
         "description": "Maximum walking distance/time",
-        "required": False,
+        "required": True,
         "template": {
             "name": "max_walking",
             "type": "integer",
             "time_unit": "s",
-            "pdf": [{"type": "uniform", "loc": 550, "scale": 50}],
-            "output_csv": False
+            "pdf": [{"type": "uniform", "loc": 550, "scale": 50}]
         }
     },
     "walk_speed": {
         "name": "walk_speed",
         "description": "Walking speed (m/s)",
-        "required": False,
+        "required": True,
         "template": {
             "name": "walk_speed",
             "type": "real",
             "speed_unit": "mps",
-            "pdf": [{"type": "uniform", "loc": 1.38889, "scale": 0}],
-            "output_csv": False
+            "pdf": [{"type": "uniform", "loc": 1.38889, "scale": 0}]
         }
     },
     "direct_travel_time": {

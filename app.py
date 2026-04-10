@@ -13,6 +13,11 @@ from attribute_library import get_attributes_for_problem, get_required_attribute
 import zipfile
 import shutil
 from io import BytesIO
+try:
+    from solver_utils import SolverConfig, run_solver, parse_solution, extract_routes, format_statistics
+    SOLVER_AVAILABLE = True
+except ImportError:
+    SOLVER_AVAILABLE = False
 
 def prepare_requests_for_map(df):
     """
@@ -120,13 +125,19 @@ if page == "Create New Instance":
         # Pre-select required attributes
         default_selection = required_attrs.copy()
         
+        # Use problem_type in key to reset selection when problem type changes
         selected_attrs = st.multiselect(
             "Select attributes to include:",
             options=attr_options,
             default=default_selection,
             help="Select which attributes to include in your instance. Required attributes are pre-selected.",
-            key="selected_attrs"
+            key=f"selected_attrs_{problem_type}"
         )
+        
+        # Ensure all required attributes are included
+        for req_attr in required_attrs:
+            if req_attr not in selected_attrs:
+                selected_attrs.append(req_attr)
     
     with col2:
         st.markdown("**Legend:**")
@@ -243,8 +254,9 @@ if page == "Create New Instance":
             place_name = st.text_input(
                 "Location (City, Country)",
                 value="Maastricht, Netherlands",
-                help="Enter the location in the format: City, Country"
+                help="Enter the location in the format: City, Country. For larger cities, use 'City Municipality, Country' (e.g., 'Copenhagen Municipality, Denmark')"
             )
+            st.caption("💡 Tip: For cities like Copenhagen, Amsterdam, use: **'City Municipality, Country'**")
             
         with col2:
             output_name = st.text_input(
@@ -310,7 +322,11 @@ if page == "Create New Instance":
             end_hours = end_time.hour + end_time.minute / 60.0
             
             # Create output folder name (clean version for filenames)
-            folder_name = output_name if output_name else place_name.replace(", ", "_").replace(" ", "_")
+            # Strip any quotes that might have been entered
+            place_name_clean = place_name.strip('"').strip("'")
+            output_name_clean = output_name.strip('"').strip("'")
+            
+            folder_name = output_name_clean if output_name_clean else place_name_clean.replace(", ", "_").replace(" ", "_")
             folder_name_clean = folder_name.replace(",", "").replace(" ", "_")
             
             # Build configuration JSON based on problem type
@@ -340,7 +356,7 @@ if page == "Create New Instance":
                 # ODBRP configuration with bus stops
                 config = {
                     "seed": replicate_num,
-                    "network": place_name,
+                    "network": place_name_clean,
                     "problem": "ODBRP",
                     "set_fixed_speed": {
                         "vehicle_speed_data": vehicle_speed,
@@ -396,7 +412,7 @@ if page == "Create New Instance":
                 # Patient Transport configuration (DARP variant with hospital destinations)
                 config = {
                     "seed": replicate_num,
-                    "network": place_name,
+                    "network": place_name_clean,
                     "problem": "DARP",  # Uses DARP solver but with hospital constraints
                     "set_fixed_speed": {
                         "vehicle_speed_data": vehicle_speed,
@@ -453,7 +469,7 @@ if page == "Create New Instance":
                 # DARP configuration with coordinates
                 config = {
                     "seed": replicate_num,
-                    "network": place_name,
+                    "network": place_name_clean,
                     "problem": "DARP",
                     "set_fixed_speed": {
                         "vehicle_speed_data": vehicle_speed,
@@ -521,7 +537,7 @@ if page == "Create New Instance":
                 
                 progress_bar.progress(1.0)
                 st.success(f"✅ Instance generated successfully!")
-                st.info(f"📁 Instance saved in: {place_name}/csv_format/")
+                st.info(f"📁 Instance saved in: {place_name_clean}/csv_format/")
                 st.info(f"📄 File: {config_filename.replace('.json', '.csv')}")
                 
                 # Add download button
@@ -530,21 +546,96 @@ if page == "Create New Instance":
                 
                 # Create ZIP of the entire location folder
                 try:
-                    zip_data = create_zip_download(place_name, f"{place_name}.zip")
+                    zip_data = create_zip_download(place_name_clean, f"{place_name_clean}.zip")
                     st.download_button(
                         label="💾 Download Instance (ZIP)",
                         data=zip_data,
-                        file_name=f"{place_name}_instance.zip",
+                        file_name=f"{place_name_clean}_instance.zip",
                         mime="application/zip",
                         use_container_width=True
                     )
                     st.success("✅ Click the button above to download all files")
                 except Exception as e:
                     st.warning(f"⚠️ Could not prepare download: {str(e)}")
+            
+            except MemoryError as e:
+                st.error("❌ Out of Memory")
+                st.warning(f"""
+                **Generation ran out of memory during processing.**
+                
+                **Possible causes:**
+                - Area is extremely large (network > 2-3 GB)
+                - Too many nodes/edges in the network
+                - Other memory-intensive processes running
+                
+                **Available Memory:** {round(13.18, 2)} GB free RAM on your system
+                
+                **✅ Solutions:**
+                
+                1. **Try a smaller area/district** (most common fix)
+                2. **Close other applications** to free up RAM
+                3. **Restart Python/Streamlit** to clear memory
+                
+                **Alternative locations to try:**
+                   - **"Indre By, Copenhagen, Denmark"** (Copenhagen city center)
+                   - **"Aarhus, Denmark"** (smaller city)
+                   - **"Maastricht, Netherlands"** (known to work)
+                """)
+                
+                with st.expander("🔍 Technical Details"):
+                    st.exception(e)
                 
             except Exception as e:
-                st.error(f"❌ Generation failed: {str(e)}")
-                st.exception(e)
+                error_msg = str(e)
+                
+                # Check for specific OSMnx errors
+                if "InsufficientResponseError" in error_msg or "No matching features" in error_msg:
+                    st.error("❌ Location Not Found or No Data Available")
+                    st.warning(f"""
+                    **The location '{place_name_clean}' has issues:**
+                    
+                    Possible reasons:
+                    1. **Location name is incorrect** - Try a more specific name (e.g., "Amsterdam, Netherlands" instead of just "Amsterdam")
+                    2. **No OpenStreetMap data** - The area may not have the required features (bus stops, POIs, etc.)
+                    3. **Name spelling** - Check the spelling matches OpenStreetMap's database
+                    
+                    **Suggestions:**
+                    - Try a nearby larger city
+                    - Use the format: "City, Country" (e.g., "Copenhagen, Denmark")
+                    - Check if the location exists on [OpenStreetMap](https://www.openstreetmap.org/)
+                    - For Patient Transport, ensure hospitals exist in the area
+                    """)
+                    
+                    with st.expander("🔍 View Technical Error Details"):
+                        st.code(error_msg)
+                        
+                elif "did not geocode query" in error_msg and "(Multi)Polygon" in error_msg:
+                    st.error("❌ Location Query Returned a Point Instead of Area")
+                    st.warning(f"""
+                    **The location '{place_name_clean}' was found but as a point, not an area boundary.**
+                    
+                    **Solution:** Add "Municipality" or the administrative region to your query:
+                    
+                    **Examples:**
+                    - ✅ **Copenhagen Municipality, Denmark** (instead of "Copenhagen, Denmark")
+                    - ✅ **Amsterdam, Netherlands** (Amsterdam works - smaller city)
+                    - ✅ **Berlin, Germany** (Berlin works - city-state)
+                    - ✅ **København Kommune, Denmark** (Danish name)
+                    - ✅ **Barcelona, Spain**
+                    
+                    **Why?** Large cities often return a city center point instead of the full boundary.
+                    Adding "Municipality" tells OpenStreetMap to return the administrative boundary.
+                    
+                    **Try:** Replace your location with "{place_name_clean.split(',')[0]} Municipality, {', '.join(place_name_clean.split(',')[1:])}"
+                    """)
+                    
+                    with st.expander("🔍 View Technical Error Details"):
+                        st.code(error_msg)
+                else:
+                    st.error(f"❌ Generation failed: {error_msg}")
+                
+                with st.expander("📋 Show Full Error Trace"):
+                    st.exception(e)
 
 elif page == "View Existing Instances":
     st.header("📂 Existing Instances")
@@ -603,7 +694,7 @@ elif page == "View Existing Instances":
             st.subheader(f"Instance: {selected_instance}")
             
             # Create tabs for different views
-            tab1, tab2, tab3, tab4 = st.tabs(["📋 Data Preview", "🗺️ Map View", "🔥 Heatmap", "📁 Files"])
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Data Preview", "🗺️ Map View", "🔥 Heatmap", "🚀 Solve", "📁 Files"])
             
             csv_format_folder = os.path.join(selected_instance_path, "csv_format")
             
@@ -861,6 +952,285 @@ elif page == "View Existing Instances":
                     """)
             
             with tab4:
+                # Solve Instance
+                st.markdown("### 🚀 Solve Instance with C++ Solver")
+                
+                if not SOLVER_AVAILABLE:
+                    st.warning("⚠️ Solver module not available in this environment. The C++ solver requires a local installation with g++ compiler.")
+                    st.info("To use the solver, run REQreate locally with `solver_utils.py` and the C++ solver source code.")
+                    st.stop()
+                
+                # Check solver availability
+                solver_config = SolverConfig()
+                
+                if not solver_config.is_available():
+                    st.info("ℹ️ C++ Solver Not Yet Compiled")
+                    st.info("""
+                    **Don't worry!** When you click "Run Solver" below, the system will:
+                    
+                    1. ✅ Automatically detect your operating system
+                    2. 🔨 Compile the C++ ODBRP solver with the correct flags
+                    3. 🚀 Run the optimization
+                    
+                    **Requirements:**
+                    - Windows: MinGW-w64 (g++ compiler with OpenMP support)
+                    - Linux: build-essential (`sudo apt install build-essential`)
+                    - Mac: Xcode command line tools
+                    
+                    💡 First run will take ~30 seconds to compile, then solve instantly!
+                    """)
+                else:
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.success(f"✅ Solver ready: `{solver_config.solver_path}`")
+                    with col2:
+                        if st.button("🔨 Recompile", help="Force recompilation of the C++ solver (useful after code changes)"):
+                            with st.spinner("Recompiling solver..."):
+                                import platform
+                                # Try WSL compilation first on Windows, then fall back to native
+                                if platform.system() == 'Windows':
+                                    import shutil
+                                    if shutil.which('wsl'):
+                                        from solver_utils import compile_solver_wsl
+                                        result = compile_solver_wsl(progress_callback=st.write)
+                                    else:
+                                        from solver_utils import compile_solver
+                                        result = compile_solver(progress_callback=st.write)
+                                else:
+                                    from solver_utils import compile_solver
+                                    result = compile_solver(progress_callback=st.write)
+                                    
+                                if result['status'] == 'success':
+                                    st.success("✅ Solver recompiled successfully!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Compilation failed:")
+                                    st.code(result['message'])
+                
+                # Always show configuration (auto-compile will happen on button click)
+                st.markdown("---")
+                
+                # Find instance files (ODBRP only)
+                csv_files = []
+                if os.path.exists(csv_format_folder):
+                    csv_files = [f for f in os.listdir(csv_format_folder) 
+                                if f.endswith('.csv') and 'ODBRP' in f and os.path.isfile(os.path.join(csv_format_folder, f))]
+                
+                if not csv_files:
+                    st.warning("No CSV files found in this instance.")
+                else:
+                    # Select instance file to solve
+                    st.markdown("#### 📄 Select Instance File")
+                    selected_file = st.selectbox(
+                        "Instance file:",
+                        csv_files,
+                        help="Select the instance file to solve"
+                    )
+                    
+                    instance_file_path = os.path.join(csv_format_folder, selected_file)
+                    
+                    # Solver parameters
+                    st.markdown("#### ⚙️ ODBRP Solver Parameters")
+                    
+                    # Basic parameters
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        time_limit = st.number_input(
+                            "Time Limit (seconds)",
+                            min_value=1,
+                            max_value=86400,
+                            value=3600,
+                            help="Maximum time for solver to run"
+                        )
+                    with col2:
+                        seed = st.number_input("Random Seed", min_value=0, value=0, help="Seed for reproducibility")
+                    with col3:
+                        number_depots = st.number_input("Number of Depots", min_value=1, max_value=10, value=1)
+                    
+                    # Depot configuration
+                    if number_depots > 1:
+                        st.markdown("**Depot Node IDs:**")
+                        depot_input = st.text_input("Depot IDs (comma-separated)", "0,1,2", help="Node IDs for depot locations")
+                        depot_ids = [int(x.strip()) for x in depot_input.split(',')]
+                    else:
+                        depot_ids = [0]
+                    
+                    # Vehicle configuration
+                    st.markdown("**Vehicle Fleet:**")
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        type_vehicles = st.number_input(
+                            "Vehicle Types", 
+                            min_value=1, 
+                            max_value=3, 
+                            value=1,
+                            help="Number of different vehicle types (e.g., 1 = all same type, 2 = small+large)"
+                        )
+                    with col2:
+                        num_vehicles1 = st.number_input(
+                            "Type 1: # Vehicles", 
+                            min_value=0, 
+                            value=5,
+                            help="Number of vehicles of type 1"
+                        )
+                    with col3:
+                        num_vehicles2 = st.number_input(
+                            "Type 2: # Vehicles", 
+                            min_value=0, 
+                            value=0,
+                            help="Number of vehicles of type 2 (0 if only 1 type)"
+                        )
+                    with col4:
+                        num_vehicles3 = st.number_input(
+                            "Type 3: # Vehicles", 
+                            min_value=0, 
+                            value=0,
+                            help="Number of vehicles of type 3 (0 if only 1 or 2 types)"
+                        )
+                    
+                    # Vehicle capacities
+                    st.markdown("**Vehicle Capacities:**")
+                    if type_vehicles >= 1:
+                        capacity_input = st.text_input("Capacities (comma-separated)", "4,8,12" if type_vehicles >= 3 else ("4,8" if type_vehicles == 2 else "4"))
+                        capacities = [int(x.strip()) for x in capacity_input.split(',')]
+                    else:
+                        capacities = [4]
+                    
+                    # Algorithm parameters
+                    with st.expander("🔬 Advanced Algorithm Parameters"):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            init_temp = st.number_input("Initial Temperature", min_value=0.1, max_value=5.0, value=1.3, step=0.1)
+                            maxnrep = st.number_input("Max Iterations", min_value=100, max_value=10000, value=350, step=50)
+                        with col2:
+                            lambda_param = st.number_input("Lambda (cooling)", min_value=0.1, max_value=0.99, value=0.9, step=0.01)
+                            increase_rep = st.number_input("Increase Rep", min_value=100, max_value=5000, value=800, step=100)
+                    
+                    # Configure solver
+                    solver_config.time_limit = time_limit
+                    solver_config.seed = seed
+                    solver_config.number_depots = number_depots
+                    solver_config.depot_ids = depot_ids
+                    solver_config.type_vehicles = type_vehicles
+                    solver_config.number_vehicles1 = num_vehicles1
+                    solver_config.number_vehicles2 = num_vehicles2
+                    solver_config.number_vehicles3 = num_vehicles3
+                    solver_config.capacity_vehicles = capacities
+                    solver_config.init_temperature = init_temp
+                    solver_config.lambda_param = lambda_param
+                    solver_config.maxnrep = maxnrep
+                    solver_config.increase_rep = increase_rep
+                    
+                    # Output path
+                    solution_folder = os.path.join(selected_instance_path, "solutions")
+                    os.makedirs(solution_folder, exist_ok=True)
+                    solution_file = os.path.join(solution_folder, f"solution_{selected_file.replace('.csv', '.txt')}")
+                    
+                    st.markdown("---")
+                    
+                    # Solve button
+                    if st.button("🚀 Run ODBRP Solver", type="primary", use_container_width=True):
+                        progress_placeholder = st.empty()
+                        status_placeholder = st.empty()
+                        
+                        with st.spinner("Running solver..."):
+                            # Run solver
+                            def update_progress(msg):
+                                progress_placeholder.info(msg)
+                            
+                            result = run_solver(
+                                instance_file_path,
+                                solution_file,
+                                solver_config,
+                                update_progress
+                            )
+                            
+                            # Display results
+                            if result['status'] == 'success':
+                                status_placeholder.success(f"✅ Solved in {result['time']:.2f} seconds!")
+                                
+                                # Parse and display solution
+                                solution = parse_solution(solution_file)
+                                
+                                if solution and 'error' not in solution:
+                                    st.markdown("---")
+                                    st.markdown("### 📊 Solution Statistics")
+                                    
+                                    # Display statistics
+                                    stats = format_statistics(solution)
+                                    if stats:
+                                        cols = st.columns(len(stats))
+                                        for idx, (key, value) in enumerate(stats.items()):
+                                            with cols[idx]:
+                                                st.metric(key.replace('_', ' ').title(), f"{value:.2f}" if isinstance(value, float) else value)
+                                    else:
+                                        st.info("No statistics available yet. Solution is being processed...")
+                                    
+                                    # Display solution data
+                                    st.markdown("### 📋 Solution Details")
+                                    if solution.get('format') == 'csv' and 'data' in solution:
+                                        st.dataframe(solution['data'], use_container_width=True)
+                                    elif solution.get('format') == 'json':
+                                        st.json(solution)
+                                    
+                                    # Download solution
+                                    st.markdown("---")
+                                    with open(solution_file, 'rb') as f:
+                                        st.download_button(
+                                            label="💾 Download Solution",
+                                            data=f,
+                                            file_name=f"solution_{selected_file}",
+                                            mime="text/csv" if solution_file.endswith('.csv') else "application/json"
+                                        )
+                                else:
+                                    st.warning("⚠️ Could not parse solution file")
+                                    if solution and 'error' in solution:
+                                        st.error(solution['error'])
+                                
+                                # Show solver output
+                                if result.get('stdout'):
+                                    with st.expander("📄 Solver Output"):
+                                        st.code(result['stdout'])
+                                
+                                # Show command that was run
+                                if result.get('command'):
+                                    with st.expander("🔧 Command Executed"):
+                                        st.code(result['command'], language='bash')
+                                
+                            elif result['status'] == 'timeout':
+                                status_placeholder.error(f"⏱️ {result['message']}")
+                            else:
+                                status_placeholder.error(f"❌ {result['message']}")
+                                
+                                # Show debug log location if available
+                                if result.get('debug_log'):
+                                    st.info(f"📋 Debug log saved to: `{result['debug_log']}`")
+                                
+                                # Show command and errors
+                                if result.get('command'):
+                                    with st.expander("🔧 Command Executed"):
+                                        st.code(result['command'], language='bash')
+                                
+                                if result.get('stderr'):
+                                    with st.expander("🔍 Error Details (stderr)"):
+                                        st.code(result['stderr'])
+                                
+                                if result.get('stdout'):
+                                    with st.expander("📄 Solver Output (stdout)"):
+                                        st.code(result['stdout'])
+                    
+                    # Check for existing solutions
+                    if os.path.exists(solution_folder):
+                        solution_files = [f for f in os.listdir(solution_folder) if f.endswith(('.csv', '.json'))]
+                        if solution_files:
+                            st.markdown("---")
+                            st.markdown("### 📂 Previous Solutions")
+                            for sol_file in solution_files:
+                                sol_path = os.path.join(solution_folder, sol_file)
+                                sol_size = os.path.getsize(sol_path) / 1024
+                                st.text(f"📄 {sol_file} ({sol_size:.1f} KB)")
+            
+            with tab5:
                 # Show folder structure
                 st.markdown("### 📁 Available Files")
                 col1, col2 = st.columns(2)
