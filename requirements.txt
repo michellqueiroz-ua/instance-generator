@@ -10,6 +10,16 @@ streamlit-folium
 plotly
 scipy
 osmapi
+geopandas
+geopy
+pyproj
+requests
+descartes
+fitter
+pyshp
+seaborn
+scipy
+osmapi
 requests
 geopandas
 geopy
