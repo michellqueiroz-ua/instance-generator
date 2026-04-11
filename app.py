@@ -958,277 +958,276 @@ elif page == "View Existing Instances":
                 if not SOLVER_AVAILABLE:
                     st.warning("⚠️ Solver module not available in this environment. The C++ solver requires a local installation with g++ compiler.")
                     st.info("To use the solver, run REQreate locally with `solver_utils.py` and the C++ solver source code.")
-                    st.stop()
-                
-                # Check solver availability
-                solver_config = SolverConfig()
-                
-                if not solver_config.is_available():
-                    st.info("ℹ️ C++ Solver Not Yet Compiled")
-                    st.info("""
-                    **Don't worry!** When you click "Run Solver" below, the system will:
-                    
-                    1. ✅ Automatically detect your operating system
-                    2. 🔨 Compile the C++ ODBRP solver with the correct flags
-                    3. 🚀 Run the optimization
-                    
-                    **Requirements:**
-                    - Windows: MinGW-w64 (g++ compiler with OpenMP support)
-                    - Linux: build-essential (`sudo apt install build-essential`)
-                    - Mac: Xcode command line tools
-                    
-                    💡 First run will take ~30 seconds to compile, then solve instantly!
-                    """)
                 else:
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.success(f"✅ Solver ready: `{solver_config.solver_path}`")
-                    with col2:
-                        if st.button("🔨 Recompile", help="Force recompilation of the C++ solver (useful after code changes)"):
-                            with st.spinner("Recompiling solver..."):
-                                import platform
-                                # Try WSL compilation first on Windows, then fall back to native
-                                if platform.system() == 'Windows':
-                                    import shutil
-                                    if shutil.which('wsl'):
-                                        from solver_utils import compile_solver_wsl
-                                        result = compile_solver_wsl(progress_callback=st.write)
+                    # Check solver availability
+                    solver_config = SolverConfig()
+                
+                    if not solver_config.is_available():
+                        st.info("ℹ️ C++ Solver Not Yet Compiled")
+                        st.info("""
+                        **Don't worry!** When you click "Run Solver" below, the system will:
+                        
+                        1. ✅ Automatically detect your operating system
+                        2. 🔨 Compile the C++ ODBRP solver with the correct flags
+                        3. 🚀 Run the optimization
+                        
+                        **Requirements:**
+                        - Windows: MinGW-w64 (g++ compiler with OpenMP support)
+                        - Linux: build-essential (`sudo apt install build-essential`)
+                        - Mac: Xcode command line tools
+                        
+                        💡 First run will take ~30 seconds to compile, then solve instantly!
+                        """)
+                    else:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.success(f"✅ Solver ready: `{solver_config.solver_path}`")
+                        with col2:
+                            if st.button("🔨 Recompile", help="Force recompilation of the C++ solver (useful after code changes)"):
+                                with st.spinner("Recompiling solver..."):
+                                    import platform
+                                    # Try WSL compilation first on Windows, then fall back to native
+                                    if platform.system() == 'Windows':
+                                        import shutil
+                                        if shutil.which('wsl'):
+                                            from solver_utils import compile_solver_wsl
+                                            result = compile_solver_wsl(progress_callback=st.write)
+                                        else:
+                                            from solver_utils import compile_solver
+                                            result = compile_solver(progress_callback=st.write)
                                     else:
                                         from solver_utils import compile_solver
                                         result = compile_solver(progress_callback=st.write)
-                                else:
-                                    from solver_utils import compile_solver
-                                    result = compile_solver(progress_callback=st.write)
-                                    
-                                if result['status'] == 'success':
-                                    st.success("✅ Solver recompiled successfully!")
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ Compilation failed:")
-                                    st.code(result['message'])
-                
-                # Always show configuration (auto-compile will happen on button click)
-                st.markdown("---")
-                
-                # Find instance files (ODBRP only)
-                csv_files = []
-                if os.path.exists(csv_format_folder):
-                    csv_files = [f for f in os.listdir(csv_format_folder) 
-                                if f.endswith('.csv') and 'ODBRP' in f and os.path.isfile(os.path.join(csv_format_folder, f))]
-                
-                if not csv_files:
-                    st.warning("No CSV files found in this instance.")
-                else:
-                    # Select instance file to solve
-                    st.markdown("#### 📄 Select Instance File")
-                    selected_file = st.selectbox(
-                        "Instance file:",
-                        csv_files,
-                        help="Select the instance file to solve"
-                    )
+                                        
+                                    if result['status'] == 'success':
+                                        st.success("✅ Solver recompiled successfully!")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"❌ Compilation failed:")
+                                        st.code(result['message'])
                     
-                    instance_file_path = os.path.join(csv_format_folder, selected_file)
-                    
-                    # Solver parameters
-                    st.markdown("#### ⚙️ ODBRP Solver Parameters")
-                    
-                    # Basic parameters
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        time_limit = st.number_input(
-                            "Time Limit (seconds)",
-                            min_value=1,
-                            max_value=86400,
-                            value=3600,
-                            help="Maximum time for solver to run"
-                        )
-                    with col2:
-                        seed = st.number_input("Random Seed", min_value=0, value=0, help="Seed for reproducibility")
-                    with col3:
-                        number_depots = st.number_input("Number of Depots", min_value=1, max_value=10, value=1)
-                    
-                    # Depot configuration
-                    if number_depots > 1:
-                        st.markdown("**Depot Node IDs:**")
-                        depot_input = st.text_input("Depot IDs (comma-separated)", "0,1,2", help="Node IDs for depot locations")
-                        depot_ids = [int(x.strip()) for x in depot_input.split(',')]
-                    else:
-                        depot_ids = [0]
-                    
-                    # Vehicle configuration
-                    st.markdown("**Vehicle Fleet:**")
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        type_vehicles = st.number_input(
-                            "Vehicle Types", 
-                            min_value=1, 
-                            max_value=3, 
-                            value=1,
-                            help="Number of different vehicle types (e.g., 1 = all same type, 2 = small+large)"
-                        )
-                    with col2:
-                        num_vehicles1 = st.number_input(
-                            "Type 1: # Vehicles", 
-                            min_value=0, 
-                            value=5,
-                            help="Number of vehicles of type 1"
-                        )
-                    with col3:
-                        num_vehicles2 = st.number_input(
-                            "Type 2: # Vehicles", 
-                            min_value=0, 
-                            value=0,
-                            help="Number of vehicles of type 2 (0 if only 1 type)"
-                        )
-                    with col4:
-                        num_vehicles3 = st.number_input(
-                            "Type 3: # Vehicles", 
-                            min_value=0, 
-                            value=0,
-                            help="Number of vehicles of type 3 (0 if only 1 or 2 types)"
-                        )
-                    
-                    # Vehicle capacities
-                    st.markdown("**Vehicle Capacities:**")
-                    if type_vehicles >= 1:
-                        capacity_input = st.text_input("Capacities (comma-separated)", "4,8,12" if type_vehicles >= 3 else ("4,8" if type_vehicles == 2 else "4"))
-                        capacities = [int(x.strip()) for x in capacity_input.split(',')]
-                    else:
-                        capacities = [4]
-                    
-                    # Algorithm parameters
-                    with st.expander("🔬 Advanced Algorithm Parameters"):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            init_temp = st.number_input("Initial Temperature", min_value=0.1, max_value=5.0, value=1.3, step=0.1)
-                            maxnrep = st.number_input("Max Iterations", min_value=100, max_value=10000, value=350, step=50)
-                        with col2:
-                            lambda_param = st.number_input("Lambda (cooling)", min_value=0.1, max_value=0.99, value=0.9, step=0.01)
-                            increase_rep = st.number_input("Increase Rep", min_value=100, max_value=5000, value=800, step=100)
-                    
-                    # Configure solver
-                    solver_config.time_limit = time_limit
-                    solver_config.seed = seed
-                    solver_config.number_depots = number_depots
-                    solver_config.depot_ids = depot_ids
-                    solver_config.type_vehicles = type_vehicles
-                    solver_config.number_vehicles1 = num_vehicles1
-                    solver_config.number_vehicles2 = num_vehicles2
-                    solver_config.number_vehicles3 = num_vehicles3
-                    solver_config.capacity_vehicles = capacities
-                    solver_config.init_temperature = init_temp
-                    solver_config.lambda_param = lambda_param
-                    solver_config.maxnrep = maxnrep
-                    solver_config.increase_rep = increase_rep
-                    
-                    # Output path
-                    solution_folder = os.path.join(selected_instance_path, "solutions")
-                    os.makedirs(solution_folder, exist_ok=True)
-                    solution_file = os.path.join(solution_folder, f"solution_{selected_file.replace('.csv', '.txt')}")
-                    
+                    # Always show configuration (auto-compile will happen on button click)
                     st.markdown("---")
                     
-                    # Solve button
-                    if st.button("🚀 Run ODBRP Solver", type="primary", use_container_width=True):
-                        progress_placeholder = st.empty()
-                        status_placeholder = st.empty()
-                        
-                        with st.spinner("Running solver..."):
-                            # Run solver
-                            def update_progress(msg):
-                                progress_placeholder.info(msg)
-                            
-                            result = run_solver(
-                                instance_file_path,
-                                solution_file,
-                                solver_config,
-                                update_progress
-                            )
-                            
-                            # Display results
-                            if result['status'] == 'success':
-                                status_placeholder.success(f"✅ Solved in {result['time']:.2f} seconds!")
-                                
-                                # Parse and display solution
-                                solution = parse_solution(solution_file)
-                                
-                                if solution and 'error' not in solution:
-                                    st.markdown("---")
-                                    st.markdown("### 📊 Solution Statistics")
-                                    
-                                    # Display statistics
-                                    stats = format_statistics(solution)
-                                    if stats:
-                                        cols = st.columns(len(stats))
-                                        for idx, (key, value) in enumerate(stats.items()):
-                                            with cols[idx]:
-                                                st.metric(key.replace('_', ' ').title(), f"{value:.2f}" if isinstance(value, float) else value)
-                                    else:
-                                        st.info("No statistics available yet. Solution is being processed...")
-                                    
-                                    # Display solution data
-                                    st.markdown("### 📋 Solution Details")
-                                    if solution.get('format') == 'csv' and 'data' in solution:
-                                        st.dataframe(solution['data'], use_container_width=True)
-                                    elif solution.get('format') == 'json':
-                                        st.json(solution)
-                                    
-                                    # Download solution
-                                    st.markdown("---")
-                                    with open(solution_file, 'rb') as f:
-                                        st.download_button(
-                                            label="💾 Download Solution",
-                                            data=f,
-                                            file_name=f"solution_{selected_file}",
-                                            mime="text/csv" if solution_file.endswith('.csv') else "application/json"
-                                        )
-                                else:
-                                    st.warning("⚠️ Could not parse solution file")
-                                    if solution and 'error' in solution:
-                                        st.error(solution['error'])
-                                
-                                # Show solver output
-                                if result.get('stdout'):
-                                    with st.expander("📄 Solver Output"):
-                                        st.code(result['stdout'])
-                                
-                                # Show command that was run
-                                if result.get('command'):
-                                    with st.expander("🔧 Command Executed"):
-                                        st.code(result['command'], language='bash')
-                                
-                            elif result['status'] == 'timeout':
-                                status_placeholder.error(f"⏱️ {result['message']}")
-                            else:
-                                status_placeholder.error(f"❌ {result['message']}")
-                                
-                                # Show debug log location if available
-                                if result.get('debug_log'):
-                                    st.info(f"📋 Debug log saved to: `{result['debug_log']}`")
-                                
-                                # Show command and errors
-                                if result.get('command'):
-                                    with st.expander("🔧 Command Executed"):
-                                        st.code(result['command'], language='bash')
-                                
-                                if result.get('stderr'):
-                                    with st.expander("🔍 Error Details (stderr)"):
-                                        st.code(result['stderr'])
-                                
-                                if result.get('stdout'):
-                                    with st.expander("📄 Solver Output (stdout)"):
-                                        st.code(result['stdout'])
+                    # Find instance files (ODBRP only)
+                    csv_files = []
+                    if os.path.exists(csv_format_folder):
+                        csv_files = [f for f in os.listdir(csv_format_folder) 
+                                    if f.endswith('.csv') and 'ODBRP' in f and os.path.isfile(os.path.join(csv_format_folder, f))]
                     
-                    # Check for existing solutions
-                    if os.path.exists(solution_folder):
-                        solution_files = [f for f in os.listdir(solution_folder) if f.endswith(('.csv', '.json'))]
-                        if solution_files:
-                            st.markdown("---")
-                            st.markdown("### 📂 Previous Solutions")
-                            for sol_file in solution_files:
-                                sol_path = os.path.join(solution_folder, sol_file)
-                                sol_size = os.path.getsize(sol_path) / 1024
-                                st.text(f"📄 {sol_file} ({sol_size:.1f} KB)")
+                    if not csv_files:
+                        st.warning("No CSV files found in this instance.")
+                    else:
+                        # Select instance file to solve
+                        st.markdown("#### 📄 Select Instance File")
+                        selected_file = st.selectbox(
+                            "Instance file:",
+                            csv_files,
+                            help="Select the instance file to solve"
+                        )
+                        
+                        instance_file_path = os.path.join(csv_format_folder, selected_file)
+                        
+                        # Solver parameters
+                        st.markdown("#### ⚙️ ODBRP Solver Parameters")
+                        
+                        # Basic parameters
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            time_limit = st.number_input(
+                                "Time Limit (seconds)",
+                                min_value=1,
+                                max_value=86400,
+                                value=3600,
+                                help="Maximum time for solver to run"
+                            )
+                        with col2:
+                            seed = st.number_input("Random Seed", min_value=0, value=0, help="Seed for reproducibility")
+                        with col3:
+                            number_depots = st.number_input("Number of Depots", min_value=1, max_value=10, value=1)
+                        
+                        # Depot configuration
+                        if number_depots > 1:
+                            st.markdown("**Depot Node IDs:**")
+                            depot_input = st.text_input("Depot IDs (comma-separated)", "0,1,2", help="Node IDs for depot locations")
+                            depot_ids = [int(x.strip()) for x in depot_input.split(',')]
+                        else:
+                            depot_ids = [0]
+                        
+                        # Vehicle configuration
+                        st.markdown("**Vehicle Fleet:**")
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            type_vehicles = st.number_input(
+                                "Vehicle Types", 
+                                min_value=1, 
+                                max_value=3, 
+                                value=1,
+                                help="Number of different vehicle types (e.g., 1 = all same type, 2 = small+large)"
+                            )
+                        with col2:
+                            num_vehicles1 = st.number_input(
+                                "Type 1: # Vehicles", 
+                                min_value=0, 
+                                value=5,
+                                help="Number of vehicles of type 1"
+                            )
+                        with col3:
+                            num_vehicles2 = st.number_input(
+                                "Type 2: # Vehicles", 
+                                min_value=0, 
+                                value=0,
+                                help="Number of vehicles of type 2 (0 if only 1 type)"
+                            )
+                        with col4:
+                            num_vehicles3 = st.number_input(
+                                "Type 3: # Vehicles", 
+                                min_value=0, 
+                                value=0,
+                                help="Number of vehicles of type 3 (0 if only 1 or 2 types)"
+                            )
+                        
+                        # Vehicle capacities
+                        st.markdown("**Vehicle Capacities:**")
+                        if type_vehicles >= 1:
+                            capacity_input = st.text_input("Capacities (comma-separated)", "4,8,12" if type_vehicles >= 3 else ("4,8" if type_vehicles == 2 else "4"))
+                            capacities = [int(x.strip()) for x in capacity_input.split(',')]
+                        else:
+                            capacities = [4]
+                        
+                        # Algorithm parameters
+                        with st.expander("🔬 Advanced Algorithm Parameters"):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                init_temp = st.number_input("Initial Temperature", min_value=0.1, max_value=5.0, value=1.3, step=0.1)
+                                maxnrep = st.number_input("Max Iterations", min_value=100, max_value=10000, value=350, step=50)
+                            with col2:
+                                lambda_param = st.number_input("Lambda (cooling)", min_value=0.1, max_value=0.99, value=0.9, step=0.01)
+                                increase_rep = st.number_input("Increase Rep", min_value=100, max_value=5000, value=800, step=100)
+                        
+                        # Configure solver
+                        solver_config.time_limit = time_limit
+                        solver_config.seed = seed
+                        solver_config.number_depots = number_depots
+                        solver_config.depot_ids = depot_ids
+                        solver_config.type_vehicles = type_vehicles
+                        solver_config.number_vehicles1 = num_vehicles1
+                        solver_config.number_vehicles2 = num_vehicles2
+                        solver_config.number_vehicles3 = num_vehicles3
+                        solver_config.capacity_vehicles = capacities
+                        solver_config.init_temperature = init_temp
+                        solver_config.lambda_param = lambda_param
+                        solver_config.maxnrep = maxnrep
+                        solver_config.increase_rep = increase_rep
+                        
+                        # Output path
+                        solution_folder = os.path.join(selected_instance_path, "solutions")
+                        os.makedirs(solution_folder, exist_ok=True)
+                        solution_file = os.path.join(solution_folder, f"solution_{selected_file.replace('.csv', '.txt')}")
+                        
+                        st.markdown("---")
+                        
+                        # Solve button
+                        if st.button("🚀 Run ODBRP Solver", type="primary", use_container_width=True):
+                            progress_placeholder = st.empty()
+                            status_placeholder = st.empty()
+                            
+                            with st.spinner("Running solver..."):
+                                # Run solver
+                                def update_progress(msg):
+                                    progress_placeholder.info(msg)
+                                
+                                result = run_solver(
+                                    instance_file_path,
+                                    solution_file,
+                                    solver_config,
+                                    update_progress
+                                )
+                                
+                                # Display results
+                                if result['status'] == 'success':
+                                    status_placeholder.success(f"✅ Solved in {result['time']:.2f} seconds!")
+                                    
+                                    # Parse and display solution
+                                    solution = parse_solution(solution_file)
+                                    
+                                    if solution and 'error' not in solution:
+                                        st.markdown("---")
+                                        st.markdown("### 📊 Solution Statistics")
+                                        
+                                        # Display statistics
+                                        stats = format_statistics(solution)
+                                        if stats:
+                                            cols = st.columns(len(stats))
+                                            for idx, (key, value) in enumerate(stats.items()):
+                                                with cols[idx]:
+                                                    st.metric(key.replace('_', ' ').title(), f"{value:.2f}" if isinstance(value, float) else value)
+                                        else:
+                                            st.info("No statistics available yet. Solution is being processed...")
+                                        
+                                        # Display solution data
+                                        st.markdown("### 📋 Solution Details")
+                                        if solution.get('format') == 'csv' and 'data' in solution:
+                                            st.dataframe(solution['data'], use_container_width=True)
+                                        elif solution.get('format') == 'json':
+                                            st.json(solution)
+                                        
+                                        # Download solution
+                                        st.markdown("---")
+                                        with open(solution_file, 'rb') as f:
+                                            st.download_button(
+                                                label="💾 Download Solution",
+                                                data=f,
+                                                file_name=f"solution_{selected_file}",
+                                                mime="text/csv" if solution_file.endswith('.csv') else "application/json"
+                                            )
+                                    else:
+                                        st.warning("⚠️ Could not parse solution file")
+                                        if solution and 'error' in solution:
+                                            st.error(solution['error'])
+                                    
+                                    # Show solver output
+                                    if result.get('stdout'):
+                                        with st.expander("📄 Solver Output"):
+                                            st.code(result['stdout'])
+                                    
+                                    # Show command that was run
+                                    if result.get('command'):
+                                        with st.expander("🔧 Command Executed"):
+                                            st.code(result['command'], language='bash')
+                                    
+                                elif result['status'] == 'timeout':
+                                    status_placeholder.error(f"⏱️ {result['message']}")
+                                else:
+                                    status_placeholder.error(f"❌ {result['message']}")
+                                    
+                                    # Show debug log location if available
+                                    if result.get('debug_log'):
+                                        st.info(f"📋 Debug log saved to: `{result['debug_log']}`")
+                                    
+                                    # Show command and errors
+                                    if result.get('command'):
+                                        with st.expander("🔧 Command Executed"):
+                                            st.code(result['command'], language='bash')
+                                    
+                                    if result.get('stderr'):
+                                        with st.expander("🔍 Error Details (stderr)"):
+                                            st.code(result['stderr'])
+                                    
+                                    if result.get('stdout'):
+                                        with st.expander("📄 Solver Output (stdout)"):
+                                            st.code(result['stdout'])
+                        
+                        # Check for existing solutions
+                        if os.path.exists(solution_folder):
+                            solution_files = [f for f in os.listdir(solution_folder) if f.endswith(('.csv', '.json'))]
+                            if solution_files:
+                                st.markdown("---")
+                                st.markdown("### 📂 Previous Solutions")
+                                for sol_file in solution_files:
+                                    sol_path = os.path.join(solution_folder, sol_file)
+                                    sol_size = os.path.getsize(sol_path) / 1024
+                                    st.text(f"📄 {sol_file} ({sol_size:.1f} KB)")
             
             with tab5:
                 # Show folder structure
