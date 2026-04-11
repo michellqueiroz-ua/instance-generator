@@ -21,3 +21,4 @@ seaborn
 sqlalchemy
 sqlalchemy-utils
 powerlaw
+scikit-learn
