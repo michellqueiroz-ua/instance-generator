@@ -37,6 +37,10 @@ Maastricht*/
 cache/
 *.pkl
 
+# Exception: pre-loaded Maastricht network for HF Spaces
+!Maastricht, Netherlands/
+!Maastricht, Netherlands/**
+
 # User-generated configurations
 examples/webapp_instances/*.json
 

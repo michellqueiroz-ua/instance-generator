@@ -1,0 +1,16 @@
+2026-02-02 15:00:56 - INFO - 
+============================================================
+2026-02-02 15:00:56 - INFO - PROCESSING CONFIGURATION: Maastricht_Netherlands_ODBRP_14req.json
+2026-02-02 15:00:56 - INFO - ============================================================
+2026-02-02 15:00:57 - INFO - ✓ Loaded existing network from cache
+2026-02-02 15:00:57 - INFO - Vehicle speed: 5.56 m/s
+2026-02-02 15:00:58 - INFO - 
+============================================================
+2026-02-02 15:00:58 - INFO - GENERATING PASSENGER REQUESTS
+2026-02-02 15:00:58 - INFO - ============================================================
+2026-02-02 15:00:58 - INFO - Dynamism level: 0.00%
+2026-02-02 15:00:58 - INFO - Generating 14 requests...
+2026-02-02 15:00:58 - INFO -   → Generated 1/14 requests
+2026-02-02 15:01:05 - INFO -   → Generated 10/14 requests
+2026-02-02 15:01:13 - INFO -   → Computing travel time matrix...
+2026-02-02 15:01:13 - INFO - ✓ Travel time matrix: 237x237

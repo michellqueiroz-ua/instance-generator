@@ -1,0 +1,498 @@
+{
+    "num_data:": 17,
+    "requests": {
+        "0": {
+            "time_stamp": 25200,
+            "origin": [
+                50.854979320729704,
+                5.697619925219314
+            ],
+            "originx": 5.697619925219314,
+            "originy": 50.854979320729704,
+            "originnode_drive": 41982809,
+            "originnode_walk": 41983775,
+            "originzone": -1,
+            "destination": [
+                50.853228236087375,
+                5.6927730554620695
+            ],
+            "destinationx": 5.6927730554620695,
+            "destinationy": 50.853228236087375,
+            "destinationnode_drive": 567111856,
+            "destinationnode_walk": 41979514,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 537,
+            "drivingDistance": 2922.333248499852,
+            "pickup_to": 25560,
+            "dropoff_from": 26097,
+            "dropoff_to": 26697,
+            "seed_location": 1129,
+            "reqid": 0
+        },
+        "1": {
+            "time_stamp": 25200,
+            "origin": [
+                50.88010969784447,
+                5.67301571782106
+            ],
+            "originx": 5.67301571782106,
+            "originy": 50.88010969784447,
+            "originnode_drive": 42022440,
+            "originnode_walk": 11356757489,
+            "originzone": -1,
+            "destination": [
+                50.86893985212811,
+                5.689990550590335
+            ],
+            "destinationx": 5.689990550590335,
+            "destinationy": 50.86893985212811,
+            "destinationnode_drive": 2737533075,
+            "destinationnode_walk": 11488243680,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 693,
+            "drivingDistance": 3810.382789251613,
+            "pickup_to": 25560,
+            "dropoff_from": 26253,
+            "dropoff_to": 26853,
+            "seed_location": 2240,
+            "reqid": 1
+        },
+        "2": {
+            "time_stamp": 25200,
+            "origin": [
+                50.83998890679525,
+                5.707747883184788
+            ],
+            "originx": 5.707747883184788,
+            "originy": 50.83998890679525,
+            "originnode_drive": 3276849100,
+            "originnode_walk": 3276849100,
+            "originzone": -1,
+            "destination": [
+                50.850092814303494,
+                5.68561634976193
+            ],
+            "destinationx": 5.68561634976193,
+            "destinationy": 50.850092814303494,
+            "destinationnode_drive": 41973822,
+            "destinationnode_walk": 12854264128,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 730,
+            "drivingDistance": 3992.436438412361,
+            "pickup_to": 25560,
+            "dropoff_from": 26290,
+            "dropoff_to": 26890,
+            "seed_location": 3351,
+            "reqid": 2
+        },
+        "3": {
+            "time_stamp": 25200,
+            "origin": [
+                50.88751195025173,
+                5.719183156825537
+            ],
+            "originx": 5.719183156825537,
+            "originy": 50.88751195025173,
+            "originnode_drive": 42029282,
+            "originnode_walk": 11381385176,
+            "originzone": -1,
+            "destination": [
+                50.84080615672652,
+                5.693453626853793
+            ],
+            "destinationx": 5.693453626853793,
+            "destinationy": 50.84080615672652,
+            "destinationnode_drive": 41961369,
+            "destinationnode_walk": 41961369,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1372,
+            "drivingDistance": 7483.581739428116,
+            "pickup_to": 25560,
+            "dropoff_from": 26932,
+            "dropoff_to": 27532,
+            "seed_location": 4462,
+            "reqid": 3
+        },
+        "4": {
+            "time_stamp": 25200,
+            "origin": [
+                50.820934528113376,
+                5.7248558247263075
+            ],
+            "originx": 5.7248558247263075,
+            "originy": 50.820934528113376,
+            "originnode_drive": 41940594,
+            "originnode_walk": 41940594,
+            "originzone": -1,
+            "destination": [
+                50.87506008450712,
+                5.717424389295235
+            ],
+            "destinationx": 5.717424389295235,
+            "destinationy": 50.87506008450712,
+            "destinationnode_drive": 6341980354,
+            "destinationnode_walk": 11813589334,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1509,
+            "drivingDistance": 8137.0303204209695,
+            "pickup_to": 25560,
+            "dropoff_from": 27069,
+            "dropoff_to": 27669,
+            "seed_location": 5573,
+            "reqid": 4
+        },
+        "5": {
+            "time_stamp": 25200,
+            "origin": [
+                50.85682811134819,
+                5.65922986616078
+            ],
+            "originx": 5.65922986616078,
+            "originy": 50.85682811134819,
+            "originnode_drive": 41986002,
+            "originnode_walk": 4987050654,
+            "originzone": -1,
+            "destination": [
+                50.83416227968233,
+                5.663513302564758
+            ],
+            "destinationx": 5.663513302564758,
+            "destinationy": 50.83416227968233,
+            "destinationnode_drive": 41955025,
+            "destinationnode_walk": 954709419,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 658,
+            "drivingDistance": 3595.7732218393558,
+            "pickup_to": 25560,
+            "dropoff_from": 26218,
+            "dropoff_to": 26818,
+            "seed_location": 6684,
+            "reqid": 5
+        },
+        "6": {
+            "time_stamp": 25200,
+            "origin": [
+                50.85872605849329,
+                5.697227378781858
+            ],
+            "originx": 5.697227378781858,
+            "originy": 50.85872605849329,
+            "originnode_drive": 955038957,
+            "originnode_walk": 12450106254,
+            "originzone": -1,
+            "destination": [
+                50.8415138993625,
+                5.646413326220192
+            ],
+            "destinationx": 5.646413326220192,
+            "destinationy": 50.8415138993625,
+            "destinationnode_drive": 41963342,
+            "destinationnode_walk": 41963342,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1004,
+            "drivingDistance": 5613.107825976236,
+            "pickup_to": 25560,
+            "dropoff_from": 26564,
+            "dropoff_to": 27164,
+            "seed_location": 7795,
+            "reqid": 6
+        },
+        "7": {
+            "time_stamp": 25200,
+            "origin": [
+                50.835642125189274,
+                5.742029392303615
+            ],
+            "originx": 5.742029392303615,
+            "originy": 50.835642125189274,
+            "originnode_drive": 41956851,
+            "originnode_walk": 570132197,
+            "originzone": -1,
+            "destination": [
+                50.878133167662945,
+                5.685618922656462
+            ],
+            "destinationx": 5.685618922656462,
+            "destinationy": 50.878133167662945,
+            "destinationnode_drive": 42019353,
+            "destinationnode_walk": 42019353,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1454,
+            "drivingDistance": 7847.094488150205,
+            "pickup_to": 25560,
+            "dropoff_from": 27014,
+            "dropoff_to": 27614,
+            "seed_location": 8906,
+            "reqid": 7
+        },
+        "8": {
+            "time_stamp": 25200,
+            "origin": [
+                50.88933005244156,
+                5.707752739418122
+            ],
+            "originx": 5.707752739418122,
+            "originy": 50.88933005244156,
+            "originnode_drive": 42032950,
+            "originnode_walk": 2127704758,
+            "originzone": -1,
+            "destination": [
+                50.847500023688845,
+                5.671051110591548
+            ],
+            "destinationx": 5.671051110591548,
+            "destinationy": 50.847500023688845,
+            "destinationnode_drive": 41970345,
+            "destinationnode_walk": 12141857158,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1567,
+            "drivingDistance": 8544.494767121636,
+            "pickup_to": 25560,
+            "dropoff_from": 27127,
+            "dropoff_to": 27727,
+            "seed_location": 10017,
+            "reqid": 8
+        },
+        "9": {
+            "time_stamp": 25200,
+            "origin": [
+                50.894147406502924,
+                5.693041640446522
+            ],
+            "originx": 5.693041640446522,
+            "originy": 50.894147406502924,
+            "originnode_drive": 42043334,
+            "originnode_walk": 6418429437,
+            "originzone": -1,
+            "destination": [
+                50.885264763810234,
+                5.705488141471694
+            ],
+            "destinationx": 5.705488141471694,
+            "destinationy": 50.885264763810234,
+            "destinationnode_drive": 826568314,
+            "destinationnode_walk": 826568314,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 541,
+            "drivingDistance": 2979.8980681299595,
+            "pickup_to": 25560,
+            "dropoff_from": 26101,
+            "dropoff_to": 26701,
+            "seed_location": 11128,
+            "reqid": 9
+        },
+        "10": {
+            "time_stamp": 25200,
+            "origin": [
+                50.86948180040966,
+                5.7309869269329
+            ],
+            "originx": 5.7309869269329,
+            "originy": 50.86948180040966,
+            "originnode_drive": 42003407,
+            "originnode_walk": 42003407,
+            "originzone": -1,
+            "destination": [
+                50.876912698225205,
+                5.69439158394701
+            ],
+            "destinationx": 5.69439158394701,
+            "destinationy": 50.876912698225205,
+            "destinationnode_drive": 42019189,
+            "destinationnode_walk": 42019189,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1038,
+            "drivingDistance": 5749.447619488498,
+            "pickup_to": 25560,
+            "dropoff_from": 26598,
+            "dropoff_to": 27198,
+            "seed_location": 12239,
+            "reqid": 10
+        },
+        "11": {
+            "time_stamp": 25200,
+            "origin": [
+                50.82809703960044,
+                5.726664276839795
+            ],
+            "originx": 5.726664276839795,
+            "originy": 50.82809703960044,
+            "originnode_drive": 41948123,
+            "originnode_walk": 41948123,
+            "originzone": -1,
+            "destination": [
+                50.83869908777269,
+                5.724741477176191
+            ],
+            "destinationx": 5.724741477176191,
+            "destinationy": 50.83869908777269,
+            "destinationnode_drive": 41958896,
+            "destinationnode_walk": 41958896,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 318,
+            "drivingDistance": 1745.5340749473771,
+            "pickup_to": 25560,
+            "dropoff_from": 25878,
+            "dropoff_to": 26478,
+            "seed_location": 13350,
+            "reqid": 11
+        },
+        "12": {
+            "time_stamp": 25200,
+            "origin": [
+                50.833964433442596,
+                5.691142696540325
+            ],
+            "originx": 5.691142696540325,
+            "originy": 50.833964433442596,
+            "originnode_drive": 41954676,
+            "originnode_walk": 6797535783,
+            "originzone": -1,
+            "destination": [
+                50.898287896427604,
+                5.701333336813618
+            ],
+            "destinationx": 5.701333336813618,
+            "destinationy": 50.898287896427604,
+            "destinationnode_drive": 42045775,
+            "destinationnode_walk": 6418429282,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1740,
+            "drivingDistance": 9512.10458369788,
+            "pickup_to": 25560,
+            "dropoff_from": 27300,
+            "dropoff_to": 27900,
+            "seed_location": 14461,
+            "reqid": 12
+        },
+        "13": {
+            "time_stamp": 25200,
+            "origin": [
+                50.84029231380704,
+                5.645737408306534
+            ],
+            "originx": 5.645737408306534,
+            "originy": 50.84029231380704,
+            "originnode_drive": 41961322,
+            "originnode_walk": 41961322,
+            "originzone": -1,
+            "destination": [
+                50.831109873250554,
+                5.657129541383289
+            ],
+            "destinationx": 5.657129541383289,
+            "destinationy": 50.831109873250554,
+            "destinationnode_drive": 41951157,
+            "destinationnode_walk": 41951157,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 310,
+            "drivingDistance": 1652.793128224326,
+            "pickup_to": 25560,
+            "dropoff_from": 25870,
+            "dropoff_to": 26470,
+            "seed_location": 15572,
+            "reqid": 13
+        },
+        "14": {
+            "time_stamp": 25200,
+            "origin": [
+                50.902841283418944,
+                5.707713903753507
+            ],
+            "originx": 5.707713903753507,
+            "originy": 50.902841283418944,
+            "originnode_drive": 6222594822,
+            "originnode_walk": 6418458525,
+            "originzone": -1,
+            "destination": [
+                50.83651951217075,
+                5.6870415350017876
+            ],
+            "destinationx": 5.6870415350017876,
+            "destinationy": 50.83651951217075,
+            "destinationnode_drive": 41956967,
+            "destinationnode_walk": 41956967,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1952,
+            "drivingDistance": 10625.518419436492,
+            "pickup_to": 25560,
+            "dropoff_from": 27512,
+            "dropoff_to": 28112,
+            "seed_location": 16683,
+            "reqid": 14
+        },
+        "15": {
+            "time_stamp": 25200,
+            "origin": [
+                50.829490937781564,
+                5.701368982546675
+            ],
+            "originx": 5.701368982546675,
+            "originy": 50.829490937781564,
+            "originnode_drive": 41950100,
+            "originnode_walk": 11630380558,
+            "originzone": -1,
+            "destination": [
+                50.90202471819213,
+                5.705491299227222
+            ],
+            "destinationx": 5.705491299227222,
+            "destinationy": 50.90202471819213,
+            "destinationnode_drive": 6222594822,
+            "destinationnode_walk": 6418458525,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 1943,
+            "drivingDistance": 10597.787100679514,
+            "pickup_to": 25560,
+            "dropoff_from": 27503,
+            "dropoff_to": 28103,
+            "seed_location": 17794,
+            "reqid": 15
+        },
+        "16": {
+            "time_stamp": 25200,
+            "origin": [
+                50.89274537126451,
+                5.69371810487462
+            ],
+            "originx": 5.69371810487462,
+            "originy": 50.89274537126451,
+            "originnode_drive": 42043334,
+            "originnode_walk": 6418429437,
+            "originzone": -1,
+            "destination": [
+                50.84097707935285,
+                5.655996178972146
+            ],
+            "destinationx": 5.655996178972146,
+            "destinationy": 50.84097707935285,
+            "destinationnode_drive": 41961596,
+            "destinationnode_walk": 8839131363,
+            "destinationzone": -1,
+            "pickup_from": 25200,
+            "drivingDuration": 2102,
+            "drivingDistance": 11467.660824280209,
+            "pickup_to": 25560,
+            "dropoff_from": 27662,
+            "dropoff_to": 28262,
+            "seed_location": 18905,
+            "reqid": 16
+        }
+    }
+}

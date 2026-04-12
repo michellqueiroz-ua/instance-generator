@@ -1,0 +1,37 @@
+2026-02-01 21:16:00 - INFO - 
+============================================================
+2026-02-01 21:16:00 - INFO - PROCESSING CONFIGURATION: maastricht_example.json
+2026-02-01 21:16:00 - INFO - ============================================================
+2026-02-01 21:16:00 - INFO - 
+============================================================
+2026-02-01 21:16:00 - INFO - GENERATING NETWORK: Maastricht, Netherlands
+2026-02-01 21:16:00 - INFO - ============================================================
+2026-02-01 21:16:25 - INFO - 
+Network Graphs
+2026-02-01 21:16:25 - INFO - ----------------------------------------
+2026-02-01 21:16:25 - INFO - Walk network: 12176 nodes
+2026-02-01 21:16:25 - INFO - Drive network: 3838 nodes
+2026-02-01 21:16:26 - INFO - After SCC: Walk=11884 nodes, Drive=3815 nodes
+2026-02-01 21:16:26 - INFO - 
+Bus Stations
+2026-02-01 21:16:26 - INFO - ----------------------------------------
+2026-02-01 21:26:19 - INFO - ✓ Retrieved 237 bus stations
+2026-02-01 21:26:19 - INFO - 
+Zones and Schools
+2026-02-01 21:26:19 - INFO - ----------------------------------------
+2026-02-01 21:26:35 - INFO - ✓ Created 68 zones
+2026-02-01 21:28:22 - INFO - ✓ Retrieved 40 schools
+2026-02-01 21:28:53 - INFO - 
+Computing Walk Distance Matrix
+2026-02-01 21:28:53 - INFO - ----------------------------------------
+2026-02-01 21:29:41 - INFO - 
+Computing Drive Travel Time Matrix
+2026-02-01 21:29:41 - INFO - ----------------------------------------
+2026-02-01 21:29:41 - INFO - This uses actual road speeds from the network
+2026-02-01 21:29:41 - INFO -   → Processing chunk 1/39
+2026-02-01 21:30:23 - INFO -   → Processing chunk 10/39
+2026-02-01 21:31:10 - INFO -   → Processing chunk 20/39
+2026-02-01 21:31:53 - INFO -   → Processing chunk 30/39
+2026-02-01 21:32:46 - INFO - 
+Computing Drive Distance Matrix
+2026-02-01 21:32:46 - INFO - ----------------------------------------

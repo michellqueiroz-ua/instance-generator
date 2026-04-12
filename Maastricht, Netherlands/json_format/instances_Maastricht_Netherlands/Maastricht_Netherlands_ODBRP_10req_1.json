@@ -1,0 +1,469 @@
+{
+    "num_data:": 10,
+    "requests": {
+        "0": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.853228236087375,
+                5.6927730554620695
+            ],
+            "originx": 5.6927730554620695,
+            "originy": 50.853228236087375,
+            "originnode_drive": 567111856,
+            "originnode_walk": 41979514,
+            "originzone": -1,
+            "destination": [
+                50.835708343710735,
+                5.685894431264211
+            ],
+            "destinationx": 5.685894431264211,
+            "destinationy": 50.835708343710735,
+            "destinationnode_drive": 2503257628,
+            "destinationnode_walk": 2503257533,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 618,
+            "direct_distance": 3441.214971571087,
+            "stops_orgn": [
+                3,
+                27,
+                3
+            ],
+            "stops_orgn_walking_distance": [
+                170,
+                127,
+                170
+            ],
+            "latest_arrival": 26418,
+            "stops_dest": [
+                236
+            ],
+            "stops_dest_walking_distance": [
+                66
+            ],
+            "seed_location": 1130,
+            "reqid": 0
+        },
+        "1": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.84607035221866,
+                5.679568708981464
+            ],
+            "originx": 5.679568708981464,
+            "originy": 50.84607035221866,
+            "originnode_drive": 41970209,
+            "originnode_walk": 5522554994,
+            "originzone": -1,
+            "destination": [
+                50.85159502637971,
+                5.688433840174095
+            ],
+            "destinationx": 5.688433840174095,
+            "destinationy": 50.85159502637971,
+            "destinationnode_drive": 41976528,
+            "destinationnode_walk": 41976528,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 318,
+            "direct_distance": 1686.526634943932,
+            "stops_orgn": [
+                22
+            ],
+            "stops_orgn_walking_distance": [
+                155
+            ],
+            "latest_arrival": 26118,
+            "stops_dest": [
+                3,
+                26,
+                177,
+                51
+            ],
+            "stops_dest_walking_distance": [
+                169,
+                152,
+                188,
+                183
+            ],
+            "seed_location": 2233,
+            "reqid": 1
+        },
+        "2": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.85980997375019,
+                5.671689446438699
+            ],
+            "originx": 5.671689446438699,
+            "originy": 50.85980997375019,
+            "originnode_drive": 295265829,
+            "originnode_walk": 4894062349,
+            "originzone": -1,
+            "destination": [
+                50.85476573727562,
+                5.710268492994581
+            ],
+            "destinationx": 5.710268492994581,
+            "destinationy": 50.85476573727562,
+            "destinationnode_drive": 4923833064,
+            "destinationnode_walk": 10314662992,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 693,
+            "direct_distance": 3777.6577684815184,
+            "stops_orgn": [
+                184
+            ],
+            "stops_orgn_walking_distance": [
+                168
+            ],
+            "latest_arrival": 26493,
+            "stops_dest": [
+                204,
+                207
+            ],
+            "stops_dest_walking_distance": [
+                146,
+                106
+            ],
+            "seed_location": 3360,
+            "reqid": 2
+        },
+        "3": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.84936338242459,
+                5.715482475919727
+            ],
+            "originx": 5.715482475919727,
+            "originy": 50.84936338242459,
+            "originnode_drive": 41972758,
+            "originnode_walk": 441247240,
+            "originzone": -1,
+            "destination": [
+                50.837208337944006,
+                5.648953471307526
+            ],
+            "destinationx": 5.648953471307526,
+            "destinationy": 50.837208337944006,
+            "destinationnode_drive": 41957999,
+            "destinationnode_walk": 41957999,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 1154,
+            "direct_distance": 6226.243238962388,
+            "stops_orgn": [
+                80,
+                167
+            ],
+            "stops_orgn_walking_distance": [
+                195,
+                140
+            ],
+            "latest_arrival": 26954,
+            "stops_dest": [
+                12
+            ],
+            "stops_dest_walking_distance": [
+                167
+            ],
+            "seed_location": 4467,
+            "reqid": 3
+        },
+        "4": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.853863056905325,
+                5.66639271583065
+            ],
+            "originx": 5.66639271583065,
+            "originy": 50.853863056905325,
+            "originnode_drive": 41981098,
+            "originnode_walk": 41981098,
+            "originzone": -1,
+            "destination": [
+                50.85410430611316,
+                5.669433520632935
+            ],
+            "destinationx": 5.669433520632935,
+            "destinationy": 50.85410430611316,
+            "destinationnode_drive": 41981172,
+            "destinationnode_walk": 41981283,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 125,
+            "direct_distance": 671.2389419827514,
+            "stops_orgn": [
+                162
+            ],
+            "stops_orgn_walking_distance": [
+                182
+            ],
+            "latest_arrival": 25925,
+            "stops_dest": [
+                68
+            ],
+            "stops_dest_walking_distance": [
+                141
+            ],
+            "seed_location": 5578,
+            "reqid": 4
+        },
+        "5": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.851947044863195,
+                5.654761963394289
+            ],
+            "originx": 5.654761963394289,
+            "originy": 50.851947044863195,
+            "originnode_drive": 41977545,
+            "originnode_walk": 41977545,
+            "originzone": -1,
+            "destination": [
+                50.877563174274734,
+                5.682981051414789
+            ],
+            "destinationx": 5.682981051414789,
+            "destinationy": 50.877563174274734,
+            "destinationnode_drive": 42019353,
+            "destinationnode_walk": 42019353,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 1393,
+            "direct_distance": 7613.602107824568,
+            "stops_orgn": [
+                110
+            ],
+            "stops_orgn_walking_distance": [
+                168
+            ],
+            "latest_arrival": 27193,
+            "stops_dest": [
+                97
+            ],
+            "stops_dest_walking_distance": [
+                166
+            ],
+            "seed_location": 6691,
+            "reqid": 5
+        },
+        "6": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.852010098886595,
+                5.717603505917553
+            ],
+            "originx": 5.717603505917553,
+            "originy": 50.852010098886595,
+            "originnode_drive": 41977246,
+            "originnode_walk": 41977246,
+            "originzone": -1,
+            "destination": [
+                50.852480828503005,
+                5.671863185313547
+            ],
+            "destinationx": 5.671863185313547,
+            "destinationy": 50.852480828503005,
+            "destinationnode_drive": 41978578,
+            "destinationnode_walk": 41978578,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 906,
+            "direct_distance": 4901.425542953751,
+            "stops_orgn": [
+                62,
+                63
+            ],
+            "stops_orgn_walking_distance": [
+                47,
+                39
+            ],
+            "latest_arrival": 26706,
+            "stops_dest": [
+                16,
+                164,
+                164
+            ],
+            "stops_dest_walking_distance": [
+                199,
+                124,
+                124
+            ],
+            "seed_location": 7810,
+            "reqid": 6
+        },
+        "7": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.87435735891941,
+                5.687052604841817
+            ],
+            "originx": 5.687052604841817,
+            "originy": 50.87435735891941,
+            "originnode_drive": 42014257,
+            "originnode_walk": 6217064629,
+            "originzone": -1,
+            "destination": [
+                50.86313908722324,
+                5.717796915398663
+            ],
+            "destinationx": 5.717796915398663,
+            "destinationy": 50.86313908722324,
+            "destinationnode_drive": 41994778,
+            "destinationnode_walk": 41994778,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 633,
+            "direct_distance": 3449.5261629396696,
+            "stops_orgn": [
+                135
+            ],
+            "stops_orgn_walking_distance": [
+                168
+            ],
+            "latest_arrival": 26433,
+            "stops_dest": [
+                126
+            ],
+            "stops_dest_walking_distance": [
+                0
+            ],
+            "seed_location": 8915,
+            "reqid": 7
+        },
+        "8": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.85391196323405,
+                5.686166450305346
+            ],
+            "originx": 5.686166450305346,
+            "originy": 50.85391196323405,
+            "originnode_drive": 12196605240,
+            "originnode_walk": 8838926137,
+            "originzone": -1,
+            "destination": [
+                50.846458839075524,
+                5.6851424373017565
+            ],
+            "destinationx": 5.6851424373017565,
+            "destinationy": 50.846458839075524,
+            "destinationnode_drive": 41969963,
+            "destinationnode_walk": 41969963,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 249,
+            "direct_distance": 1328.1638346728762,
+            "stops_orgn": [
+                35
+            ],
+            "stops_orgn_walking_distance": [
+                139
+            ],
+            "latest_arrival": 26049,
+            "stops_dest": [
+                24
+            ],
+            "stops_dest_walking_distance": [
+                112
+            ],
+            "seed_location": 10044,
+            "reqid": 8
+        },
+        "9": {
+            "time_stamp": 25200,
+            "reaction_time": 120.0,
+            "origin": [
+                50.85059776914413,
+                5.700746079735515
+            ],
+            "originx": 5.700746079735515,
+            "originy": 50.85059776914413,
+            "originnode_drive": 1282646917,
+            "originnode_walk": 9783704665,
+            "originzone": -1,
+            "destination": [
+                50.83625040260204,
+                5.725681412216764
+            ],
+            "destinationx": 5.725681412216764,
+            "destinationy": 50.83625040260204,
+            "destinationnode_drive": 41957054,
+            "destinationnode_walk": 41955593,
+            "destinationzone": -1,
+            "max_walking": 200,
+            "walk_speed": 1.3888888888888888,
+            "earliest_departure": 25200,
+            "latest_departure": 25320,
+            "direct_travel_time": 559,
+            "direct_distance": 3006.040566092373,
+            "stops_orgn": [
+                147,
+                119,
+                141,
+                119,
+                141
+            ],
+            "stops_orgn_walking_distance": [
+                183,
+                134,
+                124,
+                134,
+                124
+            ],
+            "latest_arrival": 26359,
+            "stops_dest": [
+                0,
+                58,
+                161,
+                165
+            ],
+            "stops_dest_walking_distance": [
+                170,
+                159,
+                180,
+                178
+            ],
+            "seed_location": 11135,
+            "reqid": 9
+        }
+    }
+}

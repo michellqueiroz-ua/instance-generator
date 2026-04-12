@@ -1,0 +1,41 @@
+2026-02-01 23:23:27 - INFO - 
+============================================================
+2026-02-01 23:23:27 - INFO - PROCESSING CONFIGURATION: maastricht_example.json
+2026-02-01 23:23:27 - INFO - ============================================================
+2026-02-01 23:23:27 - INFO - 
+============================================================
+2026-02-01 23:23:27 - INFO - GENERATING NETWORK: Maastricht, Netherlands
+2026-02-01 23:23:27 - INFO - ============================================================
+2026-02-01 23:23:41 - INFO - 
+Network Graphs
+2026-02-01 23:23:41 - INFO - ----------------------------------------
+2026-02-01 23:23:41 - INFO - Walk network: 12176 nodes
+2026-02-01 23:23:41 - INFO - Drive network: 3838 nodes
+2026-02-01 23:23:42 - INFO - After SCC: Walk=11884 nodes, Drive=3815 nodes
+2026-02-01 23:23:42 - INFO - 
+Bus Stations
+2026-02-01 23:23:42 - INFO - ----------------------------------------
+2026-02-01 23:23:42 - INFO - ✓ Retrieved 237 bus stations
+2026-02-01 23:23:42 - INFO - 
+Zones and Schools
+2026-02-01 23:23:42 - INFO - ----------------------------------------
+2026-02-01 23:23:50 - INFO - ✓ Created 68 zones
+2026-02-01 23:23:50 - INFO - ✓ Retrieved 40 schools
+2026-02-01 23:24:16 - INFO - Loading existing walk distance matrix...
+2026-02-01 23:24:17 - INFO - Loading existing drive travel time matrix...
+2026-02-01 23:24:20 - INFO - Loading existing drive distance matrix...
+2026-02-02 01:03:21 - INFO - 
+POI Rankings
+2026-02-02 01:03:21 - INFO - ----------------------------------------
+2026-02-02 01:03:21 - INFO - Zone ranks calculated: 311 zones
+2026-02-02 01:03:21 - INFO - ✓ Network generation complete!
+2026-02-02 01:03:25 - INFO - 
+============================================================
+2026-02-02 01:03:25 - INFO - GENERATING PASSENGER REQUESTS
+2026-02-02 01:03:25 - INFO - ============================================================
+2026-02-02 01:03:26 - INFO - Dynamism level: 0.00%
+2026-02-02 01:03:26 - INFO - Generating 10 requests...
+2026-02-02 01:03:26 - INFO -   → Generated 1/10 requests
+2026-02-02 01:03:30 - INFO -   → Generated 10/10 requests
+2026-02-02 01:03:31 - INFO -   → Computing travel time matrix...
+2026-02-02 01:03:31 - INFO - ✓ Travel time matrix: 237x237

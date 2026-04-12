@@ -1,0 +1,14 @@
+2026-02-04 16:18:58 - INFO - 
+============================================================
+2026-02-04 16:18:58 - INFO - PROCESSING CONFIGURATION: Maastricht_Netherlands_DARP_17req.json
+2026-02-04 16:18:58 - INFO - ============================================================
+2026-02-04 16:19:00 - INFO - ✓ Loaded existing network from cache
+2026-02-04 16:19:00 - INFO - Vehicle speed: 5.56 m/s
+2026-02-04 16:19:00 - INFO - 
+============================================================
+2026-02-04 16:19:00 - INFO - GENERATING PASSENGER REQUESTS
+2026-02-04 16:19:00 - INFO - ============================================================
+2026-02-04 16:19:01 - INFO - Dynamism level: 0.00%
+2026-02-04 16:19:01 - INFO - Generating 17 requests...
+2026-02-04 16:19:01 - INFO -   → Generated 1/17 requests
+2026-02-04 16:19:01 - INFO -   → Generated 10/17 requests
