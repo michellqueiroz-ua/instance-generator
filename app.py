@@ -736,131 +736,85 @@ elif page == "View Existing Instances":
             
             # ==================== DOWNLOADS TAB ====================
             with tab_download:
-                st.markdown("### 📥 Download Files")
-                st.info("💡 **Tip:** Download your files before closing the browser. Generated files are not stored permanently on the server.")
+                st.warning("⚠️ **Download your files before closing the browser.** Generated files are not stored permanently on the server.")
                 
-                st.markdown("---")
+                # Two clear columns: Instances vs Network
+                col_inst, col_net = st.columns(2)
                 
-                # --- Section 1: Download Everything ---
-                st.markdown("#### 💾 Download Everything")
-                st.caption(f"All files for **{selected_instance}** ({selected_instance_info['total_size_mb']:.0f} MB)")
-                try:
-                    zip_all = create_zip_download(selected_instance_path, f"{selected_instance}.zip")
-                    st.download_button(
-                        label=f"⬇️ Download All Files (ZIP — {selected_instance_info['total_size_mb']:.0f} MB)",
-                        data=zip_all,
-                        file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_ALL.zip",
-                        mime="application/zip",
-                        use_container_width=True
-                    )
-                except Exception as e:
-                    st.error(f"Could not prepare download: {str(e)}")
-                
-                st.markdown("---")
-                
-                # --- Section 2: Download Instance Files (csv_format) ---
-                st.markdown("#### 📊 Instance Files (csv_format)")
-                st.caption("Generated passenger request CSV files — use these as input for solvers.")
-                
-                if selected_instance_info['has_csv_format'] and os.path.exists(csv_format_folder):
-                    csv_files = sorted([f for f in os.listdir(csv_format_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(csv_format_folder, f))])
+                # --- Column 1: Instance CSV files (for solvers) ---
+                with col_inst:
+                    st.markdown("### 📊 Instances (CSV)")
+                    st.markdown("Passenger request files for solvers.")
                     
-                    if csv_files:
-                        # Show table of files
-                        file_info = []
-                        for f in csv_files:
-                            fpath = os.path.join(csv_format_folder, f)
-                            size_kb = os.path.getsize(fpath) / 1024
+                    if selected_instance_info['has_csv_format'] and os.path.exists(csv_format_folder):
+                        csv_files = sorted([f for f in os.listdir(csv_format_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(csv_format_folder, f))])
+                        
+                        if csv_files:
+                            for f in csv_files:
+                                fpath = os.path.join(csv_format_folder, f)
+                                size_kb = os.path.getsize(fpath) / 1024
+                                st.text(f"📄 {f} ({size_kb:.1f} KB)")
+                            
+                            st.markdown("")
                             try:
-                                row_count = sum(1 for _ in open(fpath)) - 1
-                            except:
-                                row_count = "?"
-                            file_info.append({"File": f, "Size": f"{size_kb:.1f} KB", "Rows": row_count})
+                                zip_csv = create_zip_subfolder(selected_instance_path, "csv_format", "csv_format.zip")
+                                if zip_csv:
+                                    st.download_button(
+                                        label=f"⬇️ Download Instances ({len(csv_files)} files)",
+                                        data=zip_csv,
+                                        file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_instances.zip",
+                                        mime="application/zip",
+                                        use_container_width=True,
+                                        key="dl_csv_format"
+                                    )
+                            except Exception as e:
+                                st.error(f"Could not prepare download: {str(e)}")
+                        else:
+                            st.info("No instance files yet. Generate requests first.")
+                    else:
+                        st.info("No instance files yet. Generate requests first.")
+                
+                # --- Column 2: Network data ---
+                with col_net:
+                    st.markdown("### 🌐 Network Data")
+                    st.markdown("Road network, bus stops, distance matrices.")
+                    
+                    csv_folder = os.path.join(selected_instance_path, "csv")
+                    if selected_instance_info['has_network'] and os.path.exists(csv_folder):
+                        for filename in sorted(os.listdir(csv_folder)):
+                            if filename.endswith('.csv') and os.path.isfile(os.path.join(csv_folder, filename)):
+                                fpath = os.path.join(csv_folder, filename)
+                                size_mb = os.path.getsize(fpath) / (1024 * 1024)
+                                st.text(f"📄 {filename} ({size_mb:.1f} MB)")
                         
-                        st.dataframe(pd.DataFrame(file_info), use_container_width=True, hide_index=True)
-                        
-                        # Download all csv_format as ZIP
+                        st.markdown("")
                         try:
-                            zip_csv = create_zip_subfolder(selected_instance_path, "csv_format", "csv_format.zip")
-                            if zip_csv:
-                                st.download_button(
-                                    label="⬇️ Download All Instance Files (ZIP)",
-                                    data=zip_csv,
-                                    file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_instances.zip",
-                                    mime="application/zip",
-                                    use_container_width=True,
-                                    key="dl_csv_format"
-                                )
+                            zip_buffer = BytesIO()
+                            base = Path(selected_instance_path)
+                            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+                                for subfolder in ["csv", "pickle", "graphml_format"]:
+                                    sf_path = base / subfolder
+                                    if sf_path.exists():
+                                        for fp in sf_path.rglob('*'):
+                                            if fp.is_file():
+                                                arcname = fp.relative_to(base)
+                                                zf.write(fp, arcname)
+                            zip_buffer.seek(0)
+                            net_zip = zip_buffer.getvalue()
+                            net_size_mb = len(net_zip) / (1024 * 1024)
+                            
+                            st.download_button(
+                                label=f"⬇️ Download Network ({net_size_mb:.0f} MB)",
+                                data=net_zip,
+                                file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_network.zip",
+                                mime="application/zip",
+                                use_container_width=True,
+                                key="dl_network"
+                            )
                         except Exception as e:
                             st.error(f"Could not prepare download: {str(e)}")
                     else:
-                        st.warning("No instance CSV files found. Generate requests first using the 'Create New Instance' page.")
-                else:
-                    st.warning("No instance files (csv_format) found for this location. Generate requests first.")
-                
-                st.markdown("---")
-                
-                # --- Section 3: Download Network Data ---
-                st.markdown("#### 🌐 Network Data")
-                st.caption("Road network, bus stations, POIs, distance matrices — needed to generate new instances for this location.")
-                
-                csv_folder = os.path.join(selected_instance_path, "csv")
-                if selected_instance_info['has_network'] and os.path.exists(csv_folder):
-                    # Show what's in the network
-                    network_items = []
-                    for filename in sorted(os.listdir(csv_folder)):
-                        if filename.endswith('.csv') and os.path.isfile(os.path.join(csv_folder, filename)):
-                            fpath = os.path.join(csv_folder, filename)
-                            size_mb = os.path.getsize(fpath) / (1024 * 1024)
-                            label = filename
-                            if 'hospital' in filename.lower():
-                                label = "🏥 " + filename
-                            elif 'school' in filename.lower():
-                                label = "🏫 " + filename
-                            elif 'station' in filename.lower() or 'stops' in filename.lower():
-                                label = "🚏 " + filename
-                            elif 'zone' in filename.lower():
-                                label = "📍 " + filename
-                            elif 'poi' in filename.lower():
-                                label = "📌 " + filename
-                            elif 'tt.' in filename.lower() or 'travel_time' in filename.lower():
-                                label = "⏱️ " + filename
-                            elif 'dist.' in filename.lower() or 'distance' in filename.lower():
-                                label = "📏 " + filename
-                            network_items.append({"File": label, "Size": f"{size_mb:.1f} MB"})
-                    
-                    if network_items:
-                        st.dataframe(pd.DataFrame(network_items), use_container_width=True, hide_index=True)
-                    
-                    # Download network data (csv + pickle + graphml)
-                    try:
-                        # Create a zip with network-relevant subfolders
-                        zip_buffer = BytesIO()
-                        base = Path(selected_instance_path)
-                        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-                            for subfolder in ["csv", "pickle", "graphml_format"]:
-                                sf_path = base / subfolder
-                                if sf_path.exists():
-                                    for fp in sf_path.rglob('*'):
-                                        if fp.is_file():
-                                            arcname = fp.relative_to(base)
-                                            zf.write(fp, arcname)
-                        zip_buffer.seek(0)
-                        net_zip = zip_buffer.getvalue()
-                        net_size_mb = len(net_zip) / (1024 * 1024)
-                        
-                        st.download_button(
-                            label=f"⬇️ Download Network Data (ZIP — {net_size_mb:.0f} MB)",
-                            data=net_zip,
-                            file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_network.zip",
-                            mime="application/zip",
-                            use_container_width=True,
-                            key="dl_network"
-                        )
-                    except Exception as e:
-                        st.error(f"Could not prepare network download: {str(e)}")
-                else:
-                    st.warning("No network data found for this location.")
+                        st.info("No network data available.")
             
             # ==================== DATA PREVIEW TAB ====================
             with tab_preview:
