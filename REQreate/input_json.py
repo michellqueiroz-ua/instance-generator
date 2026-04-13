@@ -1126,11 +1126,11 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     network_folder = os.path.join(save_dir_images, 'network')
 
     if not os.path.isdir(network_folder):
-        os.mkdir(network_folder)
+        os.makedirs(network_folder, exist_ok=True)
     plt.savefig(network_folder+'/network_drive')
 
     if not os.path.isdir(inst.save_dir+'/json_format/'+base_save_folder_name):
-        os.mkdir(inst.save_dir+'/json_format/'+base_save_folder_name)
+        os.makedirs(inst.save_dir+'/json_format/'+base_save_folder_name, exist_ok=True)
     
     gc.collect()
     inst.generate_requests(base_save_folder_name, inst_directory)
@@ -1139,11 +1139,9 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         
     # convert instances from json to csv format
     save_dir_csv = os.path.join(inst.save_dir, 'csv_format')
-    if not os.path.isdir(save_dir_csv):
-        os.mkdir(save_dir_csv)
+    os.makedirs(save_dir_csv, exist_ok=True)
 
-    if not os.path.isdir(save_dir_csv+'/'+base_save_folder_name):
-        os.mkdir(save_dir_csv+'/'+base_save_folder_name)
+    os.makedirs(save_dir_csv+'/'+base_save_folder_name, exist_ok=True)
 
     replicate_num = 1
     for instance in os.listdir(os.path.join(inst.save_dir, 'json_format', base_save_folder_name)):
