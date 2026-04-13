@@ -65,9 +65,7 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
     fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
     requests_folder = os.path.join(save_dir_images, 'requests')
-
-    if not os.path.isdir(requests_folder):
-        os.mkdir(requests_folder)
+    os.makedirs(requests_folder, exist_ok=True)
 
     #plot origin locations
     for origin in origin_points:
@@ -1248,6 +1246,7 @@ def _generate_requests(
             if replicate_num == 0:
                 
                 output_file_ttm_csv = os.path.join(inst.save_dir_ttm, 'travel_time_matrix_' + final_filename + '_' + str(replicate_num) + '.csv')
+                os.makedirs(inst.save_dir_ttm, exist_ok=True)
 
                 if not os.path.exists(output_file_ttm_csv):
                     
