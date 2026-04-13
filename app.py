@@ -5,6 +5,7 @@ import subprocess
 import pandas as pd
 from pathlib import Path
 import time
+import uuid
 from streamlit_folium import st_folium
 from map_utils import create_request_map, create_heatmap
 import ast
@@ -18,6 +19,37 @@ try:
     SOLVER_AVAILABLE = True
 except ImportError:
     SOLVER_AVAILABLE = False
+
+# ==================== SESSION & USER DATA MANAGEMENT ====================
+USER_DATA_DIR = "_user_data"
+
+# Assign a persistent session ID per browser tab
+if 'session_id' not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+
+def get_session_dir():
+    """Return the session-specific data directory for the current user."""
+    return os.path.join(USER_DATA_DIR, st.session_state.session_id)
+
+def cleanup_old_sessions(max_age_days=3):
+    """Delete user session folders older than max_age_days."""
+    if not os.path.exists(USER_DATA_DIR):
+        return
+    cutoff = time.time() - (max_age_days * 86400)
+    for entry in os.listdir(USER_DATA_DIR):
+        session_path = os.path.join(USER_DATA_DIR, entry)
+        if os.path.isdir(session_path):
+            try:
+                mtime = os.path.getmtime(session_path)
+                if mtime < cutoff:
+                    shutil.rmtree(session_path, ignore_errors=True)
+            except OSError:
+                pass
+
+# Run cleanup once per session
+if 'cleanup_done' not in st.session_state:
+    cleanup_old_sessions()
+    st.session_state.cleanup_done = True
 
 def prepare_requests_for_map(df):
     """
@@ -554,16 +586,54 @@ if page == "Create New Instance":
                 
                 progress_bar.progress(1.0)
                 st.success(f"✅ Instance generated successfully!")
-                st.info(f"📁 Instance saved in: {place_name_clean}/csv_format/")
+                
+                # Move generated instance files to session-specific folder
+                src_csv_fmt = os.path.join(place_name_clean, "csv_format")
+                session_csv_fmt = os.path.join(get_session_dir(), place_name_clean, "csv_format")
+                if os.path.exists(src_csv_fmt):
+                    os.makedirs(session_csv_fmt, exist_ok=True)
+                    for item in os.listdir(src_csv_fmt):
+                        src = os.path.join(src_csv_fmt, item)
+                        dst = os.path.join(session_csv_fmt, item)
+                        if os.path.isfile(src):
+                            shutil.move(src, dst)
+                        elif os.path.isdir(src):
+                            if os.path.exists(dst):
+                                for f in os.listdir(src):
+                                    shutil.move(os.path.join(src, f), os.path.join(dst, f))
+                                shutil.rmtree(src, ignore_errors=True)
+                            else:
+                                shutil.move(src, dst)
+                
+                # Also move json_format files
+                src_json_fmt = os.path.join(place_name_clean, "json_format")
+                session_json_fmt = os.path.join(get_session_dir(), place_name_clean, "json_format")
+                if os.path.exists(src_json_fmt):
+                    os.makedirs(session_json_fmt, exist_ok=True)
+                    for item in os.listdir(src_json_fmt):
+                        src = os.path.join(src_json_fmt, item)
+                        dst = os.path.join(session_json_fmt, item)
+                        if os.path.isfile(src):
+                            shutil.move(src, dst)
+                        elif os.path.isdir(src):
+                            if os.path.exists(dst):
+                                for f in os.listdir(src):
+                                    shutil.move(os.path.join(src, f), os.path.join(dst, f))
+                                shutil.rmtree(src, ignore_errors=True)
+                            else:
+                                shutil.move(src, dst)
+                
+                st.info(f"📁 Your instance files are stored in your session and will be available for 3 days.")
                 st.info(f"📄 File: {config_filename.replace('.json', '.csv')}")
                 
                 # Add download button
                 st.markdown("---")
                 st.subheader("📥 Download Instance")
                 
-                # Create ZIP of the entire location folder
+                # Create ZIP of user's session instance files
                 try:
-                    zip_data = create_zip_download(place_name_clean, f"{place_name_clean}.zip")
+                    session_location = os.path.join(get_session_dir(), place_name_clean)
+                    zip_data = create_zip_download(session_location, f"{place_name_clean}.zip")
                     st.download_button(
                         label="💾 Download Instance (ZIP)",
                         data=zip_data,
@@ -657,48 +727,80 @@ if page == "Create New Instance":
 elif page == "View Existing Instances":
     st.header("📂 Existing Instances")
     
-    # Find all instance folders (location folders with csv_format or network data)
+    # Find all locations: merge pre-loaded networks (root) with user's session data
     instance_folders = []
+    seen_names = set()
     
-    # Check all directories in root
+    # 1) Scan root-level directories for network data (pre-loaded, shared)
+    SKIP_DIRS = {"REQreate", "cache", "environment", "examples", ".git", "__pycache__", "output", ".streamlit", "solver", USER_DATA_DIR}
     for item in os.listdir("."):
-        if os.path.isdir(item) and item not in ["REQreate", "cache", "environment", "examples", ".git", "__pycache__", "output", ".streamlit", "solver"]:
-            # Check for csv_format or csv (network data) subfolder
-            csv_format_folder = os.path.join(item, "csv_format")
+        if os.path.isdir(item) and item not in SKIP_DIRS:
             csv_folder = os.path.join(item, "csv")
-            has_csv_format = os.path.exists(csv_format_folder)
             has_network = os.path.exists(csv_folder)
-            
-            if has_csv_format or has_network:
+            if has_network:
+                seen_names.add(item)
+                # Check session folder for this location's instance files
+                session_csv_fmt = os.path.join(get_session_dir(), item, "csv_format")
+                has_csv_format = os.path.exists(session_csv_fmt)
                 csv_files = []
                 if has_csv_format:
-                    csv_files = [f for f in os.listdir(csv_format_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(csv_format_folder, f))]
+                    csv_files = [f for f in os.listdir(session_csv_fmt) if f.endswith('.csv') and os.path.isfile(os.path.join(session_csv_fmt, f))]
                 has_requests = False
                 if csv_files:
                     try:
                         for f in csv_files:
-                            sample = pd.read_csv(os.path.join(csv_format_folder, f), nrows=1)
+                            sample = pd.read_csv(os.path.join(session_csv_fmt, f), nrows=1)
                             if 'origin' in sample.columns or 'origin_lat' in sample.columns:
                                 has_requests = True
                                 break
                     except:
                         pass
-                
-                # Calculate folder size
-                total_size = 0
-                for dirpath, dirnames, filenames in os.walk(item):
-                    for fn in filenames:
-                        total_size += os.path.getsize(os.path.join(dirpath, fn))
-                
                 instance_folders.append({
                     'name': item,
-                    'path': item,
+                    'network_path': item,
+                    'session_path': os.path.join(get_session_dir(), item),
                     'csv_count': len(csv_files),
                     'has_requests': has_requests,
-                    'has_network': has_network,
+                    'has_network': True,
                     'has_csv_format': has_csv_format,
-                    'total_size_mb': total_size / (1024 * 1024)
                 })
+    
+    # 2) Scan session folder for locations not already found (user generated a new location)
+    session_dir = get_session_dir()
+    if os.path.exists(session_dir):
+        for item in os.listdir(session_dir):
+            if item in seen_names:
+                continue
+            item_path = os.path.join(session_dir, item)
+            if os.path.isdir(item_path):
+                session_csv_fmt = os.path.join(item_path, "csv_format")
+                has_csv_format = os.path.exists(session_csv_fmt)
+                # Also check if the root folder has network data
+                root_csv = os.path.join(item, "csv")
+                has_network = os.path.exists(root_csv)
+                csv_files = []
+                if has_csv_format:
+                    csv_files = [f for f in os.listdir(session_csv_fmt) if f.endswith('.csv') and os.path.isfile(os.path.join(session_csv_fmt, f))]
+                has_requests = False
+                if csv_files:
+                    try:
+                        for f in csv_files:
+                            sample = pd.read_csv(os.path.join(session_csv_fmt, f), nrows=1)
+                            if 'origin' in sample.columns or 'origin_lat' in sample.columns:
+                                has_requests = True
+                                break
+                    except:
+                        pass
+                if has_csv_format or has_network:
+                    instance_folders.append({
+                        'name': item,
+                        'network_path': item,
+                        'session_path': item_path,
+                        'csv_count': len(csv_files),
+                        'has_requests': has_requests,
+                        'has_network': has_network,
+                        'has_csv_format': has_csv_format,
+                    })
     
     if not instance_folders:
         st.info("No instances found. Create your first instance using the 'Create New Instance' page!")
@@ -713,8 +815,8 @@ elif page == "View Existing Instances":
             if inst['has_network']:
                 parts.append("🌐 Network data")
             if not parts:
-                parts.append("⚠️ Empty")
-            return f"{inst['name']} — {', '.join(parts)} ({inst['total_size_mb']:.0f} MB)"
+                parts.append("⚠️ Network only")
+            return f"{inst['name']} — {', '.join(parts)}"
         
         selected_idx = st.selectbox(
             "Select Location / Network",
@@ -724,7 +826,8 @@ elif page == "View Existing Instances":
         
         selected_instance_info = instance_folders[selected_idx]
         selected_instance = selected_instance_info['name']
-        selected_instance_path = selected_instance_info['path']
+        selected_instance_path = selected_instance_info['network_path']  # root folder (network data)
+        selected_session_path = selected_instance_info['session_path']   # session folder (user instances)
         
         if selected_instance:
             st.subheader(f"📍 {selected_instance}")
@@ -732,7 +835,7 @@ elif page == "View Existing Instances":
             # Create tabs — Downloads FIRST
             tab_download, tab_preview, tab_map, tab_heatmap, tab_solve = st.tabs(["📥 Downloads", "📋 Data Preview", "🗺️ Map View", "🔥 Heatmap", "🚀 Solve"])
             
-            csv_format_folder = os.path.join(selected_instance_path, "csv_format")
+            csv_format_folder = os.path.join(selected_session_path, "csv_format")
             
             # ==================== DOWNLOADS TAB ====================
             with tab_download:
@@ -757,7 +860,7 @@ elif page == "View Existing Instances":
                             
                             st.markdown("")
                             try:
-                                zip_csv = create_zip_subfolder(selected_instance_path, "csv_format", "csv_format.zip")
+                                zip_csv = create_zip_subfolder(selected_session_path, "csv_format", "csv_format.zip")
                                 if zip_csv:
                                     st.download_button(
                                         label=f"⬇️ Download Instances ({len(csv_files)} files)",
@@ -1236,7 +1339,7 @@ elif page == "View Existing Instances":
                         solver_config.increase_rep = increase_rep
                         
                         # Output path
-                        solution_folder = os.path.join(selected_instance_path, "solutions")
+                        solution_folder = os.path.join(selected_session_path, "solutions")
                         os.makedirs(solution_folder, exist_ok=True)
                         solution_file = os.path.join(solution_folder, f"solution_{selected_file.replace('.csv', '.txt')}")
                         
