@@ -841,8 +841,8 @@ elif page == "View Existing Instances":
             with tab_download:
                 st.warning("⚠️ **Download your files before closing the browser.** Generated files are not stored permanently on the server.")
                 
-                # Two clear columns: Instances vs Network
-                col_inst, col_net = st.columns(2)
+                # Three columns: Instances | Travel Time Matrix | Network
+                col_inst, col_ttm, col_net = st.columns(3)
                 
                 # --- Column 1: Instance CSV files (for solvers) ---
                 with col_inst:
@@ -877,7 +877,41 @@ elif page == "View Existing Instances":
                     else:
                         st.info("No instance files yet. Generate requests first.")
                 
-                # --- Column 2: Network data ---
+                # --- Column 2: Travel Time Matrix ---
+                with col_ttm:
+                    st.markdown("### ⏱️ Travel Times")
+                    st.markdown("Driving times between nodes.")
+                    
+                    ttm_folder = os.path.join(selected_session_path, "travel_time_matrix")
+                    if os.path.exists(ttm_folder):
+                        ttm_files = sorted([f for f in os.listdir(ttm_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(ttm_folder, f))])
+                        
+                        if ttm_files:
+                            for f in ttm_files:
+                                fpath = os.path.join(ttm_folder, f)
+                                size_kb = os.path.getsize(fpath) / 1024
+                                st.text(f"📄 {f} ({size_kb:.1f} KB)")
+                            
+                            st.markdown("")
+                            try:
+                                zip_ttm = create_zip_subfolder(selected_session_path, "travel_time_matrix", "travel_time_matrix.zip")
+                                if zip_ttm:
+                                    st.download_button(
+                                        label=f"⬇️ Download ({len(ttm_files)} files)",
+                                        data=zip_ttm,
+                                        file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_ttm.zip",
+                                        mime="application/zip",
+                                        use_container_width=True,
+                                        key="dl_ttm"
+                                    )
+                            except Exception as e:
+                                st.error(f"Could not prepare download: {str(e)}")
+                        else:
+                            st.info("No travel time matrix yet. Generate requests first.")
+                    else:
+                        st.info("No travel time matrix yet. Generate requests first.")
+                
+                # --- Column 3: Network data ---
                 with col_net:
                     st.markdown("### 🌐 Network Data")
                     st.markdown("Road network, bus stops, distance matrices.")
