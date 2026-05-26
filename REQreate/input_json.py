@@ -613,10 +613,11 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
         inst.parameters['travel_time_matrix'] = {}
         inst.parameters['travel_time_matrix']['type'] = 'matrix'
-        inst.parameters['travel_time_matrix']['value'] = True
         
         if (isinstance(data['travel_time_matrix'], (list))): 
             inst.parameters['travel_time_matrix']['locations'] = data['travel_time_matrix']
+            # Only enable if locations list is not empty
+            inst.parameters['travel_time_matrix']['value'] = len(data['travel_time_matrix']) > 0
         else: raise TypeError('locations for travel_time_matrix must be an array')
 
     if 'attributes' in data:

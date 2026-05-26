@@ -883,8 +883,6 @@ elif page == "View Existing Instances":
                     st.markdown("Driving times between nodes.")
                     
                     ttm_folder = os.path.join(selected_session_path, "travel_time_matrix")
-                    # DEBUG
-                    st.caption(f"**Debug:** Looking in `{ttm_folder}`")
                     if os.path.exists(ttm_folder):
                         ttm_files = sorted([f for f in os.listdir(ttm_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(ttm_folder, f))])
                         
