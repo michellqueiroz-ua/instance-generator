@@ -899,6 +899,7 @@ elif page == "View Existing Instances":
                 with col_ttm:
                     st.markdown("### ⏱️ Travel Times")
                     st.markdown("Driving times between nodes.")
+                    st.caption("Travel Times UI v2")
                     
                     ttm_folder = os.path.join(selected_session_path, "travel_time_matrix")
                     ttm_files = []
@@ -943,7 +944,13 @@ elif page == "View Existing Instances":
 
                         if network_ttm_candidates:
                             st.caption("A network travel-time matrix exists. You can create a session copy for download.")
-                            if st.button("⚙️ Create Travel Time Matrix", use_container_width=True, key=f"create_ttm_{selected_instance}"):
+                        else:
+                            st.caption("No network travel-time matrix found in csv data for this location.")
+
+                        if st.button("⚙️ Create Travel Time Matrix", use_container_width=True, key=f"create_ttm_{selected_instance}"):
+                            if not network_ttm_candidates:
+                                st.error("No network travel-time matrix found in csv data for this location.")
+                            else:
                                 try:
                                     os.makedirs(ttm_folder, exist_ok=True)
                                     copied = 0
@@ -961,8 +968,6 @@ elif page == "View Existing Instances":
                                         st.error("No travel time matrix files were created.")
                                 except Exception as e:
                                     st.error(f"Could not create travel time matrix: {str(e)}")
-                        else:
-                            st.caption("No network travel-time matrix found in csv data for this location.")
                 
                 # --- Column 3: Network data ---
                 with col_net:
