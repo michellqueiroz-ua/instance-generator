@@ -901,33 +901,68 @@ elif page == "View Existing Instances":
                     st.markdown("Driving times between nodes.")
                     
                     ttm_folder = os.path.join(selected_session_path, "travel_time_matrix")
+                    ttm_files = []
                     if os.path.exists(ttm_folder):
-                        ttm_files = sorted([f for f in os.listdir(ttm_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(ttm_folder, f))])
-                        
-                        if ttm_files:
-                            for f in ttm_files:
-                                fpath = os.path.join(ttm_folder, f)
-                                size_kb = os.path.getsize(fpath) / 1024
-                                st.text(f"📄 {f} ({size_kb:.1f} KB)")
-                            
-                            st.markdown("")
-                            try:
-                                zip_ttm = create_zip_subfolder(selected_session_path, "travel_time_matrix", "travel_time_matrix.zip")
-                                if zip_ttm:
-                                    st.download_button(
-                                        label=f"⬇️ Download ({len(ttm_files)} files)",
-                                        data=zip_ttm,
-                                        file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_ttm.zip",
-                                        mime="application/zip",
-                                        use_container_width=True,
-                                        key="dl_ttm"
-                                    )
-                            except Exception as e:
-                                st.error(f"Could not prepare download: {str(e)}")
-                        else:
-                            st.info("No travel time matrix yet. Generate requests first.")
+                        ttm_files = sorted([
+                            f for f in os.listdir(ttm_folder)
+                            if f.endswith('.csv') and os.path.isfile(os.path.join(ttm_folder, f))
+                        ])
+
+                    if ttm_files:
+                        for f in ttm_files:
+                            fpath = os.path.join(ttm_folder, f)
+                            size_kb = os.path.getsize(fpath) / 1024
+                            st.text(f"📄 {f} ({size_kb:.1f} KB)")
+
+                        st.markdown("")
+                        try:
+                            zip_ttm = create_zip_subfolder(selected_session_path, "travel_time_matrix", "travel_time_matrix.zip")
+                            if zip_ttm:
+                                st.download_button(
+                                    label=f"⬇️ Download ({len(ttm_files)} files)",
+                                    data=zip_ttm,
+                                    file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_ttm.zip",
+                                    mime="application/zip",
+                                    use_container_width=True,
+                                    key="dl_ttm"
+                                )
+                        except Exception as e:
+                            st.error(f"Could not prepare download: {str(e)}")
                     else:
-                        st.info("No travel time matrix yet. Generate requests first.")
+                        st.info("No travel time matrix in your session yet.")
+
+                        network_csv_folder = os.path.join(selected_instance_path, "csv")
+                        network_ttm_candidates = []
+                        if os.path.exists(network_csv_folder):
+                            network_ttm_candidates = sorted([
+                                f for f in os.listdir(network_csv_folder)
+                                if f.endswith('.csv') and (
+                                    '.tt.drive.csv' in f or 'travel_time' in f.lower()
+                                ) and os.path.isfile(os.path.join(network_csv_folder, f))
+                            ])
+
+                        if network_ttm_candidates:
+                            st.caption("A network travel-time matrix exists. You can create a session copy for download.")
+                            if st.button("⚙️ Create Travel Time Matrix", use_container_width=True, key=f"create_ttm_{selected_instance}"):
+                                try:
+                                    os.makedirs(ttm_folder, exist_ok=True)
+                                    copied = 0
+                                    for fname in network_ttm_candidates:
+                                        src = os.path.join(network_csv_folder, fname)
+                                        dst_name = f"travel_time_matrix_{fname}"
+                                        dst = os.path.join(ttm_folder, dst_name)
+                                        shutil.copy2(src, dst)
+                                        copied += 1
+
+                                    if copied > 0:
+                                        st.success(f"Created {copied} travel time matrix file(s).")
+                                        st.rerun()
+                                    else:
+                                        st.error("No travel time matrix files were created.")
+                                except Exception as e:
+                                    st.error(f"Could not create travel time matrix: {str(e)}")
+                        else:
+                            st.caption("No network travel-time matrix found in csv data for this location.")
                 
                 # --- Column 3: Network data ---
                 with col_net:
