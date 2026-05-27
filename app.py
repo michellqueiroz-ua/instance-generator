@@ -14,6 +14,9 @@ from attribute_library import get_attributes_for_problem, get_required_attribute
 import zipfile
 import shutil
 from io import BytesIO
+
+APP_BUILD = "a1d1933b"
+
 try:
     from solver_utils import SolverConfig, run_solver, parse_solution, extract_routes, format_statistics
     SOLVER_AVAILABLE = True
@@ -118,6 +121,7 @@ st.set_page_config(
 
 # Title and description
 st.title("🚌 REQreate Instance Generator")
+st.caption(f"Build: {APP_BUILD}")
 st.markdown("""
 Generate realistic on-demand transportation instances based on real-world network data.
 This tool downloads OpenStreetMap data and creates synthetic passenger requests for your specified location.
