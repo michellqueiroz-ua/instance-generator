@@ -622,6 +622,24 @@ if page == "Create New Instance":
                                 shutil.rmtree(src, ignore_errors=True)
                             else:
                                 shutil.move(src, dst)
+
+                # Also move travel_time_matrix files (if enabled/generated)
+                src_ttm = os.path.join(place_name_clean, "travel_time_matrix")
+                session_ttm = os.path.join(get_session_dir(), place_name_clean, "travel_time_matrix")
+                if os.path.exists(src_ttm):
+                    os.makedirs(session_ttm, exist_ok=True)
+                    for item in os.listdir(src_ttm):
+                        src = os.path.join(src_ttm, item)
+                        dst = os.path.join(session_ttm, item)
+                        if os.path.isfile(src):
+                            shutil.move(src, dst)
+                        elif os.path.isdir(src):
+                            if os.path.exists(dst):
+                                for f in os.listdir(src):
+                                    shutil.move(os.path.join(src, f), os.path.join(dst, f))
+                                shutil.rmtree(src, ignore_errors=True)
+                            else:
+                                shutil.move(src, dst)
                 
                 st.info(f"📁 Your instance files are stored in your session and will be available for 3 days.")
                 st.info(f"📄 File: {config_filename.replace('.json', '.csv')}")
