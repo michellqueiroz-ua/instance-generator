@@ -70,6 +70,7 @@ from instance_class import Instance
 from request_distribution_class import RequestDistributionTime
 from trip_patterns_general import rank_model
 from logger_utils import get_logger
+from overpass_config import configure_overpass
        
 def download_network_information(
     place_name,
@@ -96,6 +97,10 @@ def download_network_information(
     save_dir = os.getcwd()+'/'+output_folder_base
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
+
+    # Make OpenStreetMap downloads survive a refused or rate-limited Overpass
+    # mirror; the public instances regularly reject shared-IP callers.
+    configure_overpass()
 
     # Initialize logger
     logger = get_logger()

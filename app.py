@@ -543,8 +543,21 @@ if page == "Create New Instance":
                     st.warning(f"⚠️ Could not prepare download: {str(e)}")
                 
             except Exception as e:
-                st.error(f"❌ Generation failed: {str(e)}")
-                st.exception(e)
+                if type(e).__name__ == "OverpassUnavailableError":
+                    # Not a problem with the requested city: the OpenStreetMap
+                    # query servers are refusing or rate-limiting us.
+                    st.error("❌ Could not download OpenStreetMap data")
+                    st.warning(
+                        "Every Overpass API mirror refused the request. This is an "
+                        "availability problem with the public OpenStreetMap query "
+                        "servers, not a problem with the location you entered — the "
+                        "same run will usually succeed if you retry in a few minutes."
+                    )
+                    with st.expander("Details"):
+                        st.code(str(e))
+                else:
+                    st.error(f"❌ Generation failed: {str(e)}")
+                    st.exception(e)
 
 elif page == "View Existing Instances":
     st.header("📂 Existing Instances")

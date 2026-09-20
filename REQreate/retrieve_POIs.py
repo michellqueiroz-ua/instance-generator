@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
 import os
 import osmnx as ox
+from overpass_config import configure_overpass
 import pandas as pd
 import networkx as nx
 import numpy as np
@@ -133,7 +134,10 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             'tourism':['aquarium','artwork','attraction','gallery','hostel','motel','museum','theme_park','zoo'],
         }
         
-        ox.settings.timeout = 1800
+        # These ten queries run back to back, which is what trips Overpass
+        # rate limiting; configure_overpass sets the timeout under the name
+        # osmnx actually reads and enables the rate limiter.
+        configure_overpass(timeout=1800)
 
         pois_shop1 = ox.features_from_place(place_name, tags=tags_shop1)
         print(len(pois_shop1))
