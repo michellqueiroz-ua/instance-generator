@@ -9,15 +9,19 @@ import random
 import itertools
 import shapefile
 from shapely.geometry import Polygon
-from descartes.patch import PolygonPatch
+# descartes is unmaintained and breaks with shapely 2.x; PolygonPatch was
+# imported here but never used.
+# from descartes.patch import PolygonPatch
 from shapely.geometry import Point
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 plt.style.use('ggplot')
 
-import sqlalchemy as sqla
-from sqlalchemy_utils import database_exists
+# sqlalchemy is imported lazily inside real_data_tests_chicago_database2, the
+# only function that uses it. Importing it here pulled sqlalchemy_utils (and
+# its cryptography dependency) into the core generation path, which reaches
+# this module only for rank_model.
 from datetime import datetime
 from operator import mul
 from scipy.stats import zscore
@@ -28,13 +32,13 @@ import seaborn as sns
 from fitter import Fitter, get_common_distributions, get_distributions
 import powerlaw
 from pathlib import Path
-from instance_class import Instance
+from .instance_class import Instance
 
-from retrieve_POIs import get_POIs_matrix_csv
-from retrieve_POIs import attribute_density_zones
-from retrieve_POIs import calc_rank_between_zones
-from retrieve_POIs import calc_probability_travel_between_zones
-from retrieve_POIs import rank_of_displacements
+from .retrieve_POIs import get_POIs_matrix_csv
+from .retrieve_POIs import attribute_density_zones
+from .retrieve_POIs import calc_rank_between_zones
+from .retrieve_POIs import calc_probability_travel_between_zones
+from .retrieve_POIs import rank_of_displacements
 
 from scipy.stats.kde import gaussian_kde
 
@@ -755,6 +759,9 @@ def dynamism(inst1, ed, ld):
     print(rho)
 
 def real_data_tests_chicago_database2(ed, ld):
+
+    import sqlalchemy as sqla
+    from sqlalchemy_utils import database_exists
 
     if database_exists('sqlite:///chicago_database.db'):
         

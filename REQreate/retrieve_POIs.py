@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
 import os
 import osmnx as ox
-from overpass_config import configure_overpass
+from .overpass_config import configure_overpass
 import pandas as pd
 import networkx as nx
 import numpy as np

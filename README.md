@@ -8,8 +8,8 @@ REQreate now includes a user-friendly web interface built with Streamlit! No nee
 
 **Quick Start:**
 ```bash
-pip install streamlit
-python -m streamlit run app.py
+pip install .[app]
+reqreate app
 ```
 
 Or simply double-click `run_webapp.bat` (Windows)
@@ -65,16 +65,45 @@ michell.queiroz@uantwerpen.be
 
 ### Quick Install (Recommended)
 
-1. **Install Python 3.8+** (if not already installed)
+1. **Install Python 3.9+** (if not already installed)
 
-2. **Install required packages:**
+2. **Install REQreate** from a checkout of this repository:
 ```bash
-pip install osmnx networkx pandas numpy shapely matplotlib streamlit folium streamlit-folium plotly
+pip install .[app]
 ```
 
 3. **Run the tool:**
-   - Web Interface: `python -m streamlit run app.py`
-   - Command Line: `python REQreate/REQreate.py`
+   - Web Interface: `reqreate app` — opens the interface in your browser, running entirely on your machine
+   - Command Line: `reqreate generate my_config.json`
+   - `reqreate --help` lists every option
+
+Running the interface locally is the recommended way to use REQreate. Besides
+not depending on a hosted deployment, OpenStreetMap downloads then leave from
+your own IP address rather than one shared with every other user of a hosting
+platform, which is what gets requests refused by the public Overpass API.
+
+**Optional extras:**
+
+| Extra | Installs | Needed for |
+|---|---|---|
+| `parallel` | ray | parallel processing (the code falls back to sequential without it) |
+| `analysis` | scikit-learn, sqlalchemy | the taxi-dataset trip-pattern and `uber_movement` modules |
+
+```bash
+pip install .[app,parallel]
+```
+
+### Troubleshooting: Overpass API errors
+
+If generation fails with a connection error mentioning `overpass-api.de`, the
+public OpenStreetMap query servers are refusing or rate-limiting the request.
+This is unrelated to the location you asked for. REQreate retries and fails
+over across several mirrors automatically; if none of them work, set
+`REQREATE_OVERPASS_URL` to an Overpass instance you can reach:
+
+```bash
+export REQREATE_OVERPASS_URL=https://overpass.kumi.systems/api/interpreter
+```
 
 ### Detailed Installation
 

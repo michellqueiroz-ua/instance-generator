@@ -9,7 +9,9 @@ import random
 import itertools
 import shapefile
 from shapely.geometry import Polygon
-from descartes.patch import PolygonPatch
+# descartes is unmaintained and breaks with shapely 2.x; PolygonPatch was
+# imported here but never used.
+# from descartes.patch import PolygonPatch
 from shapely.geometry import Point
 import matplotlib
 matplotlib.use('Agg')
@@ -28,13 +30,19 @@ import seaborn as sns
 from fitter import Fitter, get_common_distributions, get_distributions
 import powerlaw
 from pathlib import Path
-from instance_class import Instance
+# Runnable as a script from inside this directory (python trip_patterns_chicago_TNP.py) as well as
+# via `python -m REQreate.trip_patterns_chicago_TNP`; put the repository root on sys.path so the
+# REQreate package resolves either way.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
-from retrieve_POIs import get_POIs_matrix_csv
-from retrieve_POIs import attribute_density_zones
-from retrieve_POIs import calc_rank_between_zones
-from retrieve_POIs import calc_probability_travel_between_zones
-from retrieve_POIs import rank_of_displacements
+from REQreate.instance_class import Instance
+
+from REQreate.retrieve_POIs import get_POIs_matrix_csv
+from REQreate.retrieve_POIs import attribute_density_zones
+from REQreate.retrieve_POIs import calc_rank_between_zones
+from REQreate.retrieve_POIs import calc_probability_travel_between_zones
+from REQreate.retrieve_POIs import rank_of_displacements
 from multiprocessing import cpu_count
 from scipy.stats.kde import gaussian_kde
 

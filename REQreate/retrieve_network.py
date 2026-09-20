@@ -50,27 +50,27 @@ try:
 except:
     pass
 
-from stops_locations import *
-from fixed_lines import get_fixed_lines_deconet
-from fixed_lines import get_fixed_lines_osm
-from fixed_lines import plot_fixed_lines
-from output_files import JsonConverter
-from retrieve_bus_stations import filter_bus_stations
-from retrieve_bus_stations import get_bus_stations_matrix_csv
-from retrieve_bus_stations import plot_bus_stations
-from retrieve_zones import retrieve_zones
-from retrieve_schools import retrieve_schools
-from retrieve_hospitals import retrieve_hospitals
-from compute_distance_matrix import _get_distance_matrix
-from compute_distance_matrix import _update_distance_matrix_walk
-from speed_info import _calc_mean_max_speed
-from speed_info import _get_max_speed_road
-from network_class import Network
-from instance_class import Instance
-from request_distribution_class import RequestDistributionTime
-from trip_patterns_general import rank_model
-from logger_utils import get_logger
-from overpass_config import configure_overpass
+from .stops_locations import *
+from .fixed_lines import get_fixed_lines_deconet
+from .fixed_lines import get_fixed_lines_osm
+from .fixed_lines import plot_fixed_lines
+from .output_files import JsonConverter
+from .retrieve_bus_stations import filter_bus_stations
+from .retrieve_bus_stations import get_bus_stations_matrix_csv
+from .retrieve_bus_stations import plot_bus_stations
+from .retrieve_zones import retrieve_zones
+from .retrieve_schools import retrieve_schools
+from .retrieve_hospitals import retrieve_hospitals
+from .compute_distance_matrix import _get_distance_matrix
+from .compute_distance_matrix import _update_distance_matrix_walk
+from .speed_info import _calc_mean_max_speed
+from .speed_info import _get_max_speed_road
+from .network_class import Network
+from .instance_class import Instance
+from .request_distribution_class import RequestDistributionTime
+from .trip_patterns_general import rank_model
+from .logger_utils import get_logger
+from .overpass_config import configure_overpass
        
 def download_network_information(
     place_name,

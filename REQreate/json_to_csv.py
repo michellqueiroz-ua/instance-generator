@@ -10,13 +10,19 @@ import osmnx as ox
 import pandas as pd
 import pickle
 
-from instance_class import Instance
-from parameters_class import Parameters
-from output_files import JsonConverter
-from output_files import output_fixed_route_network
+# Runnable as a script from inside this directory (python json_to_csv.py) as well as
+# via `python -m REQreate.json_to_csv`; put the repository root on sys.path so the
+# REQreate package resolves either way.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
+from REQreate.instance_class import Instance
+from REQreate.parameters_class import Parameters
+from REQreate.output_files import JsonConverter
+from REQreate.output_files import output_fixed_route_network
 from pathlib import Path
-from retrieve_network import download_network_information
-from compute_distance_matrix import _get_distance_matrix
+from REQreate.retrieve_network import download_network_information
+from REQreate.compute_distance_matrix import _get_distance_matrix
 from shapely.geometry import Point
 from shapely.geometry import Polygon
 #from streamlit import caching
