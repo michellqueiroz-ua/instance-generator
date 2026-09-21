@@ -26,11 +26,16 @@ import warnings
 import osmnx as ox
 
 # Tried in order. The first is osmnx's own default.
+#
+# These must be planet-wide instances. A regional mirror (there are several,
+# covering a single country) would answer a query for a place it does not hold
+# with an empty result rather than an error, which would silently produce an
+# instance with no network in it -- worse than the failure it was meant to
+# work around. Check coverage before adding a mirror here.
 DEFAULT_OVERPASS_MIRRORS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
-    "https://overpass.osm.ch/api/interpreter",
 ]
 
 # Per mirror, before moving on to the next one.
