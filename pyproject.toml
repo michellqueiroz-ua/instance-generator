@@ -4,14 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reqreate"
-version = "0.1.0"
+# Single-sourced from REQreate/__init__.py so the two cannot drift.
+dynamic = ["version"]
 description = "Instance generator for demand responsive transit systems"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"  # osmnx 2.x requires 3.11+
 license = { text = "MIT" }
 authors = [{ name = "Michell Queiroz", email = "michell.queiroz@uantwerpen.be" }]
+keywords = ["transportation", "dial-a-ride", "openstreetmap", "instance-generator", "operations-research"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
@@ -49,6 +53,10 @@ Homepage = "https://github.com/michellqueiroz-ua/instance-generator"
 
 [tool.setuptools]
 packages = ["REQreate", "REQreate.webapp"]
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = { attr = "REQreate.__version__" }
 
 [tool.setuptools.package-data]
 "REQreate.webapp" = ["*.py"]

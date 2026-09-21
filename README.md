@@ -65,7 +65,7 @@ michell.queiroz@uantwerpen.be
 
 ### Quick Install (Recommended)
 
-1. **Install Python 3.9+** (if not already installed)
+1. **Install Python 3.11+** (required by osmnx 2.x)
 
 2. **Install REQreate** from a checkout of this repository:
 ```bash

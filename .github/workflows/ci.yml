@@ -1,0 +1,54 @@
+name: CI
+
+# Checks that the package still installs cleanly and that the command works.
+# This is what would have caught the undeclared dependencies that made the
+# package uninstallable outside the author's conda environment.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: python -m pip install ".[app]"
+
+      - name: The command exists
+        run: reqreate --version
+
+      - name: Core generation path imports
+        # Run from a directory that is not the checkout, so this fails if the
+        # package depends on files that are not actually installed.
+        working-directory: /tmp
+        run: |
+          python -c "
+          from REQreate.input_json import input_json
+          from REQreate.retrieve_network import download_network_information
+          from REQreate.overpass_config import configure_overpass, get_mirrors
+          print('core path OK, mirrors:', get_mirrors())
+          "
+
+      - name: The web interface starts and serves
+        working-directory: /tmp
+        run: |
+          reqreate app --port 8501 --no-browser &
+          for i in $(seq 1 60); do
+            if curl -sf -m 2 http://localhost:8501/_stcore/health > /dev/null; then
+              echo "app is serving"; exit 0
+            fi
+            sleep 2
+          done
+          echo "app did not come up"; exit 1
