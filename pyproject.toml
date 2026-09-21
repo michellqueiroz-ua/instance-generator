@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reqreate"
+# Single-sourced from REQreate/__init__.py so the two cannot drift.
+dynamic = ["version"]
+description = "Instance generator for demand responsive transit systems"
+readme = "README.md"
+requires-python = ">=3.11"  # osmnx 2.x requires 3.11+
+license = { text = "MIT" }
+authors = [{ name = "Michell Queiroz", email = "michell.queiroz@uantwerpen.be" }]
+keywords = ["transportation", "dial-a-ride", "openstreetmap", "instance-generator", "operations-research"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "osmnx>=2.0,<3",
+    "networkx",
+    "pandas",
+    "numpy",
+    "shapely",
+    "matplotlib",
+    "geopandas",
+    "osmapi",
+    "scipy",
+    "geopy",
+    "pyshp",
+    "seaborn",
+    "powerlaw",
+    "fitter",
+]
+
+[project.optional-dependencies]
+# The web interface. Installed by default via the `app` extra so that
+# `pip install reqreate[app]` gives a working `reqreate app`.
+app = ["streamlit", "folium", "streamlit-folium", "plotly"]
+# Parallel processing; optional, the code falls back to sequential without it.
+parallel = ["ray"]
+# Only needed by the uber_movement travel-speed regression module.
+analysis = ["scikit-learn", "sqlalchemy", "sqlalchemy-utils"]
+
+[project.scripts]
+reqreate = "REQreate.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/michellqueiroz-ua/instance-generator"
+
+[tool.setuptools]
+packages = ["REQreate", "REQreate.webapp"]
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = { attr = "REQreate.__version__" }
+
+[tool.setuptools.package-data]
+"REQreate.webapp" = ["*.py"]

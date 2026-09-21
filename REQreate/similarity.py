@@ -4,7 +4,13 @@ import osmnx as ox
 import pandas as pd
 
 from pathlib import Path
-from instance_class import Instance
+# Runnable as a script from inside this directory (python similarity.py) as well as
+# via `python -m REQreate.similarity`; put the repository root on sys.path so the
+# REQreate package resolves either way.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
+from REQreate.instance_class import Instance
 
 
 if __name__ == '__main__':

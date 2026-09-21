@@ -8,8 +8,7 @@ from shapely.geometry import Polygon
 from shapely.geometry import Point
 from pathlib import Path
 import sys
-sys.path.append('REQreate')
-from instance_class import Instance
+from REQreate.instance_class import Instance
 
 
 if __name__ == '__main__':

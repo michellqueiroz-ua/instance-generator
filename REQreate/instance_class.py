@@ -6,10 +6,10 @@ import networkx as nx
 import numpy as np
 import pickle
 import random
-from request_distribution_class import RequestDistributionTime
-from spatial_distribution_class import SpatialDistribution
+from .request_distribution_class import RequestDistributionTime
+from .spatial_distribution_class import SpatialDistribution
 from shapely.geometry import Point
-from passenger_requests import _generate_requests
+from .passenger_requests import _generate_requests
 try:
     import ray
     RAY_AVAILABLE = True

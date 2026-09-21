@@ -9,7 +9,9 @@ import random
 import itertools
 import shapefile
 from shapely.geometry import Polygon
-from descartes.patch import PolygonPatch
+# descartes is unmaintained and breaks with shapely 2.x; PolygonPatch was
+# imported here but never used.
+# from descartes.patch import PolygonPatch
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
@@ -25,7 +27,13 @@ import seaborn as sns
 from fitter import Fitter, get_common_distributions, get_distributions
 import powerlaw
 from pathlib import Path
-from instance_class import Instance
+# Runnable as a script from inside this directory (python trip_patterns_green.py) as well as
+# via `python -m REQreate.trip_patterns_green`; put the repository root on sys.path so the
+# REQreate package resolves either way.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
+from REQreate.instance_class import Instance
 
 def add_osmid_nodes(place_name, df, df_loc):
 

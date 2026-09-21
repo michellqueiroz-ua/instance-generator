@@ -1,4 +1,4 @@
-from fixed_lines import _check_subway_routes_serve_passenger
+from .fixed_lines import _check_subway_routes_serve_passenger
 import json
 import math
 import matplotlib.pyplot as plt
@@ -35,8 +35,8 @@ from scipy.stats import wald
 from multiprocessing import cpu_count
 import gc
 from datetime import datetime
-from dynamism import dynamism
-from logger_utils import get_logger
+from .dynamism import dynamism
+from .logger_utils import get_logger
 
 def eval_expression(input_string):
     

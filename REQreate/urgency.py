@@ -5,7 +5,7 @@ import pandas as pd
 import statistics
 
 from pathlib import Path
-from instance_class import Instance
+from .instance_class import Instance
 
 def urgency(inst1):
 

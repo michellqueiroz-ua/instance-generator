@@ -4,7 +4,7 @@ from multiprocessing import cpu_count
 import networkx as nx
 import os
 import pandas as pd
-from logger_utils import get_logger
+from .logger_utils import get_logger
 try:
     import ray
     RAY_AVAILABLE = True

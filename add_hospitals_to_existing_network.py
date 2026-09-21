@@ -8,9 +8,7 @@ import sys
 import os
 import pickle
 
-# Add REQreate to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'REQreate'))
-from retrieve_hospitals import retrieve_hospitals
+from REQreate.retrieve_hospitals import retrieve_hospitals
 
 def add_hospitals_to_network(location_name):
     """Add hospitals to an existing network"""

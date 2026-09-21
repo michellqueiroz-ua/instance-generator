@@ -1,2 +1,0 @@
-from generator_lines_mq_with_osmnx import retrieve_network
-from passenger_requests import generate_requests

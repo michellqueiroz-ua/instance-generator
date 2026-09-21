@@ -4,7 +4,7 @@ import osmnx as ox
 import pandas as pd
 
 from pathlib import Path
-from instance_class import Instance
+from .instance_class import Instance
 
 
 def geographic_dispersion(inst, problem, filename1):

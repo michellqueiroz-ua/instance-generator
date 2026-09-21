@@ -1,9 +1,19 @@
-osmnx
+# Kept in sync with pyproject.toml. Preferred install is:
+#     pip install .[app]
+osmnx>=2.0,<3
 networkx
 pandas
 numpy
 shapely
 matplotlib
+geopandas
+osmapi
+scipy
+geopy
+pyshp
+seaborn
+powerlaw
+fitter
 streamlit
 folium
 streamlit-folium

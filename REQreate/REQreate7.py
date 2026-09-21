@@ -1,4 +1,10 @@
-from input_json import input_json
+# Runnable as a script from inside this directory (python REQreate7.py) as well as
+# via `python -m REQreate.REQreate7`; put the repository root on sys.path so the
+# REQreate package resolves either way.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
+from REQreate.input_json import input_json
 #from streamlit import caching
 import os
 

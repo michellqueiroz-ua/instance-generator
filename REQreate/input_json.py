@@ -10,22 +10,22 @@ import osmnx as ox
 import pandas as pd
 import pickle
 
-from instance_class import Instance
-from parameters_class import Parameters
-from output_files import JsonConverter
-from output_files import output_fixed_route_network
+from .instance_class import Instance
+from .parameters_class import Parameters
+from .output_files import JsonConverter
+from .output_files import output_fixed_route_network
 from pathlib import Path
-from retrieve_network import download_network_information
-from compute_distance_matrix import _get_distance_matrix
+from .retrieve_network import download_network_information
+from .compute_distance_matrix import _get_distance_matrix
 from shapely.geometry import Point
 from shapely.geometry import Polygon
 #from streamlit import caching
 import gc
 
-from dynamism import dynamism2
-from urgency import urgency
-from geographic_dispersion import geographic_dispersion
-from logger_utils import init_logger
+from .dynamism import dynamism2
+from .urgency import urgency
+from .geographic_dispersion import geographic_dispersion
+from .logger_utils import init_logger
 
 def get_multiplier_time_unit(time_unit):
 
