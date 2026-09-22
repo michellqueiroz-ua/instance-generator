@@ -2,129 +2,147 @@
 
 REQreate is a tool to generate instances for on-demand transportation problems. Such problems consist of optimizing the routes of vehicles according to passengers' demand for transportation under space and time restrictions (requests). REQreate is flexible and can be configured to generate instances for a large number of problems in this problem class. For example, the Dial-a-Ride Problem (DARP) and On-demand Bus Routing Problem (ODBRP). The tool makes use of real-life networks from OpenStreetMaps to generate instances for an extensive catalogue of existing and upcoming on-demand transportation problems.
 
-## ✨ New: Web Interface
+## Installation
 
-REQreate now includes a user-friendly web interface built with Streamlit! No need to edit JSON files manually.
+Requires **Python 3.11 or newer** (osmnx 2.x does not support older versions).
 
-**Quick Start:**
 ```bash
-pip install .[app]
-reqreate app
+pip install "reqreate[app]"
 ```
 
-Or simply double-click `run_webapp.bat` (Windows)
+If you use conda, create a fresh environment rather than reusing an old one —
+environments built for earlier versions of this tool usually have a Python
+older than 3.11 and pinned packages that conflict:
 
-The web interface provides:
-- 🎨 Visual forms for all parameters
-- 📊 Browse and preview existing instances
-- �️ Interactive maps with request distribution visualization
-- 🔥 Heatmaps for demand density analysis
-- �🔄 Real-time generation progress
-- 📚 Built-in documentation
-- 💾 Easy data exploration
-
-See [WEBAPP.md](WEBAPP.md) for detailed instructions.
-
-## 🌐 Deploy Online
-
-Want to share REQreate with others? Deploy it to Hugging Face Spaces for free!
-
-**Hugging Face Spaces** (Recommended):
-- ✅ Free tier with 16GB RAM
-- ✅ No timeout issues
-- ✅ 50GB persistent storage
-- ✅ Automatic HTTPS
-
-**Quick Deploy:**
-1. Create account at [huggingface.co](https://huggingface.co/join)
-2. Create new Space with Streamlit SDK
-3. Push your code to the Space repository
-4. App automatically builds and deploys
-
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed deployment instructions.
-
-## How to use REQreate?
-
-### Option 1: Web Interface (Recommended for new users)
-Use the Streamlit web app for a guided, visual experience:
 ```bash
-python -m streamlit run app.py
+conda create -n reqreate python=3.11 -y
+conda activate reqreate
+pip install "reqreate[app]"
 ```
 
-### Option 2: Command Line (Advanced users)
-Attributes and parameters that define an instance are described in a configuration file given as input to REQreate. The used syntax is JSON.
-Each configuration file can generate one or more instances and it should be given as parameter in the REQreate.py file.
-Edit "REQreate.py" indicating the desired configuration file and a name for the output folder and simply run "python REQreate.py" on your terminal.
-Check out [this folder](https://github.com/michellqueiroz-ua/instance-generator/tree/master/examples/basic_examples) for examples of configuration files.
+Check it worked:
 
-# Questions? Do not hesitate to send an e-mail to:
-
-michell.queiroz@uantwerpen.be
-
-## Installation requirements
-
-### Quick Install (Recommended)
-
-1. **Install Python 3.11+** (required by osmnx 2.x)
-
-2. **Install REQreate** from a checkout of this repository:
 ```bash
-pip install .[app]
+reqreate --version
 ```
 
-3. **Run the tool:**
-   - Web Interface: `reqreate app` — opens the interface in your browser, running entirely on your machine
-   - Command Line: `reqreate generate my_config.json`
-   - `reqreate --help` lists every option
-
-Running the interface locally is the recommended way to use REQreate. Besides
-not depending on a hosted deployment, OpenStreetMap downloads then leave from
-your own IP address rather than one shared with every other user of a hosting
-platform, which is what gets requests refused by the public Overpass API.
-
-**Optional extras:**
+### Optional extras
 
 | Extra | Installs | Needed for |
 |---|---|---|
-| `parallel` | ray | parallel processing (the code falls back to sequential without it) |
+| `app` | streamlit, folium, plotly | the web interface (`reqreate app`) |
+| `parallel` | ray | parallel processing; the code falls back to sequential without it |
 | `analysis` | scikit-learn, sqlalchemy | the taxi-dataset trip-pattern and `uber_movement` modules |
 
 ```bash
-pip install .[app,parallel]
+pip install "reqreate[app,parallel]"
 ```
 
-### Troubleshooting: Overpass API errors
+## Quick start: the web interface
+
+The output is written to the directory you run the command from, so start in an
+empty folder:
+
+```bash
+mkdir my-instances
+cd my-instances
+reqreate app
+```
+
+Your browser opens at `http://localhost:8501`. Then:
+
+1. Choose a **problem type** (DARP, ODBRP, or Patient Transport)
+2. Enter a **location**, for example `Aachen, Germany`
+3. Set the **number of requests**
+4. Click **Generate**, and leave the browser tab open
+
+**Start with a small number of requests (around 20) the first time you try a
+new city.** Most of the running time goes into downloading and processing the
+street network, which is the same work regardless of how many requests you
+ask for, so a small run still takes roughly 10-15 minutes. What it gives you
+is a bounded check that the whole pipeline works for that location before you
+commit to a full-size run, which can take hours.
+
+### Where the output goes
+
+Files are written to a folder named after the location you entered, inside the
+directory you launched from:
+
+```
+my-instances/
+└── Aachen, Germany/
+    ├── csv_format/           generated instances
+    ├── json_format/
+    ├── graphml_format/       street network
+    ├── travel_time_matrix/
+    ├── images/               maps and heatmaps
+    └── pickle/
+```
+
+The interface also offers the whole folder as a single ZIP download.
+
+## Command line
+
+Generate from a JSON configuration file without the interface:
+
+```bash
+reqreate generate my_config.json
+```
+
+`reqreate --help` lists every option.
+
+Attributes and parameters that define an instance are described in a
+configuration file given as input to REQreate. The syntax used is JSON. Each
+configuration file can generate one or more instances. See
+[examples/basic_examples](https://github.com/michellqueiroz-ua/instance-generator/tree/master/examples/basic_examples)
+for example configuration files.
+
+## Troubleshooting
+
+### "Connection refused" or other Overpass API errors
 
 If generation fails with a connection error mentioning `overpass-api.de`, the
 public OpenStreetMap query servers are refusing or rate-limiting the request.
-This is unrelated to the location you asked for. REQreate retries and fails
-over across several mirrors automatically; if none of them work, set
-`REQREATE_OVERPASS_URL` to an Overpass instance you can reach:
+**This is unrelated to the location you asked for** — the same run usually
+succeeds if you retry a few minutes later.
+
+REQreate retries and fails over across several mirrors automatically. If none
+of them are reachable, point it at an Overpass instance you can reach:
 
 ```bash
+# Linux / macOS
 export REQREATE_OVERPASS_URL=https://overpass.kumi.systems/api/interpreter
+
+# Windows
+set REQREATE_OVERPASS_URL=https://overpass.kumi.systems/api/interpreter
 ```
 
-### Detailed Installation
+Any instance you set this way must hold planet-wide data. A regional Overpass
+mirror answers a query for a place it does not cover with an empty result
+rather than an error, which would produce an instance with no network in it.
 
-1. Have python 3.8 or a newer version installed
+To check whether Overpass is reachable from your machine at all:
 
-2. Install anaconda (optional but recommended)
-	- [Tutorial 1 anaconda](https://problemsolvingwithpython.com/01-Orientation/01.00-Welcome/)
-	- [Tutorial 2 anaconda](https://docs.anaconda.com/anaconda/install/)
-
-3. Install OSMnx (necessary to retrieve the networks)
-	- [Tutorial OSMnx](https://osmnx.readthedocs.io/en/stable/installation.html)
-
-4. Install Streamlit (for web interface)
 ```bash
-pip install streamlit
+python -c "import requests; print(requests.get('https://overpass-api.de/api/status', timeout=30).text[:300])"
 ```
 
-5. Activate your environment (if using conda):
-```bash
-conda activate ox
-```
+### The install fails, or `reqreate` is not found
+
+Almost always a Python version problem. Check with `python --version`; it must
+be 3.11 or newer. If you are in a conda environment created for an older
+version of this tool, make a fresh one as shown under Installation.
+
+## Running it hosted
+
+The repository includes a `Dockerfile` for deploying the interface to
+[Hugging Face Spaces](https://huggingface.co/spaces) — see
+[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
+
+Running locally is recommended over a hosted deployment. OpenStreetMap
+downloads then leave from your own IP address rather than one shared with
+every other user of a hosting platform, and a shared address is what gets
+requests refused or rate-limited by the public Overpass API.
 
 ## Features
 
@@ -133,11 +151,13 @@ conda activate ox
 - 📊 **Multiple output formats** (CSV, JSON, GraphML, Pickle)
 - 🎯 **Realistic request patterns** based on POI density
 - ⏱️ **Accurate travel times** using actual road speeds
+- 🗺️ **Interactive maps** with request distribution and demand heatmaps
 - 🖥️ **User-friendly web interface** for easy instance generation
 
-## Output Files
+## Output files
 
 REQreate generates comprehensive datasets including:
+
 - Bus station locations
 - Network topology (walk + drive)
 - Passenger requests with time windows
@@ -146,4 +166,16 @@ REQreate generates comprehensive datasets including:
 - Points of Interest (POIs)
 - Network visualizations
 
+## Development
 
+To work on REQreate itself, install from a checkout in editable mode:
+
+```bash
+git clone https://github.com/michellqueiroz-ua/instance-generator.git
+cd instance-generator
+pip install -e ".[app]"
+```
+
+# Questions? Do not hesitate to send an e-mail to:
+
+michell.queiroz@uantwerpen.be

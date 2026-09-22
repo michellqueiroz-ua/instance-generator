@@ -2,14 +2,14 @@
 
 ## Quick Start
 
-1. **Install Streamlit** (if not already installed):
+1. **Install REQreate** with the web interface (requires Python 3.11+):
 ```bash
-pip install streamlit
+pip install "reqreate[app]"
 ```
 
-2. **Run the web app**:
+2. **Run the web app** from the folder where you want the instances saved:
 ```bash
-streamlit run app.py
+reqreate app
 ```
 
 3. **Open your browser** - it should automatically open at `http://localhost:8501`
@@ -46,7 +46,7 @@ streamlit run app.py
 
 ## Requirements
 
-See `setup.py` for full list. Main dependencies:
+See `pyproject.toml` for the full list. Main dependencies:
 - streamlit
 - osmnx
 - pandas
