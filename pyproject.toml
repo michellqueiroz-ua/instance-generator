@@ -34,6 +34,9 @@ dependencies = [
     "seaborn",
     "powerlaw",
     "fitter",
+    # Required by osmnx.nearest_nodes for unprojected graphs, which the core
+    # generation path calls throughout. Not optional despite osmnx listing it as such.
+    "scikit-learn",
 ]
 
 [project.optional-dependencies]
@@ -43,7 +46,7 @@ app = ["streamlit", "folium", "streamlit-folium", "plotly"]
 # Parallel processing; optional, the code falls back to sequential without it.
 parallel = ["ray"]
 # Only needed by the uber_movement travel-speed regression module.
-analysis = ["scikit-learn", "sqlalchemy", "sqlalchemy-utils"]
+analysis = ["sqlalchemy", "sqlalchemy-utils"]
 
 [project.scripts]
 reqreate = "REQreate.cli:main"
