@@ -41,6 +41,22 @@ jobs:
           print('core path OK, mirrors:', get_mirrors())
           "
 
+      - name: Nearest-node lookup works on an unprojected graph
+        # osmnx needs scikit-learn for nearest_nodes on unprojected (lat/lon)
+        # graphs, which the core generation path calls throughout. A missing
+        # scikit-learn only surfaces ~30 minutes into a real run, so check it
+        # here in a second, with no network access.
+        working-directory: /tmp
+        run: |
+          python -c "
+          import networkx as nx, osmnx as ox
+          G = nx.MultiDiGraph(crs='epsg:4326')
+          G.add_node(1, x=6.08, y=50.77)
+          G.add_node(2, x=6.09, y=50.78)
+          G.add_edge(1, 2, length=100)
+          print('nearest node:', ox.nearest_nodes(G, 6.085, 50.775))
+          "
+
       - name: The web interface starts and serves
         working-directory: /tmp
         run: |
