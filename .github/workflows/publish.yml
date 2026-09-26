@@ -7,10 +7,15 @@ name: Publish to PyPI
 # repository. It requires a one-time setup on PyPI: add a trusted publisher for
 # the `reqreate` project pointing at this repository, workflow `publish.yml`,
 # environment `pypi`. See https://docs.pypi.org/trusted-publishers/
+#
+# A published release is the only trigger, deliberately. A manual run cannot
+# choose a version, so it would rebuild whatever is on master and try to upload
+# files PyPI already has, failing with "File already exists" - which reads like
+# the release broke when it did not. To retry a release that genuinely failed
+# part way through, re-run the failed job from the Actions tab instead.
 on:
   release:
     types: [published]
-  workflow_dispatch:
 
 jobs:
   build:
