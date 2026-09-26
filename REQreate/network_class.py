@@ -269,6 +269,12 @@ class Network:
 
         R = 6378.1 #Radius of the Earth
 
+        # Every caller draws the radius with scipy's rvs(size=1), which returns a
+        # length-1 array rather than a scalar, and the math module below rejects
+        # arrays. Coerce here, at the one place that consumes it, rather than at
+        # each of the twenty-one distribution branches in passenger_requests.
+        radius = float(np.asarray(radius).reshape(-1)[0])
+
         counter = 0
         number = 1
         np.random.seed(seed_coord)
