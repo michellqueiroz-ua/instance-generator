@@ -9,7 +9,7 @@ name: Instance generation smoke test
 # here is the cheapest way to find out whether the whole pipeline works for a
 # given city.
 #
-# Manually triggered only - it takes 10-15 minutes and hits public OpenStreetMap
+# Manually triggered only - it takes hours and hits public OpenStreetMap
 # servers, so it should not run on every push.
 
 on:
@@ -31,9 +31,12 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    # Generation is slow but must not hang forever. A 20-request run should
-    # finish well inside this.
-    timeout-minutes: 120
+    # Generation is slow but must not hang forever. A 20-request Aachen run was
+    # killed at 120 minutes while still computing distance matrices, so this is
+    # deliberately generous - just under the 6 h GitHub ceiling. The point of
+    # this job is to find out how long a real run takes, which it cannot do if
+    # the timeout cuts it off first.
+    timeout-minutes: 350
 
     steps:
       - uses: actions/checkout@v4

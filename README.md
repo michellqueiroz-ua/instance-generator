@@ -57,11 +57,21 @@ Your browser opens at `http://localhost:8501`. Then:
 4. Click **Generate**, and leave the browser tab open
 
 **Start with a small number of requests (around 20) the first time you try a
-new city.** Most of the running time goes into downloading and processing the
-street network, which is the same work regardless of how many requests you
-ask for, so a small run still takes roughly 10-15 minutes. What it gives you
-is a bounded check that the whole pipeline works for that location before you
-commit to a full-size run, which can take hours.
+new city.** Almost all of the running time goes into processing the street
+network rather than into the requests themselves, so a 20-request run costs
+about the same as a large one. What it buys you is a check that the pipeline
+works for that location before you commit to a full-size run.
+
+**Expect hours, not minutes.** Downloading the network takes a few minutes, but
+the distance and travel-time matrices that follow are the expensive part, and
+they scale with the size of the city rather than the number of requests. A
+20-request run for `Aachen, Germany` was still computing them after two hours
+on a single core. Install the `parallel` extra before a real run - without it
+the matrices are computed sequentially:
+
+```bash
+pip install "reqreate[app,parallel]"
+```
 
 ### Where the output goes
 
@@ -73,9 +83,11 @@ my-instances/
 └── Aachen, Germany/
     ├── csv_format/           generated instances
     ├── json_format/
+    ├── csv/                  network data: stops, zones, POIs, matrices
     ├── graphml_format/       street network
     ├── travel_time_matrix/
     ├── images/               maps and heatmaps
+    ├── logs/
     └── pickle/
 ```
 
