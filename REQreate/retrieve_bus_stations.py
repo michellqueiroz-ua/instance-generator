@@ -3,33 +3,8 @@ from multiprocessing import cpu_count
 import os
 import osmnx as ox
 import pandas as pd
-from osmnx.distance import great_circle
-try:
-    import ray
-    RAY_AVAILABLE = True
-except ImportError:
-    RAY_AVAILABLE = False
-    # Create a dummy decorator when ray is not available
-    class DummyRay:
-        @staticmethod
-        def remote(func):
-            class RemoteWrapper:
-                def remote(*args, **kwargs):
-                    return func(*args, **kwargs)
-            return RemoteWrapper
-        @staticmethod
-        def shutdown():
-            pass
-        @staticmethod
-        def init(*args, **kwargs):
-            pass
-        @staticmethod
-        def put(obj):
-            return obj
-        @staticmethod
-        def get(objs):
-            return objs
-    ray = DummyRay()
+
+from . import snap
 import gc
 import warnings
 
@@ -99,28 +74,42 @@ def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base
     num_removed = before_removed - after_removed
     return num_removed
 
-@ray.remote
-def get_bus_station(G_walk, G_drive, index, poi):
+def get_bus_stations(G_walk, G_drive, poi_bus_stations):
 
-    if poi['highway'] == 'bus_stop':
-        bus_station_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
-        
-        u, v, key = ox.nearest_edges(G_walk, bus_station_point[1], bus_station_point[0])
-        bus_station_node_walk = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
-        
-        u, v, key = ox.nearest_edges(G_drive, bus_station_point[1], bus_station_point[0])
-        bus_station_node_drive = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
-        
-        d = {
+    '''
+    snap every bus stop onto both networks, in two batched queries
+
+    One row per feature tagged highway=bus_stop, in the order given. The query
+    asks Overpass for exactly that tag, so in practice every feature qualifies;
+    the per-feature version returned None for one that did not, which then made
+    pd.DataFrame raise TypeError, so anything is an improvement on that.
+    '''
+
+    rows = list(poi_bus_stations.iterrows())
+    centroids = [poi.geometry.centroid for _, poi in rows]
+    is_stop = [poi['highway'] == 'bus_stop' for _, poi in rows]
+
+    lons = [c.x for c, keep in zip(centroids, is_stop) if keep]
+    lats = [c.y for c, keep in zip(centroids, is_stop) if keep]
+    nodes_walk = snap.nearest_edge_endpoints(G_walk, lons, lats, 'stations.walk')
+    nodes_drive = snap.nearest_edge_endpoints(G_drive, lons, lats, 'stations.drive')
+
+    stations = []
+    snapped = 0
+    for centroid, keep in zip(centroids, is_stop):
+        if not keep:
+            continue
+        stations.append({
             #'station_id': index,
-            'osmid_walk': bus_station_node_walk,
-            'osmid_drive': bus_station_node_drive,
-            'lat': poi.geometry.centroid.y,
-            'lon': poi.geometry.centroid.x,
+            'osmid_walk': nodes_walk[snapped],
+            'osmid_drive': nodes_drive[snapped],
+            'lat': centroid.y,
+            'lon': centroid.x,
             'type': 0,
-        }
+        })
+        snapped += 1
 
-        return d
+    return stations
 
 def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
 
@@ -130,8 +119,6 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
     '''
 
     gc.collect()
-    ray.shutdown()
-    ray.init(num_cpus=8, object_store_memory=14000000000)
 
     save_dir_csv = os.path.join(save_dir, 'csv')
 
@@ -155,11 +142,7 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
         poi_bus_stations = ox.features_from_place(place_name, tags=tags)
 
         print('number pois: ', len(poi_bus_stations))
-        G_walk_id = ray.put(G_walk)
-        G_drive_id = ray.put(G_drive)
-        bus_stations = ray.get([get_bus_station.remote(G_walk_id, G_drive_id, index, poi) for index, poi in poi_bus_stations.iterrows()]) 
-        
-        ray.shutdown()
+        bus_stations = get_bus_stations(G_walk, G_drive, poi_bus_stations)
 
         bus_stations = pd.DataFrame(bus_stations)
         

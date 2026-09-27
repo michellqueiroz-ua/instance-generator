@@ -3,7 +3,8 @@ import os
 import osmnx as ox
 import pandas as pd
 from shapely.geometry import Polygon
-from osmnx.distance import great_circle
+
+from . import snap
 
 
 def retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base):
@@ -44,25 +45,25 @@ def retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base):
         
         if len(poi_schools) > 0:
 
-            for index, poi in poi_schools.iterrows():
+            # Snap every school in one pass. Per-point nearest_edges rebuilt the
+            # walk network's edge index once per school; see REQreate/snap.py.
+            rows = list(poi_schools.iterrows())
+            centroids = [poi.geometry.centroid for _, poi in rows]
+            lons = [c.x for c in centroids]
+            lats = [c.y for c in centroids]
+            nodes_walk = snap.nearest_edge_endpoints(G_walk, lons, lats, 'schools.walk')
+            nodes_drive = snap.nearest_edge_endpoints(G_drive, lons, lats, 'schools.drive')
 
-                #print(poi)
+            for (index, poi), centroid, school_node_walk, school_node_drive in zip(
+                    rows, centroids, nodes_walk, nodes_drive):
 
-                school_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
-
-                u, v, key = ox.nearest_edges(G_walk, school_point[1], school_point[0])
-                school_node_walk = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
-            
-                u, v, key = ox.nearest_edges(G_drive, school_point[1], school_point[0])
-                school_node_drive = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
-            
                 d = {
                     #'school_id':index,
                     'school_name':poi['name'],
                     'osmid_walk':school_node_walk,
                     'osmid_drive':school_node_drive,
-                    'lat':poi.geometry.centroid.y,
-                    'lon':poi.geometry.centroid.x,
+                    'lat':centroid.y,
+                    'lon':centroid.x,
                 }
 
                 schools.append(d)
