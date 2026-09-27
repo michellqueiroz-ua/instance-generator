@@ -82,9 +82,10 @@ jobs:
         # below, and the log is needed either way.
         env:
           # Where the time goes is the point of this job, not a side note.
-          # 'cprofile' also runs the whole generation under cProfile, which
-          # accounts for 100% instead of only the stages someone wrapped.
-          REQREATE_PROFILE: cprofile
+          # Stage timers and the osmnx wrapper are effectively free. Whole-run
+          # cProfile (REQREATE_PROFILE=cprofile) roughly doubled the runtime, so
+          # it stays opt-in for one-off diagnosis rather than running every time.
+          REQREATE_PROFILE: '1'
         run: |
           set +e
           cd run

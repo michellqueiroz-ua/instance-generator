@@ -6,6 +6,7 @@ from .overpass_config import configure_overpass
 import pandas as pd
 import networkx as nx
 import numpy as np
+from . import profiling
 try:
     import ray
     RAY_AVAILABLE = True
@@ -389,6 +390,82 @@ def attribute_density_zones(network, pois):
     print(network.zones['density_pois'].head())
     #print(network.zones['density_pois'].sum())
 
+def _zone_center_distances(network):
+    """The zone-centre block of the drive distance matrix, as an n x n array.
+
+    Pulled out in one reindex rather than a .loc per cell. Unreachable pairs
+    come back as NaN, which the callers treat as "no contribution" - the same
+    outcome the per-cell version produced, since every comparison against a
+    missing distance was false.
+    """
+    centers = network.zones['center_osmid'].to_numpy()
+    centers = centers.astype(np.int64)
+    block = network.shortest_dist_drive.reindex(index=centers)
+    block = block.reindex(columns=[str(c) for c in centers])
+    return block.to_numpy(dtype=float)
+
+
+def _zone_ranks_array(distances, pois):
+    """rank[u][v] = POIs in the zones strictly closer to u than v is, excluding u.
+
+    The original computed this with three nested iterrows loops and a .loc per
+    innermost step - O(n^3) pandas lookups, which on 272 zones was 20 million
+    iterations and about half the runtime of a whole generation.
+
+    Sorting each row by distance turns the inner loop into a prefix sum: the
+    POIs closer to u than v is are a prefix of u's row in distance order, found
+    with one searchsorted. O(n^2 log n) in numpy instead.
+    """
+    n = distances.shape[0]
+    pois = np.asarray(pois)
+    weights = pois.astype(float)
+    ranks = np.zeros((n, n), dtype=float)
+
+    for u in range(n):
+        row = distances[u]
+        order = np.argsort(row, kind='stable')      # NaN sorts to the end
+        cumulative = np.concatenate(([0.0], np.cumsum(weights[order])))
+        # side='left' counts only entries strictly less than the target, which
+        # is the original's `duw < duv` rather than `<=`.
+        totals = cumulative[np.searchsorted(row[order], row, side='left')]
+        # w == u is excluded by the original's `idw != idu`, and a zone is
+        # never strictly closer to itself than v, so drop u's own POIs wherever
+        # it would have been counted. w == v needs no guard: d[u,v] < d[u,v] is
+        # false, so v never counts itself either.
+        totals = totals - np.where(row > row[u], weights[u], 0.0)
+        # An unreachable v means no w satisfied duw < duv at all.
+        totals[np.isnan(row)] = 0.0
+        ranks[u] = totals
+
+    if np.issubdtype(pois.dtype, np.integer):
+        return ranks.astype(np.int64)
+    return ranks
+
+
+def _zone_probabilities_array(ranks, alpha):
+    """p[u][v] = rank[u][v]**alpha / sum_w rank[w][v]**alpha, zero where rank is 0.
+
+    The original recomputed that denominator inside the u loop, once per u, even
+    though it depends only on v - so an O(n^2) quantity cost O(n^3) to build.
+    Here it is one column sum.
+    """
+    ranks = np.asarray(ranks)
+    powered = np.zeros(ranks.shape, dtype=float)
+    nonzero = ranks != 0
+    powered[nonzero] = np.power(ranks[nonzero].astype(float), alpha)
+
+    denominator = powered.sum(axis=0)
+    probabilities = np.divide(
+        powered, denominator,
+        out=np.zeros_like(powered),
+        where=denominator != 0,
+    )
+    # The original wrote 0 for u == v explicitly; rank[u][u] is already 0, so
+    # this only restates it.
+    np.fill_diagonal(probabilities, 0.0)
+    return probabilities
+
+
 def calc_rank_between_zones(network):
 
     network.zones['center_osmid'] = np.nan
@@ -401,28 +478,18 @@ def calc_rank_between_zones(network):
         network.zones.loc[idx, 'center_osmid'] = int(center_osmid)
 
     print('Calculating zone ranks...')
-    zone_ranks = []
-    total_zones = len(network.zones)
-    
-    for idu, zoneu in network.zones.iterrows():
-        if idu % 10 == 0:
-            print(f'Processing zone {idu}/{total_zones}')
-        rank = {}
-        rank['zone_id'] = idu
-        for idv, zonev in network.zones.iterrows():
-            rank[idv] = 0
-            duv = network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonev['center_osmid']))]
-            for idw, zonew in network.zones.iterrows():
 
-                if ((idw != idu) and (idw != idv)):
-                    duw = network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonew['center_osmid']))]
-                    if duw < duv:
-                        rank[idv] += network.zones.loc[idw, 'number_pois']
-
-        zone_ranks.append(rank)
-        del rank
-
-    zone_ranks = pd.DataFrame(zone_ranks)  
+    with profiling.stage('zones.rank_between_zones'):
+        zone_ranks = pd.DataFrame(
+            _zone_ranks_array(
+                _zone_center_distances(network),
+                network.zones['number_pois'].to_numpy(),
+            ),
+            index=network.zones.index,
+            columns=network.zones.index,
+        )
+    zone_ranks.index.name = 'zone_id'
+    zone_ranks = zone_ranks.reset_index()
     #save_dir_csv = os.path.join(save_dir, 'csv')
     #path_pois_file = os.path.join(save_dir_csv, place_name+'.pois.csv') 
     #zone_ranks.to_csv(path_pois_file)
@@ -434,39 +501,16 @@ def calc_rank_between_zones(network):
 
 def calc_probability_travel_between_zones(network, zone_ranks, alpha):
 
-    zone_probabilities = []
-
     alpha = alpha*-1
 
-    for idu, zoneu in zone_ranks.iterrows():
-        puv = {}
-        puv['zone_id'] = idu
-        for idv, zonev in zone_ranks.iterrows():
-            
-            if idu != idv:
-                p1 = zone_ranks.loc[int(idu), int(idv)]
-
-                r2 = 0
-                for idw, zonew in zone_ranks.iterrows():
-                    p2 = zone_ranks.loc[int(idw), int(idv)]
-                    if p2 != 0:
-                        r2 += p2 ** alpha
-
-                if p1 != 0:
-                    r1 = p1 ** alpha
-                    
-                    puv[idv] = r1/r2
-                else:
-                    puv[idv] = 0
-            else:
-                puv[idv] = 0
-
-
-        zone_probabilities.append(puv)
-        del puv
-        gc.collect()
-
-    zone_probabilities = pd.DataFrame(zone_probabilities)  
+    with profiling.stage('zones.probability_between_zones'):
+        zone_probabilities = pd.DataFrame(
+            _zone_probabilities_array(zone_ranks.to_numpy(), alpha),
+            index=zone_ranks.index,
+            columns=zone_ranks.columns,
+        )
+    zone_probabilities.index.name = 'zone_id'
+    zone_probabilities = zone_probabilities.reset_index()
     zone_probabilities.set_index(['zone_id'], inplace=True)
 
     return zone_probabilities
