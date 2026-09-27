@@ -121,7 +121,11 @@ jobs:
             echo "These hashes therefore show WHICH files moved, not whether a rewrite was"
             echo "faithful. Treat a difference as something to explain, not as a verdict."
             echo '```'
-            find . -name '*.csv' -not -path './cache*' | sort | xargs -r sha256sum
+            # -print0/-0: every generated path contains spaces and a comma
+            # ("Aachen, Germany.dist.drive.csv"), which word-split under plain xargs
+            # and took the whole step - and the profile table with it - down with it.
+            find . -name '*.csv' -not -path './cache*' -print0 | sort -z \
+              | xargs -0 -r sha256sum || echo '(hashing failed; not worth failing the run over)'
             echo '```'
             echo ""
             echo "### Files per directory"
