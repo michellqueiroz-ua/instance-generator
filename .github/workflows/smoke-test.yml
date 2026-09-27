@@ -80,6 +80,9 @@ jobs:
         id: generate
         # Never fail the step directly - the outcome is reported as an issue
         # below, and the log is needed either way.
+        env:
+          # Where the time goes is the point of this job, not a side note.
+          REQREATE_PROFILE: '1'
         run: |
           set +e
           cd run
@@ -105,6 +108,16 @@ jobs:
             csv_count=$(find . -name '*.csv' | wc -l)
             echo "CSV files produced: $csv_count"
             echo "csv_count=$csv_count" >> "$GITHUB_OUTPUT"
+            echo ""
+            if [ -f reqreate_profile.json ]; then
+              echo "### Where the time went"
+              echo '```json'
+              cat reqreate_profile.json
+              echo '```'
+            else
+              echo "_No profile written - the run died before REQreate's atexit hook, or"
+              echo "REQREATE_PROFILE was not set._"
+            fi
           } > inspect.md
           cat inspect.md
 

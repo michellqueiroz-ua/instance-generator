@@ -1,3 +1,4 @@
+from . import profiling
 from .fixed_lines import _check_subway_routes_serve_passenger
 import json
 import math
@@ -97,6 +98,10 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
     att_attempts = 0
     while not feasible_data:
         
+        profiling.tick('request.candidate_draws')
+        if not first_time:
+            profiling.tick('request.restarts')
+        first_time = False
         attributes = {}
         feasible_data = True
         if method_poi:
@@ -117,6 +122,9 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
             exhaustion_iterations = 0
 
             while (not_feasible_attribute) and (exhaustion_iterations < 100):
+
+                profiling.tick('attribute.attempts')
+                profiling.tick('attribute.attempts.' + str(GA.nodes[att].get('type', 'unknown')))
 
                 seed_attribute = ((reqid+1)*111*(replicate_num+1))+att_attempts+num_requests
                 att_attempts += 1
@@ -451,12 +459,14 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                 if att == pu:         
                     if not_feasible_attribute:
                 
+                        profiling.tick('request.rejected.location_pickup')
                         feasible_data = False
                         break 
 
                 if att == do:         
                     if not_feasible_attribute:
                 
+                        profiling.tick('request.rejected.location_dropoff')
                         feasible_data = False
                         break 
 
@@ -465,6 +475,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                 if att == 'destination':         
                     if not_feasible_attribute:
                 
+                        profiling.tick('request.rejected.location_destination')
                         feasible_data = False
                         break 
                 
@@ -740,6 +751,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                             #print('hier')
                             #print(constraint)
                             not_feasible_attribute = True
+                            profiling.tick('attribute.constraint_failed')
                             exhaustion_iterations += 1
                             if 'expression' in GA.nodes[att]:
                                 #this means that another attribute should be remaked because of this, therefore everything is discarded
@@ -750,6 +762,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
            
             if not_feasible_attribute:
             
+                profiling.tick('request.rejected.attribute_exhausted')
                 feasible_data = False
                 break
 
@@ -995,7 +1008,9 @@ def _generate_requests(
 
             while (not_reached_dynamism):
 
+                profiling.tick('dynamism.passes')
                 for ts in range(len(time_stamps)):
+                    profiling.tick('dynamism.evaluations')
 
                     dynamismlvl = dynamism(time_stamps, inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc'])
                     dynamismlvl *= 100
@@ -1032,7 +1047,9 @@ def _generate_requests(
         not_reached_urgency = True
         while(not_reached_urgency):
 
+            profiling.tick('urgency.passes')
             for r in range(num_requests):
+                profiling.tick('urgency.evaluations')
 
                 mean = sum(reaction_times) / len(reaction_times)
                 variance = sum([((x - mean) ** 2) for x in reaction_times]) / len(reaction_times)

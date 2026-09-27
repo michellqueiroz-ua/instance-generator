@@ -5,6 +5,7 @@ import networkx as nx
 import os
 import pandas as pd
 from .logger_utils import get_logger
+from . import profiling
 try:
     import ray
     RAY_AVAILABLE = True
@@ -191,7 +192,9 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u, weight="length") for u in l])
             else:
                 # Sequential processing for Windows
-                results = [shortest_path_nx_ss_sequential(G_walk, u, weight="length") for u in l]
+                with profiling.stage('walk.dijkstra'):
+                    results = [shortest_path_nx_ss_sequential(G_walk, u, weight="length") for u in l]
+                profiling.tick('walk.dijkstra.sources', len(l))
 
             j=0
             for u in l:
@@ -212,16 +215,19 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 j+=1
                 del d
 
-            xt = pd.DataFrame(shortest_path_length_walk)
-            #shortest_path_walk = shortest_path_walk.concat(xt, ignore_index=True)
-            shortest_path_walk = pd.concat([shortest_path_walk, xt], ignore_index=True)
+            with profiling.stage('walk.assemble_frame'):
+                xt = pd.DataFrame(shortest_path_length_walk)
+                shortest_path_walk = pd.concat([shortest_path_walk, xt], ignore_index=True)
             
 
             del shortest_path_length_walk
             del results
             gc.collect()
 
-        shortest_path_walk.to_csv(path_dist_csv_file_walk)
+        with profiling.stage('walk.to_csv'):
+            shortest_path_walk.to_csv(path_dist_csv_file_walk)
+        profiling.note('walk_matrix_shape', list(shortest_path_walk.shape))
+        profiling.note('walk_csv_bytes', os.path.getsize(path_dist_csv_file_walk))
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
     
     unreachable_nodes = []
@@ -267,7 +273,9 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="travel_time") for u in l])
             else:
                 # Sequential processing
-                results = [shortest_path_nx_ss_sequential(G_drive, u, weight="travel_time") for u in l]
+                with profiling.stage('drive_tt.dijkstra'):
+                    results = [shortest_path_nx_ss_sequential(G_drive, u, weight="travel_time") for u in l]
+                profiling.tick('drive_tt.dijkstra.sources', len(l))
 
             j = 0
             for u in l:
@@ -293,13 +301,17 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 j += 1
                 del d
 
-            xt = pd.DataFrame(shortest_path_length_drive)
-            shortest_path_drive = pd.concat([shortest_path_drive, xt], ignore_index=True)
+            with profiling.stage('drive_tt.assemble_frame'):
+                xt = pd.DataFrame(shortest_path_length_drive)
+                shortest_path_drive = pd.concat([shortest_path_drive, xt], ignore_index=True)
             del shortest_path_length_drive
             del results
             gc.collect()
 
-        shortest_path_drive.to_csv(path_tt_csv_file_drive)
+        with profiling.stage('drive_tt.to_csv'):
+            shortest_path_drive.to_csv(path_tt_csv_file_drive)
+        profiling.note('drive_tt_matrix_shape', list(shortest_path_drive.shape))
+        profiling.note('drive_tt_csv_bytes', os.path.getsize(path_tt_csv_file_drive))
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
         
         if RAY_AVAILABLE:
@@ -350,7 +362,9 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="length") for u in l])
             else:
                 # Sequential processing for Windows
-                results = [shortest_path_nx_ss_sequential(G_drive, u, weight="length") for u in l]
+                with profiling.stage('drive_dist.dijkstra'):
+                    results = [shortest_path_nx_ss_sequential(G_drive, u, weight="length") for u in l]
+                profiling.tick('drive_dist.dijkstra.sources', len(l))
 
             j=0
             for u in l:
@@ -376,14 +390,17 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 j+=1
                 del d
 
-            xt = pd.DataFrame(shortest_path_length_drive)
-            #shortest_dist_drive = shortest_dist_drive.concat(xt, ignore_index=True) 
-            shortest_dist_drive = pd.concat([shortest_dist_drive, xt], ignore_index=True)    
+            with profiling.stage('drive_dist.assemble_frame'):
+                xt = pd.DataFrame(shortest_path_length_drive)
+                shortest_dist_drive = pd.concat([shortest_dist_drive, xt], ignore_index=True)
             del shortest_path_length_drive
             del results
             gc.collect()
 
-        shortest_dist_drive.to_csv(path_dist_csv_file_drive)
+        with profiling.stage('drive_dist.to_csv'):
+            shortest_dist_drive.to_csv(path_dist_csv_file_drive)
+        profiling.note('drive_dist_matrix_shape', list(shortest_dist_drive.shape))
+        profiling.note('drive_dist_csv_bytes', os.path.getsize(path_dist_csv_file_drive))
         shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
 
         if RAY_AVAILABLE:
