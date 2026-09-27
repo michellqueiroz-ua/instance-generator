@@ -6,3 +6,8 @@ interface is launched with the ``reqreate app`` command (see cli.py).
 """
 
 __version__ = "0.1.1"
+
+# Profiling is off unless REQREATE_PROFILE is set; when it is, wrap the osmnx
+# calls so their cost is attributed rather than landing in "unaccounted".
+from . import profiling as _profiling  # noqa: E402
+_profiling.instrument_osmnx()

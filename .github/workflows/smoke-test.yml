@@ -109,6 +109,14 @@ jobs:
             echo "CSV files produced: $csv_count"
             echo "csv_count=$csv_count" >> "$GITHUB_OUTPUT"
             echo ""
+            echo "### Files per directory"
+            echo '```'
+            find . -type d -not -path './cache*' | sort | while read -r d; do
+              n=$(find "$d" -maxdepth 1 -type f | wc -l)
+              [ "$n" -gt 0 ] && printf '%6d  %s\n' "$n" "$d"
+            done
+            echo '```'
+            echo ""
             if [ -f reqreate_profile.json ]; then
               echo "### Where the time went"
               echo '```json'

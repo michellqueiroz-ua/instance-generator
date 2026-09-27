@@ -25,7 +25,8 @@ import time
 from collections import defaultdict
 from contextlib import contextmanager
 
-__all__ = ["ENABLED", "stage", "tick", "note", "dump", "reset"]
+__all__ = ["ENABLED", "stage", "tick", "note", "dump", "reset",
+           "instrument_osmnx"]
 
 
 def _truthy(value):
@@ -170,3 +171,40 @@ if ENABLED:
     # A generation that dies partway is exactly when the numbers matter most, so
     # dump on the way out rather than only on a clean finish.
     atexit.register(dump)
+
+
+def instrument_osmnx():
+    """Time every osmnx call that the generator leans on, at the source.
+
+    These are called from a dozen places - plot_graph alone from eight modules,
+    twice per zone in retrieve_zones - so wrapping the library functions once
+    beats threading a stage() through every call site, and cannot miss one.
+
+    plot_graph is here because it is not a side show: a single full-network
+    render of a 26k-node graph takes seconds, and several call sites ask for
+    dpi=1440, which is an 11520x11520 canvas.
+    """
+    if not ENABLED:
+        return
+    try:
+        import osmnx as ox
+    except ImportError:
+        return
+
+    for name in ("plot_graph", "nearest_nodes", "graph_from_place",
+                 "graph_from_point", "features_from_place", "features_from_point"):
+        original = getattr(ox, name, None)
+        if original is None or getattr(original, "_reqreate_timed", False):
+            continue
+
+        def make(call_name, func):
+            def wrapper(*args, **kwargs):
+                with stage("osmnx." + call_name):
+                    return func(*args, **kwargs)
+            wrapper._reqreate_timed = True
+            wrapper.__name__ = call_name
+            wrapper.__doc__ = getattr(func, "__doc__", None)
+            return wrapper
+
+        setattr(ox, name, make(name, original))
+        tick("osmnx.wrapped." + name, 0)
