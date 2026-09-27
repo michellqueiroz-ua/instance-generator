@@ -40,9 +40,12 @@ def _run_app(args):
 
 def _run_generate(args):
     from .input_json import input_json
+    from . import profiling
 
     directory = os.path.dirname(os.path.abspath(args.config)) or os.getcwd()
-    input_json(directory + os.sep, os.path.basename(args.config), args.output or "")
+    return profiling.cprofile_run(
+        input_json, directory + os.sep, os.path.basename(args.config), args.output or ""
+    )
 
 
 def main(argv=None):

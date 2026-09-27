@@ -26,14 +26,19 @@ from collections import defaultdict
 from contextlib import contextmanager
 
 __all__ = ["ENABLED", "stage", "tick", "note", "dump", "reset",
-           "instrument_osmnx"]
+           "instrument_osmnx", "CPROFILE", "cprofile_run"]
 
 
 def _truthy(value):
     return value.strip().lower() not in ("", "0", "false", "no", "off")
 
 
-ENABLED = _truthy(os.environ.get("REQREATE_PROFILE", ""))
+_MODE = os.environ.get("REQREATE_PROFILE", "").strip().lower()
+ENABLED = _truthy(_MODE)
+# Whole-run cProfile. Slower, but it accounts for 100% by construction rather
+# than only for the stages someone remembered to instrument - which is exactly
+# how two rounds of hand-placed timers left half the runtime in the dark.
+CPROFILE = ENABLED and _MODE in ("cprofile", "all", "full")
 
 # Where the JSON lands. Relative paths are resolved against the working
 # directory, which is where the generator already writes its output.
@@ -208,3 +213,44 @@ def instrument_osmnx():
 
         setattr(ox, name, make(name, original))
         tick("osmnx.wrapped." + name, 0)
+
+
+def cprofile_run(func, *args, **kwargs):
+    """Run func under cProfile when REQREATE_PROFILE=cprofile, else call it.
+
+    Writes the raw stats next to the output as reqreate_profile.prof, so it can
+    be loaded with pstats later, and puts the top callers by cumulative and by
+    own time into the printed report and the JSON.
+    """
+    if not CPROFILE:
+        return func(*args, **kwargs)
+
+    import cProfile
+    import io
+    import pstats
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    try:
+        return func(*args, **kwargs)
+    finally:
+        profiler.disable()
+
+        prof_path = os.environ.get("REQREATE_PROFILE_PROF", "reqreate_profile.prof")
+        try:
+            profiler.dump_stats(prof_path)
+            note("cprofile_stats_file", prof_path)
+        except OSError as exc:
+            print(f"[profile] could not write {prof_path}: {exc}", file=sys.stderr)
+
+        for sort_key, label in (("cumulative", "cumulative"), ("tottime", "own_time")):
+            buf = io.StringIO()
+            try:
+                pstats.Stats(profiler, stream=buf).sort_stats(sort_key).print_stats(40)
+            except Exception as exc:                # a report is never worth a crash
+                _notes["cprofile_" + label] = f"(failed: {exc})"
+                continue
+            text = buf.getvalue()
+            _notes["cprofile_top_" + label] = text
+            print(f"\n--- cProfile: top 40 by {label} ---", file=sys.stdout)
+            print(text, file=sys.stdout)

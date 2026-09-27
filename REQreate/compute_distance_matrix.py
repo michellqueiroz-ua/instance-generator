@@ -197,7 +197,8 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
                 profiling.tick('walk.dijkstra.sources', len(l))
 
             j=0
-            for u in l:
+            with profiling.stage('walk.build_cells'):
+              for u in l:
                 d = {}
                 d['osmid_origin'] = u
                 for v in G_walk.nodes():

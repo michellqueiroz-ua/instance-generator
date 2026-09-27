@@ -82,7 +82,9 @@ jobs:
         # below, and the log is needed either way.
         env:
           # Where the time goes is the point of this job, not a side note.
-          REQREATE_PROFILE: '1'
+          # 'cprofile' also runs the whole generation under cProfile, which
+          # accounts for 100% instead of only the stages someone wrapped.
+          REQREATE_PROFILE: cprofile
         run: |
           set +e
           cd run
@@ -120,7 +122,17 @@ jobs:
             if [ -f reqreate_profile.json ]; then
               echo "### Where the time went"
               echo '```json'
-              cat reqreate_profile.json
+              python "$GITHUB_WORKSPACE/.github/smoke-test/split_profile.py" reqreate_profile.json
+              echo '```'
+              echo ""
+              echo "### cProfile: top by cumulative time"
+              echo '```'
+              head -55 cprofile_cumulative.txt
+              echo '```'
+              echo ""
+              echo "### cProfile: top by own time"
+              echo '```'
+              head -55 cprofile_own_time.txt
               echo '```'
             else
               echo "_No profile written - the run died before REQreate's atexit hook, or"
