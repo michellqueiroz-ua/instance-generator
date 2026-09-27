@@ -31,12 +31,16 @@ reqreate --version
 | Extra | Installs | Needed for |
 |---|---|---|
 | `app` | streamlit, folium, plotly | the web interface (`reqreate app`) |
-| `parallel` | ray | parallel processing; the code falls back to sequential without it |
-| `analysis` | scikit-learn, sqlalchemy | the taxi-dataset trip-pattern and `uber_movement` modules |
+| `analysis` | sqlalchemy | the taxi-dataset trip-pattern and `uber_movement` modules |
+| `parallel` | ray | **nothing yet** - see below |
 
 ```bash
-pip install "reqreate[app,parallel]"
+pip install "reqreate[app,analysis]"
 ```
+
+The `parallel` extra installs ray, but `compute_distance_matrix` currently
+discards it and runs sequentially regardless, so installing it costs a large
+dependency and buys no speedup. Do not rely on it until that is fixed.
 
 ## Quick start: the web interface
 
@@ -65,13 +69,12 @@ works for that location before you commit to a full-size run.
 **Expect hours, not minutes.** Downloading the network takes a few minutes, but
 the distance and travel-time matrices that follow are the expensive part, and
 they scale with the size of the city rather than the number of requests. A
-20-request run for `Aachen, Germany` was still computing them after two hours
-on a single core. Install the `parallel` extra before a real run - without it
-the matrices are computed sequentially:
+20-request run for `Aachen, Germany` took about 90 minutes end to end on a
+single core, most of it in those matrices. There is no way to speed that up
+today; see the note on the `parallel` extra above.
 
-```bash
-pip install "reqreate[app,parallel]"
-```
+Runs of the same location afterwards are quicker, because the OpenStreetMap
+responses are cached in a `cache/` folder next to the output.
 
 ### Where the output goes
 
