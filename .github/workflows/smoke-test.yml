@@ -114,9 +114,12 @@ jobs:
             echo ""
             echo "### Instance fingerprint"
             echo ""
-            echo "The generator seeds both RNGs from the config, so two runs on the same"
-            echo "city and request count should produce byte-identical CSVs. These hashes"
-            echo "are what makes a rewrite's equivalence checkable from the issue alone."
+            echo "Both RNGs are seeded from the config, but the distance matrices are NOT"
+            echo "reproducible across runs: issues #12, #13 and #14 report three different"
+            echo "byte sizes for the walk and drive matrices from identical code, so the"
+            echo "city graph OSM returns - or how stops map onto it - varies per run."
+            echo "These hashes therefore show WHICH files moved, not whether a rewrite was"
+            echo "faithful. Treat a difference as something to explain, not as a verdict."
             echo '```'
             find . -name '*.csv' -not -path './cache*' | sort | xargs -r sha256sum
             echo '```'
