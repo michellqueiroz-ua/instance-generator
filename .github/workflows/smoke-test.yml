@@ -112,6 +112,15 @@ jobs:
             echo "CSV files produced: $csv_count"
             echo "csv_count=$csv_count" >> "$GITHUB_OUTPUT"
             echo ""
+            echo "### Instance fingerprint"
+            echo ""
+            echo "The generator seeds both RNGs from the config, so two runs on the same"
+            echo "city and request count should produce byte-identical CSVs. These hashes"
+            echo "are what makes a rewrite's equivalence checkable from the issue alone."
+            echo '```'
+            find . -name '*.csv' -not -path './cache*' | sort | xargs -r sha256sum
+            echo '```'
+            echo ""
             echo "### Files per directory"
             echo '```'
             find . -type d -not -path './cache*' | sort | while read -r d; do
