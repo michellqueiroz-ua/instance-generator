@@ -79,30 +79,25 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
             'office':['accountant','advertising_agency','architect','charity','company','consulting','courier','coworking','educational_institution','employment_agency','engineer','estate_agent','financial','financial_advisor','forestry','foundation','government','graphic_design','insurance','it','lawyer','logistics','moving_company','newspaper','ngo','political_party','property_management','research','tax_advisor','telecommunication','visa','water_utility'],
         }
 
-        shop_values1 = ['alcohol','bakery','beverages','brewing_supplies','butcher','cheese','chocolate','coffee','confectionery','convenience','deli','dairy','farm','frozen_food','greengrocer','health_food','ice_cream','pasta','pastry','spices','tea','department_store','general','kiosk','mall','supermarket','baby_goods','bag','boutique','clothes','fabric']
+        tags_shop1 = {
+            'shop':['alcohol','bakery','beverages','brewing_supplies','butcher','cheese','chocolate','coffee','confectionery','convenience','deli','dairy','farm','frozen_food','greengrocer','health_food','ice_cream','pasta','pastry','spices','tea','department_store','general','kiosk','mall','supermarket','baby_goods','bag','boutique','clothes','fabric'],
+        }
 
-        shop_values2 = ['fashion_accessories','jewelry','leather','sewing','shoes','tailor','watches','wool','charity','second_hand','variety_store','beauty','chemist','cosmetics','erotic','hairdresser','hairdresser_supply','hearing_aids','herbalist','massage','medical_supply','nutrition_supplements','optician','perfumery','tattoo','agrarian','appliance','bathroom_furnishing','doityourself','electrical','energy','fireplace','florist']
+        tags_shop2 = {
+            'shop':['fashion_accessories','jewelry','leather','sewing','shoes','tailor','watches','wool','charity','second_hand','variety_store','beauty','chemist','cosmetics','erotic','hairdresser','hairdresser_supply','hearing_aids','herbalist','massage','medical_supply','nutrition_supplements','optician','perfumery','tattoo','agrarian','appliance','bathroom_furnishing','doityourself','electrical','energy','fireplace','florist'],
+        }
 
-        shop_values3 = ['garden_centre','garden_furniture','gas','glaziery','groundskeeping','hardware','houseware','locksmith','paint','security','trade','antiques','bed','candles','carpet','curtain','doors','flooring','furniture','household_linen','interior_decoration','kitchen','lighting','tiles','window_blind','computer','electronics','hifi','mobile_phone','radiotechnics','vacuum_cleaner','atv','bicycle','boat','car','car_repair']
+        tags_shop3 = {
+            'shop':['garden_centre','garden_furniture','gas','glaziery','groundskeeping','hardware','houseware','locksmith','paint','security','trade','antiques','bed','candles','carpet','curtain','doors','flooring','furniture','household_linen','interior_decoration','kitchen','lighting','tiles','window_blind','computer','electronics','hifi','mobile_phone','radiotechnics','vacuum_cleaner','atv','bicycle','boat','car','car_repair'],
+        }
 
-        shop_values4 = ['car_parts','caravan','fuel','fishing','golf','hunting','jetski','military_surplus','motorcycle','outdoor','scuba_diving','ski','snowmobile','sports','swimming_pool','trailer','tyres','art','collector','craft','frame']
+        tags_shop4 = {
+            'shop':['car_parts','caravan','fuel','fishing','golf','hunting','jetski','military_surplus','motorcycle','outdoor','scuba_diving','ski','snowmobile','sports','swimming_pool','trailer','tyres','art','collector','craft','frame'],
+        }
 
-        shop_values5 = ['games','model','music','musical_instrument','photo','camera','trophy','video','video_games','anime','books','gift','lottery','newsagent','stationery','ticket','bookmaker','cannabis','copyshop','dry_cleaning','e-cigarette','funeral_directors','laundry','money_lender','party','pawnbroker','pet','pet_grooming','pest_control','pyrotechnics','religion','storage_rental','tobacco','toys','travel_agency','weapons','outpost']
-
-        # One Overpass request instead of five. osmnx emits one query component
-        # per (key, value) pair regardless, so merging these costs the server the
-        # same and saves four rate-limit pauses - and the pauses, not the data,
-        # are what this step spends its time on.
-        #
-        # Safe to merge because the five lists are disjoint (158 values, 158
-        # distinct) and an OSM element carries at most one shop value, so no
-        # feature can be returned by two of them. Splitting the result back by
-        # which list each value came from therefore reproduces the five frames
-        # exactly, and sorting by that keeps the rows in their original order.
-        shop_lists = [shop_values1, shop_values2, shop_values3, shop_values4, shop_values5]
-        shop_group_of = {value: rank for rank, values in enumerate(shop_lists)
-                         for value in values}
-        tags_shops = {'shop': [value for values in shop_lists for value in values]}
+        tags_shop5 = {
+            'shop':['games','model','music','musical_instrument','photo','camera','trophy','video','video_games','anime','books','gift','lottery','newsagent','stationery','ticket','bookmaker','cannabis','copyshop','dry_cleaning','e-cigarette','funeral_directors','laundry','money_lender','party','pawnbroker','pet','pet_grooming','pest_control','pyrotechnics','religion','storage_rental','tobacco','toys','travel_agency','weapons','outpost'],
+        }
 
         tags_tourism = { 
             'tourism':['aquarium','artwork','attraction','gallery','hostel','motel','museum','theme_park','zoo'],
@@ -111,19 +106,35 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
         # These ten queries run back to back, which is what trips Overpass
         # rate limiting; configure_overpass sets the timeout under the name
         # osmnx actually reads and enables the rate limiter.
+        #
+        # Tempting and tried: merge the five shop queries into one. The tag lists
+        # are disjoint (158 values, 158 distinct, none repeated, no other group
+        # filters on shop) and osmnx emits one query component per (key, value)
+        # pair either way, so one request asks for exactly the same 474 pairs and
+        # would cost four fewer rate-limit pauses - worth about 7 minutes.
+        #
+        # overpass-api.de refuses it. A 20-request Aachen run died after 15
+        # minutes with an HTML error page instead of JSON, having answered only
+        # the four smaller queries. 474 components each recursing down over a
+        # whole city polygon is past what the public instance will do in one
+        # request, and the ceiling is a resource limit rather than a size limit,
+        # so it scales with the city: any fixed batch size that works for Aachen
+        # is still a gamble for somewhere larger. See issue #18.
+        #
+        # So the queries stay split. The way to stop paying for them is to not
+        # make them twice - see REQREATE_CACHE_DIR in overpass_config.
         configure_overpass(timeout=1800)
 
-        pois_shops = ox.features_from_place(place_name, tags=tags_shops)
-        print('shops', len(pois_shops))
-        if len(pois_shops) > 0:
-            # Stable, so features sharing a list keep the order Overpass gave them.
-            shop_rank = pois_shops['shop'].map(shop_group_of)
-            unlisted = int(shop_rank.isna().sum())
-            if unlisted:
-                print(f'{unlisted} shop features carry a value not in any list; '
-                      'they sort last')
-            pois_shops = pois_shops.assign(_shop_rank=shop_rank).sort_values(
-                '_shop_rank', kind='stable', na_position='last').drop(columns='_shop_rank')
+        pois_shop1 = ox.features_from_place(place_name, tags=tags_shop1)
+        print(len(pois_shop1))
+        pois_shop2 = ox.features_from_place(place_name, tags=tags_shop2)
+        print(len(pois_shop2))
+        pois_shop3 = ox.features_from_place(place_name, tags=tags_shop3)
+        print(len(pois_shop3))
+        pois_shop4 = ox.features_from_place(place_name, tags=tags_shop4)
+        print(len(pois_shop4))
+        pois_shop5 = ox.features_from_place(place_name, tags=tags_shop5)
+        print(len(pois_shop5))
 
         pois_amenity = ox.features_from_place(place_name, tags=tags_amenity)
         print(len(pois_amenity))
@@ -146,7 +157,7 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
         # Concatenating a growing frame once per 100-POI chunk went with it.
         categories = [
             pois_amenity, pois_building, pois_leisure, pois_office,
-            pois_shops,
+            pois_shop1, pois_shop2, pois_shop3, pois_shop4, pois_shop5,
             pois_tourism,
         ]
         centroids = [frame.geometry.loc[index].centroid

@@ -67,8 +67,9 @@ about the same as a large one. What it buys you is a check that the pipeline
 works for that location before you commit to a full-size run.
 
 **Expect tens of minutes.** A 20-request run for `Aachen, Germany` takes about
-half an hour end to end, and the cost scales with the size of the city rather
-than the number of requests.
+forty minutes end to end, and the cost scales with the size of the city rather
+than the number of requests. A second run of the same location is far quicker -
+see the cache note below.
 
 Most of that is not computation. Profiling a run showed the time going roughly
 like this:
@@ -80,9 +81,11 @@ like this:
 | everything else | the rest |
 
 and of the Overpass time, the large majority is spent waiting for a rate-limit
-slot rather than transferring data. So the useful lever is making fewer, larger
-queries and reusing the answers - not more cores. See the note on the `parallel`
-extra above.
+slot rather than transferring data - so more cores would not help, and neither
+would a faster machine. See the note on the `parallel` extra above.
+
+Fewer, larger queries would help, but the public Overpass instance refuses the
+merged query this needs. What does help is not asking twice:
 
 Runs of the same location afterwards are much quicker, because the OpenStreetMap
 responses are cached in a `cache/` folder next to the output. That folder is
