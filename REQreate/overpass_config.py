@@ -17,6 +17,15 @@ Call configure_overpass() once before any OSM download. It is idempotent.
 
 Set REQREATE_OVERPASS_URL to a comma-separated list of interpreter URLs to
 override the mirror list, e.g. when running behind a private Overpass instance.
+
+Set REQREATE_CACHE_DIR to keep osmnx's HTTP response cache somewhere durable.
+It defaults to ./cache, relative to the working directory, so a run started from
+a different directory - or in a fresh container - re-downloads everything. A
+measured Aachen run spent 25.9 minutes on Overpass, and about 24 of those waiting
+for a rate-limit slot rather than transferring anything, so a cache that survives
+between runs is the difference between 25 minutes and a few seconds. The entries
+are keyed by the query itself, so a stale one is a matter of age, never of
+answering the wrong question: delete the directory to force a refresh.
 """
 
 import os
@@ -171,6 +180,18 @@ def configure_overpass(timeout=1800):
     # re-downloading everything that already succeeded.
     if hasattr(ox.settings, "use_cache"):
         ox.settings.use_cache = True
+
+    # And, if asked, keep that cache somewhere that outlives this working
+    # directory, so a second run of the same city skips Overpass entirely.
+    cache_dir = os.environ.get("REQREATE_CACHE_DIR", "").strip()
+    if cache_dir and hasattr(ox.settings, "cache_folder"):
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+        except OSError as exc:
+            warnings.warn(f"REQREATE_CACHE_DIR {cache_dir!r} is not usable ({exc}); "
+                          "falling back to the default cache location")
+        else:
+            ox.settings.cache_folder = cache_dir
 
     if _configured:
         return

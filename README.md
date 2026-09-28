@@ -66,15 +66,36 @@ network rather than into the requests themselves, so a 20-request run costs
 about the same as a large one. What it buys you is a check that the pipeline
 works for that location before you commit to a full-size run.
 
-**Expect hours, not minutes.** Downloading the network takes a few minutes, but
-the distance and travel-time matrices that follow are the expensive part, and
-they scale with the size of the city rather than the number of requests. A
-20-request run for `Aachen, Germany` took about 90 minutes end to end on a
-single core, most of it in those matrices. There is no way to speed that up
-today; see the note on the `parallel` extra above.
+**Expect tens of minutes.** A 20-request run for `Aachen, Germany` takes about
+half an hour end to end, and the cost scales with the size of the city rather
+than the number of requests.
 
-Runs of the same location afterwards are quicker, because the OpenStreetMap
-responses are cached in a `cache/` folder next to the output.
+Most of that is not computation. Profiling a run showed the time going roughly
+like this:
+
+| | share |
+|---|---|
+| waiting on OpenStreetMap's Overpass servers | about two thirds |
+| distance and travel-time matrices | under a tenth |
+| everything else | the rest |
+
+and of the Overpass time, the large majority is spent waiting for a rate-limit
+slot rather than transferring data. So the useful lever is making fewer, larger
+queries and reusing the answers - not more cores. See the note on the `parallel`
+extra above.
+
+Runs of the same location afterwards are much quicker, because the OpenStreetMap
+responses are cached in a `cache/` folder next to the output. That folder is
+relative to the directory you launched from, so a run started elsewhere
+re-downloads everything. Set `REQREATE_CACHE_DIR` to keep the cache somewhere
+durable and shared:
+
+```bash
+export REQREATE_CACHE_DIR=~/.cache/reqreate
+```
+
+Cache entries are keyed by the query itself, so a stale entry is only ever old -
+it can never answer the wrong question. Delete the folder to force a refresh.
 
 ### Where the output goes
 

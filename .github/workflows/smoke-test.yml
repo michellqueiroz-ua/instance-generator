@@ -23,6 +23,10 @@ on:
         description: 'Number of requests. Keep small; runtime is dominated by the network download, not this.'
         required: true
         default: '20'
+      warm_cache:
+        description: 'Reuse Overpass responses cached by an earlier run of the same city. Much faster, but the OSM data is as old as the cache. Leave false to measure a cold run.'
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -64,17 +68,35 @@ jobs:
         run: |
           mkdir -p run
           python - <<'PY'
-          import json, os
+          import json, os, re
           cfg = json.load(open('.github/smoke-test/aachen_odbrp_20.json'))
           cfg['network'] = os.environ['CITY']
           cfg['requests'] = int(os.environ['REQUESTS'])
           with open('run/config.json', 'w') as f:
               json.dump(cfg, f, indent=2)
           print(f"city={cfg['network']} requests={cfg['requests']} problem={cfg['problem']}")
+          # Cache keys may not contain commas, and every city name here has one.
+          slug = re.sub(r'[^a-z0-9]+', '-', cfg['network'].lower()).strip('-')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f'slug={slug}\n')
           PY
         env:
           CITY: ${{ inputs.city }}
           REQUESTS: ${{ inputs.requests }}
+
+      # Off by default: the point of this job is to measure a cold run, and a warm
+      # cache would quietly turn 26 minutes of Overpass into a few seconds and
+      # make every later timing incomparable. Turn it on to exercise that path.
+      - name: Reuse Overpass responses from an earlier run of this city
+        if: inputs.warm_cache == 'true'
+        uses: actions/cache@v4
+        with:
+          path: run/cache
+          # Unique per run so each run saves an updated copy; restore-keys then
+          # picks the newest previous one, which a fixed key could never replace.
+          key: overpass-${{ steps.config.outputs.slug }}-${{ github.run_id }}
+          restore-keys: |
+            overpass-${{ steps.config.outputs.slug }}-
 
       - name: Generate the instance
         id: generate
