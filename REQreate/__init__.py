@@ -5,7 +5,7 @@ reads a JSON configuration and writes an instance. The bundled Streamlit
 interface is launched with the ``reqreate app`` command (see cli.py).
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 # Profiling is off unless REQREATE_PROFILE is set; when it is, wrap the osmnx
 # calls so their cost is attributed rather than landing in "unaccounted".
