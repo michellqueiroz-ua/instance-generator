@@ -74,14 +74,17 @@ def _set_overpass_url(url):
 
 
 def _network_error(exc):
-    """True when `exc` looks like a transport failure worth retrying elsewhere.
+    """True when `exc` looks like a failure worth retrying on another mirror.
 
     Matched by name rather than by class so that the module does not have to
-    import requests or urllib3 just to identify them.
+    import requests or urllib3 just to identify transport errors. OSMnx wraps
+    malformed successful JSON responses in InsufficientResponseError with the
+    JSONDecodeError as its cause; empty feature results have no such cause.
     """
 
-    names = {type(cause).__name__ for cause in _causes(exc)}
-    return bool(names & {
+    causes = _causes(exc)
+    names = {type(cause).__name__ for cause in causes}
+    transport_error = bool(names & {
         "ConnectionError",
         "NewConnectionError",
         "MaxRetryError",
@@ -94,6 +97,12 @@ def _network_error(exc):
         "RemoteDisconnected",
         "SSLError",
     })
+    server_error = "ResponseStatusCodeError" in names
+    malformed_successful_response = (
+        "InsufficientResponseError" in names
+        and "JSONDecodeError" in {type(cause).__name__ for cause in causes}
+    )
+    return transport_error or server_error or malformed_successful_response
 
 
 def _causes(exc):
