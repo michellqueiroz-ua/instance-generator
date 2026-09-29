@@ -27,6 +27,7 @@ class RayShimTests(unittest.TestCase):
         # The shim used to replace the real module unconditionally, which
         # silently disabled the `parallel` extra.
         if cdm.RAY_AVAILABLE:
+            self.assertEqual(getattr(cdm.ray, '__name__', None), 'ray')
             self.assertNotIsInstance(cdm.ray, cdm.DummyRay)
         else:
             self.assertIsInstance(cdm.ray, cdm.DummyRay)

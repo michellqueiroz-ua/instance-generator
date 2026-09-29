@@ -46,6 +46,8 @@ except ImportError:
 def _ray_init():
     """Restart a local ray instance, sized by ray from the host machine.
 
+    A no-op when ray is missing, so call sites can call it unconditionally.
+
     The previous call sites hardcoded ``num_cpus=8`` and a 14 GB object store
     (and one of them disagreed with the other three), which fails outright on
     any machine with less RAM or fewer cores. Passing nothing lets ray read
