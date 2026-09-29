@@ -32,15 +32,24 @@ reqreate --version
 |---|---|---|
 | `app` | streamlit, folium, plotly | the web interface (`reqreate app`) |
 | `analysis` | sqlalchemy | the taxi-dataset trip-pattern and `uber_movement` modules |
-| `parallel` | ray | **nothing yet** - see below |
+| `parallel` | ray | distributing the distance matrices over cores - see below |
 
 ```bash
 pip install "reqreate[app,analysis]"
 ```
 
-The `parallel` extra installs ray, but `compute_distance_matrix` currently
-discards it and runs sequentially regardless, so installing it costs a large
-dependency and buys no speedup. Do not rely on it until that is fixed.
+The `parallel` extra installs ray. Until recently `compute_distance_matrix`
+shadowed the imported module with a dummy and ran sequentially regardless; that
+is fixed, so the distance-matrix work now really is handed to ray when the extra
+is installed. Results are identical either way (verified value-by-value and
+dtype-by-dtype on a synthetic graph).
+
+**It is not necessarily faster, and we have not measured a speedup on a real
+city.** On a 4-core machine a synthetic 1500-node graph took 20s sequentially
+and 33s through ray, because starting ray and shipping the graph to the workers
+costs more than the shortest paths save at that size. Larger networks have more
+work to amortise that over, but until someone measures one, treat the extra as
+experimental and leave it out if in doubt.
 
 ## Quick start: the web interface
 
@@ -70,8 +79,8 @@ works for that location before you commit to a full-size run.
 the distance and travel-time matrices that follow are the expensive part, and
 they scale with the size of the city rather than the number of requests. A
 20-request run for `Aachen, Germany` took about 90 minutes end to end on a
-single core, most of it in those matrices. There is no way to speed that up
-today; see the note on the `parallel` extra above.
+single core, most of it in those matrices. The `parallel` extra may help on
+large networks, but no speedup has been measured; see the note above.
 
 Runs of the same location afterwards are quicker, because the OpenStreetMap
 responses are cached in a `cache/` folder next to the output.

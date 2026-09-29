@@ -1,19 +1,19 @@
 import gc
 import math
-from multiprocessing import cpu_count
 import networkx as nx
 import os
 import pandas as pd
 from .logger_utils import get_logger
-try:
-    import ray
-    RAY_AVAILABLE = True
-except ImportError:
-    RAY_AVAILABLE = False
-    print("Warning: Ray not available. Using sequential processing (slower but works on Windows).")
 
 
 class DummyRay:
+    """Stand-in for ray so the unguarded ray calls below become no-ops.
+
+    Only installed when ray is genuinely missing. It is not a parallel
+    executor: ``put``/``get`` are the identity and ``remote`` runs the
+    function inline, so every caller must still take the sequential branch
+    for the actual work.
+    """
     @staticmethod
     def remote(func):
         class RemoteWrapper:
@@ -33,7 +33,32 @@ class DummyRay:
     def get(objs):
         return objs
 
-ray = DummyRay()
+
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    ray = DummyRay()
+    print("Warning: Ray not available. Using sequential processing (slower but works on Windows).")
+
+
+def _ray_init():
+    """Restart a local ray instance, sized by ray from the host machine.
+
+    A no-op when ray is missing, so call sites can call it unconditionally.
+
+    The previous call sites hardcoded ``num_cpus=8`` and a 14 GB object store
+    (and one of them disagreed with the other three), which fails outright on
+    any machine with less RAM or fewer cores. Passing nothing lets ray read
+    the actual core count and available memory, so there is one helper and no
+    fixed sizes to outgrow.
+    """
+    if not RAY_AVAILABLE:
+        return
+    ray.shutdown()
+    ray.init()
+
 
 def divide_chunks(l, n):
       
@@ -73,8 +98,7 @@ if RAY_AVAILABLE:
 
 def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_base):
     
-    ray.shutdown()
-    ray.init(num_cpus=8, object_store_memory=14000000000)
+    _ray_init()
 
     save_dir_csv = os.path.join(save_dir, 'csv')
     path_dist_csv_file_walk = os.path.join(save_dir_csv, output_file_base+'.dist.walk.csv')
@@ -95,10 +119,12 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
         [bus_stops_ids.append(int(x)) for x in bus_stops_ids2 if x not in osmid_origins] 
 
         
-        G_walk_id = ray.put(G_walk)
-
         #calculate shortest path between nodes in the walking network to the bus stops
-        results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u, weight="length") for u in bus_stops_ids])
+        if RAY_AVAILABLE:
+            G_walk_id = ray.put(G_walk)
+            results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u, weight="length") for u in bus_stops_ids])
+        else:
+            results = [shortest_path_nx_ss_sequential(G_walk, u, weight="length") for u in bus_stops_ids]
 
         j=0
         for u in bus_stops_ids:
@@ -115,8 +141,8 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
                     sv = str(v)
                     d[sv] = dist_uv
             
-            #shortest_path_walk = shortest_path_walk.concat(d, ignore_index=True)
-            shortest_path_walk = pd.concat([shortest_path_walk,d], ignore_index=True)
+            # pd.concat takes frames, not the bare dict this used to pass it.
+            shortest_path_walk = pd.concat([shortest_path_walk, pd.DataFrame([d])], ignore_index=True)
 
             j+=1
             del d
@@ -126,7 +152,8 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
 
         shortest_path_walk.to_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
-        ray.shutdown()
+        if RAY_AVAILABLE:
+            ray.shutdown()
 
         return shortest_path_walk
 
@@ -163,9 +190,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         else:
             print('Computing walk distance matrix...')
         
-        if RAY_AVAILABLE:
-            ray.shutdown()
-            ray.init(num_cpus=8, object_store_memory=14000000000)
+        _ray_init()
 
         count_divisions = 0
 
@@ -241,9 +266,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
             print('Computing drive travel time matrix...')
         
         # Calculate shortest path using travel time considering max speed allowed on roads
-        if RAY_AVAILABLE:
-            ray.shutdown()
-            ray.init(num_cpus=cpu_count())
+        _ray_init()
 
         chunksize = 100
         list_nodes = list(G_drive.nodes)
@@ -318,9 +341,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         if RAY_AVAILABLE:
             ray.shutdown()
     else:
-        if RAY_AVAILABLE:
-            ray.shutdown()
-            ray.init(num_cpus=8, object_store_memory=14000000000)
+        _ray_init()
 
         if logger:
             logger.subsection('Computing Drive Distance Matrix')
