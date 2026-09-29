@@ -28,7 +28,7 @@ You have two options:
    - `app.py`
    - `requirements.txt`
    - `Dockerfile`
-   - `README_SPACES.md` (rename to README.md)
+   - [`README_SPACES.md`](../README_SPACES.md) (rename to README.md)
    - `attribute_library.py`
    - `map_utils.py`
    - `retrieve_hospitals.py`

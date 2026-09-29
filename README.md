@@ -161,7 +161,7 @@ version of this tool, make a fresh one as shown under Installation.
 
 The repository includes a `Dockerfile` for deploying the interface to
 [Hugging Face Spaces](https://huggingface.co/spaces) — see
-[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
+[the deployment guide](docs/DEPLOYMENT_GUIDE.md).
 
 Running locally is recommended over a hosted deployment. OpenStreetMap
 downloads then leave from your own IP address rather than one shared with
@@ -185,7 +185,7 @@ REQreate generates comprehensive datasets including:
 - Bus station locations
 - Network topology (walk + drive)
 - Passenger requests with time windows
-- Travel time matrices
+- [Travel time matrices](docs/TRAVEL_TIME_MATRICES.md)
 - Zone definitions
 - Points of Interest (POIs)
 - Network visualizations

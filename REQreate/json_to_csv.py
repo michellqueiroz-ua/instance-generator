@@ -530,7 +530,7 @@ if __name__ == '__main__':
                                     else:
                                         raise TypeError('locs must be a string')
 
-loctypes = ['random', 'schools', 'hospitals']
+                                    loctypes = ['random', 'schools', 'hospitals']
                                     if not (inst.parameters[j['name']]['locs'] in loctypes):
                                         raise ValueError('loc ' +inst.parameters[j['name']]['locs']+' is not supported')
 

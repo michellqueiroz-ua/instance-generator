@@ -9,6 +9,8 @@ pinned: false
 license: mit
 ---
 
+<!-- Kept at the repository root because Hugging Face Spaces uses this file as its deployment README. -->
+
 # REQreate Instance Generator
 
 Generate realistic on-demand transportation problem instances based on real-world network data from OpenStreetMap.
