@@ -24,7 +24,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install
-        run: python -m pip install ".[app]"
+        run: python -m pip install ".[app,analysis]"
 
       - name: The command exists
         run: reqreate --version
@@ -36,8 +36,10 @@ jobs:
         run: |
           python -c "
           from REQreate.input_json import input_json
+          import REQreate.json_to_csv
           from REQreate.retrieve_network import download_network_information
           from REQreate.overpass_config import configure_overpass, get_mirrors
+          import REQreate.trip_patterns_yellow
           print('core path OK, mirrors:', get_mirrors())
           "
 

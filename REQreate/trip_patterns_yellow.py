@@ -705,12 +705,12 @@ def real_data_tests_nyc_database(ed, ld):
                 #sample randomly
                 row_nr = min(len(df_1), len(df_2))
                 print(len(df_1), len(df_2))
-                '''
+                """
                 if (len(df_2) < len(df_1)):
                     df_1 = df_1.sample(n = row_nr, replace = False)
                 else:
                     df_2 = df_2.sample(n = row_nr, replace = False)
-                '''
+                """
 
                 if (len(df_1) > 500):
                     df_1 = df_1.sample(n = 500, replace = False)
@@ -790,6 +790,4 @@ if __name__ == '__main__':
     real_data_tests_nyc_database(ed, ld)
 
     
-
-
 
