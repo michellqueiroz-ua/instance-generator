@@ -32,15 +32,24 @@ reqreate --version
 |---|---|---|
 | `app` | streamlit, folium, plotly | the web interface (`reqreate app`) |
 | `analysis` | sqlalchemy | the taxi-dataset trip-pattern and `uber_movement` modules |
-| `parallel` | ray | **nothing yet** - see below |
+| `parallel` | ray | distributing the distance matrices over cores - see below |
 
 ```bash
 pip install "reqreate[app,analysis]"
 ```
 
-The `parallel` extra installs ray, but `compute_distance_matrix` currently
-discards it and runs sequentially regardless, so installing it costs a large
-dependency and buys no speedup. Do not rely on it until that is fixed.
+The `parallel` extra installs ray. Until recently `compute_distance_matrix`
+shadowed the imported module with a dummy and ran sequentially regardless; that
+is fixed, so the distance-matrix work now really is handed to ray when the extra
+is installed. Results are identical either way (verified value-by-value and
+dtype-by-dtype on a synthetic graph).
+
+**It is not necessarily faster, and we have not measured a speedup on a real
+city.** On a 4-core machine a synthetic 1500-node graph took 20s sequentially
+and 33s through ray, because starting ray and shipping the graph to the workers
+costs more than the shortest paths save at that size. Larger networks have more
+work to amortise that over, but until someone measures one, treat the extra as
+experimental and leave it out if in doubt.
 
 ## Quick start: the web interface
 
@@ -81,15 +90,18 @@ like this:
 | everything else | the rest |
 
 and of the Overpass time, the large majority is spent waiting for a rate-limit
-slot rather than transferring data - so more cores would not help, and neither
-would a faster machine. See the note on the `parallel` extra above.
+slot rather than transferring data. That is also why the `parallel` extra above
+shows no measured speedup: the matrices it parallelises are under a tenth of the
+run, so even making them instant would barely move the total.
 
 Fewer, larger queries would help, but the public Overpass instance refuses the
 merged query this needs. What does help is not asking twice:
 
-Runs of the same location afterwards are much quicker, because the OpenStreetMap
-responses are cached in a `cache/` folder next to the output. That folder is
-relative to the directory you launched from, so a run started elsewhere
+Runs of the same location afterwards are much quicker - the same Aachen run took
+forty minutes cold and twelve minutes warm, producing byte-identical output -
+because the OpenStreetMap responses are cached in a `cache/` folder next to the
+output. That folder is relative to the directory you launched from, so a run
+started elsewhere
 re-downloads everything. Set `REQREATE_CACHE_DIR` to keep the cache somewhere
 durable and shared:
 

@@ -205,7 +205,7 @@ if __name__ == '__main__':
         #stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, inst.network.G_walk.nodes[n]['y'], inst.network.G_walk.nodes[n]['x']))
     
         u, v, key = ox.nearest_edges(inst.network.G_drive, x, y)
-        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, inst.network.G_drive.nodes[n]['y'], inst.network.G_drive.nodes[n]['x']))
+        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle(y, x, inst.network.G_drive.nodes[n]['y'], inst.network.G_drive.nodes[n]['x']))
 
         node_list.append(stop_node_drive)
 

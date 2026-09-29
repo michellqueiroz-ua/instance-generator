@@ -517,10 +517,10 @@ class Network:
             raise ValueError('school name must be unique')
 
         u, v, key = ox.nearest_edges(self.G_walk, x, y)
-        school_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
+        school_node_walk = min((u, v), key=lambda n: ox.distance.great_circle(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
     
         u, v, key = ox.nearest_edges(self.G_drive, x, y)
-        school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
+        school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
 
         d = {
             'school_name':name,
@@ -535,10 +535,10 @@ class Network:
     def add_new_stop(self, types, x, y):
 
         u, v, key = ox.nearest_edges(self.G_walk, x, y)
-        stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
+        stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
     
         u, v, key = ox.nearest_edges(self.G_drive, x, y)
-        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
+        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
 
         d = {
             'osmid_walk':stop_node_walk,
@@ -549,7 +549,6 @@ class Network:
         }
         #self.bus_stations = self.bus_stations.concat(d, ignore_index=True)
         self.bus_stations = pd.concat([self.bus_stations, pd.DataFrame([d])], ignore_index=True)
-
 
 
 
