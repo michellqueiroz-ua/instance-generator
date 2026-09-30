@@ -36,7 +36,7 @@ class PackagingTests(unittest.TestCase):
             dependencies,
             ["- python=3.11", "- pip", "- pip:"],
         )
-        self.assertEqual(pip_dependencies, ['- "-e .[app]"'])
+        self.assertEqual(pip_dependencies, ['- "-e ..[app]"'])
 
 
 if __name__ == "__main__":
