@@ -1,0 +1,40 @@
+name: Docker
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - Dockerfile
+      - pyproject.toml
+      - REQreate/**
+  pull_request:
+    paths:
+      - Dockerfile
+      - pyproject.toml
+      - REQreate/**
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t reqreate:smoke-test .
+
+      - name: Run container and check health
+        run: |
+          docker run -d --name reqreate-smoke-test \
+            -p 7860:7860 reqreate:smoke-test
+          trap 'docker rm -f reqreate-smoke-test || true' EXIT
+          deadline=$((SECONDS + 120))
+          until curl -fsS --max-time 2 \
+            http://localhost:7860/_stcore/health > /dev/null 2>&1; do
+            if (( SECONDS >= deadline )); then
+              docker logs reqreate-smoke-test
+              echo "Container did not become healthy within 2 minutes"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Container is healthy"
