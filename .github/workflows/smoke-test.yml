@@ -27,7 +27,7 @@ on:
         description: 'Problem to generate'
         type: choice
         required: true
-        default: odbrp
+        default: all
         options:
           - odbrp
           - darp
@@ -43,6 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         scenario: ${{ fromJSON(inputs.scenario == 'all' && '["odbrp","darp","patient_transport"]' || format('["{0}"]', inputs.scenario)) }}
     # Generation is slow but must not hang forever. A 20-request Aachen run was
@@ -223,6 +224,15 @@ jobs:
             });
             let issue = issues.find(candidate => !candidate.pull_request);
             if (!issue) {
+              const previousSmokeIssues = await github.paginate(github.rest.issues.listForRepo, {
+                ...repo, state: 'open', per_page: 100,
+              });
+              issue = previousSmokeIssues
+                .filter(candidate =>
+                  !candidate.pull_request && /^Smoke test (?:passed|FAILED):/.test(candidate.title))
+                .sort((a, b) => b.number - a.number)[0];
+            }
+            if (!issue) {
               try {
                 await github.rest.issues.getLabel({ ...repo, name: 'smoke-test' });
               } catch (error) {
@@ -237,7 +247,15 @@ jobs:
               });
               issue = created.data;
             } else {
-              await github.rest.issues.update({ ...repo, issue_number: issue.number, title });
+              await github.rest.issues.update({
+                ...repo,
+                issue_number: issue.number,
+                title,
+                labels: [
+                  ...issue.labels.map(({ name }) => name),
+                  ...(issue.labels.some(({ name }) => name === 'smoke-test') ? [] : ['smoke-test']),
+                ],
+              });
             }
             await github.rest.issues.createComment({ ...repo, issue_number: issue.number, body });
         env:
