@@ -37,6 +37,37 @@ class RayShimTests(unittest.TestCase):
 
 
 class DistanceMatrixTests(unittest.TestCase):
+    def test_sparse_dijkstra_rows_match_networkx_on_multigraph(self):
+        graph = nx.MultiDiGraph()
+        graph.add_nodes_from(range(6))
+        graph.add_edge(0, 1, length=5.5, travel_time=3.2)
+        graph.add_edge(0, 1, length=2.5, travel_time=1.2)
+        graph.add_edge(1, 2, length=0.0, travel_time=1.1)
+        graph.add_edge(0, 2, length=2.5, travel_time=2.0)
+        graph.add_edge(2, 0, length=4.0, travel_time=0.5)
+        graph.add_edge(3, 4, length=7.0, travel_time=4.0)
+        origins = [0, 3, 5]
+
+        for weight, value_type in (("length", float), ("travel_time", int)):
+            rows, reachable_counts = cdm._distance_matrix_rows(
+                graph, origins, weight, value_type, chunksize=2
+            )
+            expected_rows = []
+            expected_counts = []
+            for origin in origins:
+                distances = nx.single_source_dijkstra_path_length(
+                    graph, origin, weight=weight
+                )
+                row = {"osmid_origin": origin}
+                for target in graph.nodes:
+                    if target in distances:
+                        row[str(target)] = value_type(distances[target])
+                expected_rows.append(row)
+                expected_counts.append(len(distances))
+
+            self.assertEqual(rows, expected_rows)
+            self.assertEqual(reachable_counts, expected_counts)
+
     def test_matrices_match_networkx_on_a_small_graph(self):
         graph = synthetic_graph()
         stops = pd.DataFrame({'osmid_walk': list(graph.nodes())[:5]})
