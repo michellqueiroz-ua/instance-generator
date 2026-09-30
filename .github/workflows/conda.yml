@@ -1,0 +1,26 @@
+name: Conda install
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment/REQreate_environment.yml
+          activate-environment: reqreate
+          auto-activate-base: false
+
+      - name: The command exists
+        shell: bash -el {0}
+        run: reqreate --version
