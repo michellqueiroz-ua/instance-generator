@@ -65,8 +65,8 @@
 			"type": "time",
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
-						"loc": 8.5,
-						"scale": 1
+						"loc": 30600,
+						"scale": 3600
 					} ],
 			"constraints": [ "earliest_departure >= min_early_departure"]
 		},
