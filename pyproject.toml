@@ -63,3 +63,6 @@ version = { attr = "REQreate.__version__" }
 
 [tool.setuptools.package-data]
 "REQreate.webapp" = ["*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
