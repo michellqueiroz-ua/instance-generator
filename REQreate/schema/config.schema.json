@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michellqueiroz-ua/instance-generator/blob/master/REQreate/schema/config.schema.json",
+  "title": "REQreate configuration",
+  "description": "Configuration files accepted by REQreate's input_json module.",
+  "type": "object",
+  "required": ["network"],
+  "properties": {
+    "seed": {
+      "type": "integer"
+    },
+    "network": {
+      "type": "string",
+      "minLength": 1
+    },
+    "problem": {
+      "type": "string"
+    },
+    "replicas": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "places": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/place"
+      }
+    },
+    "locations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/place"
+      }
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/parameter"
+      }
+    },
+    "attributes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attribute"
+      }
+    },
+    "travel_time_matrix": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "instance_filename": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "set_fixed_speed": {
+      "type": "object",
+      "required": ["vehicle_speed_data"],
+      "properties": {
+        "vehicle_speed_data": {
+          "type": "number",
+          "minimum": 0
+        },
+        "vehicle_speed_data_unit": {
+          "$ref": "#/$defs/speedUnit"
+        }
+      },
+      "additionalProperties": true
+    },
+    "max_speed_factor": {
+      "type": "number"
+    },
+    "get_fixed_lines": {
+      "type": "string"
+    },
+    "point": {
+      "type": "object",
+      "required": ["lon", "lat"],
+      "properties": {
+        "lon": {
+          "type": "number"
+        },
+        "lat": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true
+    },
+    "dist": {
+      "type": "number",
+      "minimum": 0
+    },
+    "method_pois": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pdf": {
+            "$ref": "#/$defs/distribution"
+          }
+        },
+        "required": ["locations", "pdf"],
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": ["point"]
+      },
+      "then": {
+        "required": ["dist"]
+      }
+    }
+  ],
+  "$defs": {
+    "timeUnit": {
+      "type": "string",
+      "enum": ["s", "min", "h"]
+    },
+    "lengthUnit": {
+      "type": "string",
+      "enum": ["m", "km", "mi"]
+    },
+    "speedUnit": {
+      "type": "string",
+      "enum": ["mps", "kmh", "miph"]
+    },
+    "units": {
+      "properties": {
+        "time_unit": {
+          "$ref": "#/$defs/timeUnit"
+        },
+        "length_unit": {
+          "$ref": "#/$defs/lengthUnit"
+        },
+        "speed_unit": {
+          "$ref": "#/$defs/speedUnit"
+        }
+      }
+    },
+    "place": {
+      "type": "object",
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "enum": ["location", "place", "zone"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lon": {
+          "type": "number"
+        },
+        "lat": {
+          "type": "number"
+        },
+        "centroid": {
+          "type": "boolean"
+        },
+        "class": {
+          "enum": ["school", "coordinate", "bus_stop"]
+        },
+        "length_lon": {
+          "type": "number",
+          "minimum": 0
+        },
+        "length_lat": {
+          "type": "number",
+          "minimum": 0
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        },
+        "length_unit": {
+          "$ref": "#/$defs/lengthUnit"
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["lon", "lat"]
+        },
+        {
+          "properties": {
+            "centroid": {
+              "const": true
+            }
+          },
+          "required": ["centroid"]
+        }
+      ],
+      "additionalProperties": true
+    },
+    "parameter": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "string", "integer", "float", "speed", "length",
+            "array_primitives", "array_locations", "array_zones",
+            "matrix", "graphml", "time", "list_places", "list_zones"
+          ]
+        },
+        "value": {
+          "type": ["string", "number", "integer", "boolean", "array", "object", "null"]
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "list": {
+          "type": "array"
+        },
+        "locs": {
+          "enum": ["random", "schools", "hospitals"]
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/units"
+        }
+      ],
+      "additionalProperties": true
+    },
+    "attribute": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": ["integer", "real", "string", "array_primitives", "location", "time", "coordinate"]
+        },
+        "pdf": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/distribution"
+          }
+        },
+        "expression": {
+          "type": "string"
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "output_csv": {
+          "type": "boolean"
+        },
+        "dynamism": {
+          "type": "number"
+        },
+        "static_probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "weights": {
+          "type": ["array", "string"]
+        },
+        "subset_zones": {
+          "type": "string"
+        },
+        "subset_locations": {
+          "type": "string"
+        },
+        "subset_primitives": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/units"
+        }
+      ],
+      "additionalProperties": true
+    },
+    "distribution": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "normal", "uniform", "cauchy", "expon", "gamma",
+            "gilbrat", "lognorm", "powerlaw", "wald", "poisson"
+          ]
+        },
+        "loc": {
+          "type": "number"
+        },
+        "scale": {
+          "type": "number"
+        },
+        "aux": {
+          "type": "number"
+        },
+        "a": {
+          "type": "number"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["normal", "uniform", "cauchy", "expon", "gamma", "gilbrat", "lognorm", "powerlaw", "wald"]
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["loc", "scale"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["gamma", "powerlaw"]
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["aux"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "poisson"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["a"]
+          }
+        }
+      ],
+      "additionalProperties": true
+    }
+  }
+}
