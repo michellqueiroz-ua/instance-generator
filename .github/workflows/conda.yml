@@ -22,4 +22,5 @@ jobs:
           auto-activate-base: false
 
       - name: The command exists
+        shell: bash -el {0}
         run: reqreate --version
