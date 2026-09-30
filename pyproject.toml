@@ -37,6 +37,7 @@ dependencies = [
     # Required by osmnx.nearest_nodes for unprojected graphs, which the core
     # generation path calls throughout. Not optional despite osmnx listing it as such.
     "scikit-learn",
+    "jsonschema>=4.18,<5",
 ]
 
 [project.optional-dependencies]
@@ -62,6 +63,7 @@ license-files = ["LICENSE"]
 version = { attr = "REQreate.__version__" }
 
 [tool.setuptools.package-data]
+"REQreate" = ["schema/*.json"]
 "REQreate.webapp" = ["*.py"]
 
 [tool.pytest.ini_options]

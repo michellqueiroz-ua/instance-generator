@@ -1,0 +1,52 @@
+name: Validate configuration examples
+
+on:
+  pull_request:
+    paths:
+      - "examples/**/*.json"
+      - ".github/smoke-test/**/*.json"
+      - "REQreate/schema/config.schema.json"
+      - "REQreate/config_schema.py"
+      - "pyproject.toml"
+      - ".github/workflows/validate-examples.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install schema validator
+        run: python -m pip install "jsonschema>=4.18,<5"
+
+      - name: Validate all example configurations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          from REQreate.config_schema import validate_config
+
+          configs = sorted(
+              path
+              for root in (Path("examples"), Path(".github/smoke-test"))
+              for path in root.rglob("*.json")
+              if not path.name.startswith("._")
+          )
+          failures = 0
+          for config in configs:
+              errors = validate_config(config)
+              if errors:
+                  failures += 1
+                  print(f"\n{config}:")
+                  for error in errors:
+                      print(f"  {error}")
+          print(f"Validated {len(configs)} configuration files; {failures} invalid.")
+          raise SystemExit(bool(failures))
+          PY
