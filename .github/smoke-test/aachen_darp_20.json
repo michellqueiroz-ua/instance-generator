@@ -1,0 +1,125 @@
+{
+  "seed": 100,
+  "network": "Aachen, Germany",
+  "problem": "DARP",
+  "max_speed_factor": 0.5,
+  "replicas": 1,
+  "requests": 20,
+  "instance_filename": [
+    "network",
+    "problem",
+    "requests"
+  ],
+  "parameters": [
+    {
+      "name": "min_early_departure",
+      "type": "integer",
+      "value": 8,
+      "time_unit": "h"
+    },
+    {
+      "name": "max_early_departure",
+      "type": "integer",
+      "value": 18,
+      "time_unit": "h"
+    },
+    {
+      "name": "min_distance",
+      "type": "integer",
+      "value": 500,
+      "length_unit": "m"
+    },
+    {
+      "name": "graphml",
+      "type": "graphml",
+      "value": true
+    }
+  ],
+  "attributes": [
+    {
+      "name": "earliest_departure",
+      "type": "integer",
+      "time_unit": "s",
+      "pdf": [
+        {
+          "type": "uniform",
+          "loc": 28800,
+          "scale": 36000
+        }
+      ],
+      "constraints": [
+        "earliest_departure >= 0",
+        "earliest_departure >= min_early_departure",
+        "earliest_departure <= max_early_departure"
+      ]
+    },
+    {
+      "name": "time_window_length",
+      "type": "integer",
+      "time_unit": "s",
+      "pdf": [
+        {
+          "type": "uniform",
+          "loc": 600,
+          "scale": 300
+        }
+      ],
+      "output_csv": false
+    },
+    {
+      "name": "latest_arrival",
+      "type": "integer",
+      "time_unit": "s",
+      "expression": "earliest_departure + direct_travel_time + (direct_travel_time * 0.5)"
+    },
+    {
+      "name": "lead_time",
+      "type": "integer",
+      "time_unit": "s",
+      "pdf": [
+        {
+          "type": "uniform",
+          "loc": 0,
+          "scale": 300
+        }
+      ]
+    },
+    {
+      "name": "time_stamp",
+      "type": "integer",
+      "time_unit": "s",
+      "expression": "earliest_departure - lead_time",
+      "static_probability": 0.5
+    },
+    {
+      "name": "origin",
+      "type": "location"
+    },
+    {
+      "name": "destination",
+      "type": "location"
+    },
+    {
+      "name": "direct_travel_time",
+      "type": "integer",
+      "time_unit": "s",
+      "expression": "dtt(origin,destination)",
+      "constraints": [
+        "direct_travel_time >= 0"
+      ]
+    },
+    {
+      "name": "direct_distance",
+      "type": "integer",
+      "length_unit": "m",
+      "expression": "dist_drive(origin,destination)",
+      "constraints": [
+        "direct_distance >= min_distance"
+      ],
+      "output_csv": false
+    }
+  ],
+  "travel_time_matrix": [
+    "bus_stations"
+  ]
+}
