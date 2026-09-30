@@ -23,7 +23,7 @@
     {"name": "dropoff_from", "type": "integer", "time_unit": "s", "expression": "pickup_to + drivingDuration"},
     {"name": "dropoff_to", "type": "integer", "time_unit": "s", "expression": "dropoff_from + 900"},
     {"name": "origin", "type": "location"},
-    {"name": "destination", "type": "location"},
+    {"name": "destination", "type": "location", "subset_locations": "hospitals"},
     {"name": "drivingDuration", "type": "integer", "time_unit": "s", "expression": "dtt(origin,destination)"},
     {"name": "drivingDistance", "type": "integer", "length_unit": "m", "expression": "dist_drive(origin,destination)"},
     {"name": "load", "type": "integer", "pdf": [{"type": "uniform", "loc": 1, "scale": 0}]},

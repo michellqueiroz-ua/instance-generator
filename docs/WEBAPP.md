@@ -1,7 +1,7 @@
 # REQreate Web Interface
 
 For installation, startup instructions, output locations, and expected generation
-times, see the [web-interface quick start](../README.md#quick-start-the-web-interface).
+times, see the [web-interface quick start](index.md#quick-start).
 
 ## Interface features
 
