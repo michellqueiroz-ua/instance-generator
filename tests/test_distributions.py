@@ -5,7 +5,7 @@ from unittest.mock import patch
 import networkx as nx
 import numpy as np
 from geopy.distance import distance
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Polygon
 
 from REQreate.network_class import Network
 from REQreate.request_distribution_class import RequestDistributionTime
