@@ -107,13 +107,20 @@ The interface also offers the whole folder as a single ZIP download.
 
 ## Command line
 
-Generate from a JSON configuration file without the interface:
+Generate from a JSON configuration file or a folder of configurations without
+the interface:
 
 ```bash
 reqreate generate my_config.json
+reqreate generate examples/ODBRP_benchmark_configuration_files/my_set/ --skip-existing --continue-on-error
 ```
 
-`reqreate --help` lists every option.
+When given a folder, REQreate processes its `.json` files in sorted order and
+ignores macOS `._*` files. `--skip-existing` skips a configuration when its
+first generated CSV already exists. `--continue-on-error` reports failures,
+continues with the remaining configurations, and prints a summary (returning a
+non-zero status if any config failed). Use `-o`/`--output` to select the output
+subfolder. `reqreate generate --help` lists every option.
 
 Attributes and parameters that define an instance are described in a
 configuration file given as input to REQreate. The syntax used is JSON. Each
