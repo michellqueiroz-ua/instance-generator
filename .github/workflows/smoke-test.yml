@@ -1,7 +1,7 @@
 name: Instance generation smoke test
 
 # Runs a real, small instance generation end to end and reports the outcome as
-# an issue, with the generated files attached as an artifact.
+# a comment on a tracking issue, with the generated files attached as artifacts.
 #
 # This exists because installing the package and launching the interface are
 # both covered by CI, but actually generating an instance is not, and cannot be
@@ -23,6 +23,16 @@ on:
         description: 'Number of requests. Keep small; runtime is dominated by the network download, not this.'
         required: true
         default: '20'
+      scenario:
+        description: 'Problem to generate'
+        type: choice
+        required: true
+        default: odbrp
+        options:
+          - odbrp
+          - darp
+          - patient_transport
+          - all
 
 permissions:
   contents: read
@@ -31,6 +41,10 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: ${{ fromJSON(inputs.scenario == 'all' && '["odbrp","darp","patient_transport"]' || format('["{0}"]', inputs.scenario)) }}
     # Generation is slow but must not hang forever. A 20-request Aachen run was
     # killed at 120 minutes while still computing distance matrices, so this is
     # deliberately generous - just under the 6 h GitHub ceiling. The point of
@@ -65,7 +79,7 @@ jobs:
           mkdir -p run
           python - <<'PY'
           import json, os
-          cfg = json.load(open('.github/smoke-test/aachen_odbrp_20.json'))
+          cfg = json.load(open(f".github/smoke-test/aachen_{os.environ['SCENARIO']}_20.json"))
           cfg['network'] = os.environ['CITY']
           cfg['requests'] = int(os.environ['REQUESTS'])
           with open('run/config.json', 'w') as f:
@@ -75,10 +89,11 @@ jobs:
         env:
           CITY: ${{ inputs.city }}
           REQUESTS: ${{ inputs.requests }}
+          SCENARIO: ${{ matrix.scenario }}
 
       - name: Generate the instance
         id: generate
-        # Never fail the step directly - the outcome is reported as an issue
+        # Never fail the step directly - the outcome is reported on an issue
         # below, and the log is needed either way.
         run: |
           set +e
@@ -89,6 +104,7 @@ jobs:
           end=$(date +%s)
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           echo "duration=$(( (end - start) / 60 ))" >> "$GITHUB_OUTPUT"
+          printf 'exit_code=%s\nduration=%s\n' "$status" "$(( (end - start) / 60 ))" > result.env
           exit 0
 
       - name: Inspect what was produced
@@ -105,6 +121,7 @@ jobs:
             csv_count=$(find . -name '*.csv' | wc -l)
             echo "CSV files produced: $csv_count"
             echo "csv_count=$csv_count" >> "$GITHUB_OUTPUT"
+            echo "csv_count=$csv_count" >> result.env
           } > inspect.md
           cat inspect.md
 
@@ -112,24 +129,43 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: instance-${{ github.run_id }}
+          name: instance-${{ github.run_id }}-${{ matrix.scenario }}
           path: run/
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Report the outcome as an issue
-        if: always()
+      - name: Fail the run if the instance was not produced
+        if: always() && (steps.generate.outputs.exit_code != '0' || steps.inspect.outputs.csv_count == '0')
+        run: |
+          echo "Generation failed - see the smoke-test issue for this run."
+          exit 1
+
+  report:
+    needs: generate
+    if: always()
+    runs-on: ubuntu-latest
+    concurrency:
+      group: smoke-test-report
+      cancel-in-progress: false
+    steps:
+      - name: Download generated instances
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: instance-${{ github.run_id }}-*
+          path: artifacts
+
+      - name: Comment on the smoke-test issue
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const path = require('path');
 
             const city = process.env.CITY;
             const requests = process.env.REQUESTS;
-            const exitCode = process.env.EXIT_CODE || 'unknown';
-            const duration = process.env.DURATION || '?';
-            const csvCount = process.env.CSV_COUNT || '0';
-            const ok = exitCode === '0' && Number(csvCount) > 0;
+            const scenario = process.env.SCENARIO;
+            const scenarios = scenario === 'all' ? ['odbrp', 'darp', 'patient_transport'] : [scenario];
 
             const read = (p, n) => {
               try {
@@ -140,52 +176,72 @@ jobs:
               }
             };
 
-            const tail = read('run/generate.log', 60);
-            let inspect = '';
-            try { inspect = fs.readFileSync('run/inspect.md', 'utf8'); } catch (e) {}
-
             const runUrl =
               `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}` +
               `/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
+            const results = scenarios.map(name => {
+              const dir = path.join('artifacts', `instance-${process.env.GITHUB_RUN_ID}-${name}`);
+              const values = Object.fromEntries(
+                read(path.join(dir, 'result.env'), 10).split('\n')
+                  .filter(line => line.includes('=')).map(line => line.split('='))
+              );
+              const ok = values.exit_code === '0' && Number(values.csv_count) > 0;
+              return {
+                name, ok,
+                summary: ok
+                  ? `Generation completed in about ${values.duration} minutes and produced ${values.csv_count} CSV files.`
+                  : `Generation did not produce a usable instance (exit code \`${values.exit_code || 'unknown'}\`, ${values.csv_count || '0'} CSV files after about ${values.duration || '?'} minutes).`,
+                inspect: read(path.join(dir, 'inspect.md'), 100),
+                tail: read(path.join(dir, 'generate.log'), 60),
+              };
+            });
+            const ok = results.every(result => result.ok) && process.env.GENERATE_RESULT === 'success';
             const title = ok
-              ? `Smoke test passed: ${city} (${requests} requests)`
-              : `Smoke test FAILED: ${city} (${requests} requests)`;
+              ? `Smoke test passed: ${city} (${requests} requests; ${scenario})`
+              : `Smoke test FAILED: ${city} (${requests} requests; ${scenario})`;
 
             const body = [
-              ok
-                ? `Generation completed in about ${duration} minutes and produced ${csvCount} CSV files.`
-                : `Generation did not produce a usable instance (exit code \`${exitCode}\`, ${csvCount} CSV files after about ${duration} minutes).`,
-              ``,
               `The generated files are attached to the workflow run as an artifact: ${runUrl}`,
               ``,
-              inspect,
-              ``,
-              `### Last 60 lines of the log`,
-              ``,
-              '```',
-              tail,
-              '```',
-              ``,
-              `---`,
-              `_Generated by [Claude Code](https://claude.ai/code)_`,
+              ...results.flatMap(result => [
+                `### ${result.name}: ${result.ok ? 'passed' : 'FAILED'}`,
+                result.summary,
+                '',
+                result.inspect,
+                '',
+                'Last 60 lines of the log:',
+                '```',
+                result.tail,
+                '```',
+              ]),
             ].join('\n');
 
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
+            const repo = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              ...repo, state: 'open', labels: 'smoke-test', per_page: 100,
             });
+            let issue = issues.find(candidate => !candidate.pull_request);
+            if (!issue) {
+              try {
+                await github.rest.issues.getLabel({ ...repo, name: 'smoke-test' });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  ...repo, name: 'smoke-test', color: '0e8a16',
+                });
+              }
+              const created = await github.rest.issues.create({
+                ...repo, title, body: 'Results of manually triggered smoke tests.',
+                labels: ['smoke-test'],
+              });
+              issue = created.data;
+            } else {
+              await github.rest.issues.update({ ...repo, issue_number: issue.number, title });
+            }
+            await github.rest.issues.createComment({ ...repo, issue_number: issue.number, body });
         env:
           CITY: ${{ inputs.city }}
           REQUESTS: ${{ inputs.requests }}
-          EXIT_CODE: ${{ steps.generate.outputs.exit_code }}
-          DURATION: ${{ steps.generate.outputs.duration }}
-          CSV_COUNT: ${{ steps.inspect.outputs.csv_count }}
-
-      - name: Fail the run if the instance was not produced
-        if: always() && (steps.generate.outputs.exit_code != '0' || steps.inspect.outputs.csv_count == '0')
-        run: |
-          echo "Generation failed - see the issue opened by this run."
-          exit 1
+          SCENARIO: ${{ inputs.scenario }}
+          GENERATE_RESULT: ${{ needs.generate.result }}
