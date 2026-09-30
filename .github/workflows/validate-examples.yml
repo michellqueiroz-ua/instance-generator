@@ -10,6 +10,9 @@ on:
       - "pyproject.toml"
       - ".github/workflows/validate-examples.yml"
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
