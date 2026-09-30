@@ -125,7 +125,7 @@ if page == "Create New Instance":
             options=attr_options,
             default=default_selection,
             help="Select which attributes to include in your instance. Required attributes are pre-selected.",
-            key="selected_attrs"
+            key=f"selected_attrs_{problem_type}"
         )
     
     with col2:
