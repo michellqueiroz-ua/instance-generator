@@ -13,6 +13,9 @@ on:
       - pyproject.toml
       - REQreate/**
 
+permissions:
+  contents: read
+
 jobs:
   build-and-smoke-test:
     runs-on: ubuntu-latest
