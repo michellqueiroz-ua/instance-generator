@@ -182,7 +182,6 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     else: raise ValueError('network or point parameter is mandatory')
 
     '''
-    print('hxxxxx')
     #remove this later
     inst.network.bus_stations = inst.network.bus_stations.iloc[0:0]
     '''
@@ -507,7 +506,6 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                                         inst.parameters[j['name']]['list_node_walk'].append(inst.network.schools.loc[index_school, 'osmid_walk'])
                                     else:
                                         raise ValueError('no school named after '+s)
-                                    #print(index_school)
                             elif j['locs'] == 'hospitals':
 
                                 inst.parameters[j['name']]['list_ids'] = []
@@ -580,7 +578,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         inst.parameters['set_geographic_dispersion'] = {}
         inst.parameters['set_geographic_dispersion']['type'] = 'builtin'
         inst.parameters['set_geographic_dispersion']['value'] = True 
-        print('set geographic dispersion TRUE')
+        logger.info('set geographic dispersion TRUE')
     else:
         inst.parameters['set_geographic_dispersion'] = {}
         inst.parameters['set_geographic_dispersion']['type'] = 'builtin'
@@ -626,7 +624,6 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
             if 'name' in attribute:
 
-                #print(attribute['name'])
 
                 if (isinstance(attribute['name'], (str))): 
                 
@@ -965,7 +962,6 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                     
                     if GA.nodes[name]['pdf'][0]['type'] == 'uniform':
                         GA.nodes[name]['all_values'] = list(range(math.ceil(GA.nodes[name]['pdf'][0]['loc']), math.floor(GA.nodes[name]['pdf'][0]['scale'])))
-                        #print(GA.nodes[name]['all_values'])
                         size_all_values = len(GA.nodes[name]['all_values'])
                     else: raise ValueError('normal distribution and weights is not allowed')
 
@@ -1046,7 +1042,6 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         inst.parameters['method_pois']['value'] = data['method_pois'][0]
         inst.parameters['method_pois']['type'] = 'method' 
 
-        print(inst.parameters['method_pois']['value']['locations'])
         if not (isinstance(inst.parameters['method_pois']['value']['locations'], (list))): 
             raise TypeError('locations from method_pois must be an array')
 
@@ -1056,7 +1051,6 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     
     inst.sorted_attributes = list(nx.topological_sort(GA))
     inst.GA = GA
-    print(inst.sorted_attributes)
     
     final_filename = ''
     for p in inst.instance_filename:
@@ -1170,7 +1164,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
             output_name_csv = instance.split('.json')[0] + '.csv'
             output_name_csv = output_name_csv.replace(" ", "")
             
-            print(output_name_csv)
+            logger.info(output_name_csv)
             converter = JsonConverter(file_name=input_name)
             converter.convert_normal(inst=inst, problem_type=inst.parameters['problem']['value'], path_instance_csv_file=os.path.join(save_dir_csv, base_save_folder_name, output_name_csv))
             
@@ -1184,7 +1178,6 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
                     if p == 'dynamism':
                         strv = str(round(dynamism2(inst1, inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc']), 2))
-                        #print(inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc'])
                         #strv = str(dynamism2(inst1, inst.GA.nodes['time_stamp']['pdf'][0]['loc'], inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc']))
                         full_final_filename = full_final_filename + '_' + strv
 
