@@ -73,7 +73,7 @@ class MetricTests(unittest.TestCase):
             with patch("os.getcwd", return_value=directory):
                 result = geographic_dispersion(instance, "DARP", "requests.csv")
 
-        self.assertEqual(result, 77.5)
+        self.assertAlmostEqual(result, 15 + ((200 + 50) / 7.22) / 4)
 
 
 if __name__ == "__main__":

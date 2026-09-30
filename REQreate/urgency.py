@@ -2,7 +2,6 @@ import networkx as nx
 import os
 import osmnx as ox
 import pandas as pd
-import statistics
 
 from pathlib import Path
 from .instance_class import Instance
@@ -20,7 +19,6 @@ def urgency(inst1):
     mean = sum(chi) / len(chi)
     variance = sum([((x - mean) ** 2) for x in chi]) / len(chi)
     stdv = variance ** 0.5
-    stdv2 = statistics.pstdev(chi)
 
     return mean, stdv
 
