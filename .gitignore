@@ -52,6 +52,7 @@ examples/webapp_instances/*.json
 
 # OS
 .DS_Store
+._*
 Thumbs.db
 
 # Streamlit cache (but keep config)
