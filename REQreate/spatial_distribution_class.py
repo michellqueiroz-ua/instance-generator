@@ -4,15 +4,15 @@ import random
 
 class SpatialDistribution:
 
-    def __init__(self, num_origins, num_destinations, prob, origin_zones=[], destination_zones=[], is_random_origin_zones=False, is_random_destination_zones=False):
+    def __init__(self, num_origins, num_destinations, prob, origin_zones=None, destination_zones=None, is_random_origin_zones=False, is_random_destination_zones=False):
         
         self.num_origins = int(num_origins)
 
         self.num_destinations = int(num_destinations)
         
-        self.origin_zones = origin_zones
+        self.origin_zones = [] if origin_zones is None else origin_zones
         
-        self.destination_zones = destination_zones
+        self.destination_zones = [] if destination_zones is None else destination_zones
 
         self.is_random_origin_zones = is_random_origin_zones
 
@@ -54,4 +54,3 @@ class SpatialDistribution:
 
         if self.num_destinations != -1:
             self.destination_zones = np.random.randint(0, num_zones, self.num_destinations)
-
