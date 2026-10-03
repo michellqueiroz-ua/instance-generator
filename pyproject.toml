@@ -47,7 +47,7 @@ app = ["streamlit", "folium", "streamlit-folium", "plotly"]
 # Parallel processing; optional, the code falls back to sequential without it.
 parallel = ["ray"]
 # Only needed by the uber_movement travel-speed regression module.
-analysis = ["sqlalchemy<2.2", "sqlalchemy-utils"]
+analysis = ["sqlalchemy<2.1", "sqlalchemy-utils"]
 
 [project.scripts]
 reqreate = "REQreate.cli:main"
