@@ -11,8 +11,33 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      pages_enabled: ${{ steps.pages.outputs.enabled }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check Pages configuration
+        id: pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          if build_type=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.build_type' 2>&1); then
+            if [ "$build_type" = "workflow" ]; then
+              echo "enabled=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::warning::Select GitHub Actions as the source in Settings > Pages to enable documentation deployment."
+            fi
+          elif [[ "$build_type" == *"(HTTP 404)"* ]]; then
+            echo "::warning::Enable GitHub Pages in Settings > Pages and select GitHub Actions as the source to enable documentation deployment."
+          else
+            printf '%s\n' "$build_type" >&2
+            exit 1
+          fi
 
       - uses: actions/setup-python@v5
         with:
@@ -25,13 +50,13 @@ jobs:
         run: mkdocs build --strict
 
       - name: Upload Pages artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.build.outputs.pages_enabled == 'true'
     needs: build
     runs-on: ubuntu-latest
     permissions:
