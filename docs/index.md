@@ -37,3 +37,15 @@ because processing the street network is the most time-consuming step.
 For more details, see the [web interface guide](WEBAPP.md), the
 [deployment guide](DEPLOYMENT_GUIDE.md), and the guide to
 [travel-time matrices](TRAVEL_TIME_MATRICES.md).
+
+## Documentation publishing
+
+The Documentation workflow builds this site on pull requests and pushes to
+`master`. To publish it, a repository administrator must open **Settings > Pages**
+and select **GitHub Actions** under **Build and deployment > Source**.
+The default workflow token cannot enable Pages on its own.
+
+Until Pages is configured, the workflow still validates the documentation but
+skips artifact upload and deployment with a setup warning. Once configured,
+the next push to `master` (or a rerun of its Documentation workflow) publishes
+the site.
