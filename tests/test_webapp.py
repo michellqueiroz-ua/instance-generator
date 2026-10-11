@@ -44,6 +44,28 @@ class WebAppTests(unittest.TestCase):
                     )
                 )
 
+    def test_output_folder_defaults_to_submitted_location(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("REQreate.input_json.input_json") as generate:
+                previous_dir = os.getcwd()
+                try:
+                    os.chdir(directory)
+                    app = AppTest.from_file(str(APP_PATH)).run()
+                    self.widget(app, "text_input", "Location (City, Country)").set_value("Antwerp, Belgium")
+                    self.widget(app, "button", "🚀 Generate Instance").click().run()
+
+                    self.assertEqual(len(app.exception), 0)
+                    config_name = "Antwerp_Belgium_DARP_10req.json"
+                    config_path = Path(directory) / "examples/webapp_instances" / config_name
+                    with config_path.open() as config_file:
+                        config = json.load(config_file)
+                    generate.assert_called_once_with(
+                        "examples/webapp_instances/", config_name, ""
+                    )
+                    self.assertEqual(config["network"], "Antwerp, Belgium")
+                finally:
+                    os.chdir(previous_dir)
+
     def test_generated_configuration_for_each_problem(self):
         for problem in ("DARP", "ODBRP", "Patient Transport"):
             with self.subTest(problem=problem), tempfile.TemporaryDirectory() as directory:
