@@ -250,6 +250,7 @@ if page == "Create New Instance":
             output_name = st.text_input(
                 "Output Folder Name",
                 value=place_name if place_name else "instance",
+                key="output_name",
                 help="Name for the output folder (defaults to location name)"
             )
         

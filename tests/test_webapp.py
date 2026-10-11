@@ -56,7 +56,7 @@ class WebAppTests(unittest.TestCase):
                         if problem == "Patient Transport":
                             selected = self.widget(app, "multiselect", "Select attributes to include:")
                             selected.set_value(selected.value + ["max_ride_time"]).run()
-                        self.widget(app, "text_input", "Location (City, Country)").set_value("Testville, Country").run()
+                        self.widget(app, "text_input", "Location (City, Country)").set_value("Testville, Country")
                         self.assertEqual(len(app.exception), 0)
                         self.widget(app, "text_input", "Output Folder Name").set_value("offline-test")
                         self.widget(app, "number_input", "Number of Requests").set_value(23)
