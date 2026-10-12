@@ -11,14 +11,59 @@ gets requests refused by the public Overpass API.
 import argparse
 import json
 import os
+import socket
+import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 
 from . import __version__
 
 APP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webapp", "app.py")
 
 
-def _run_app(args):
+def _find_free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _wait_for_health(url, proc=None, timeout=60):
+    health_url = f"{url.rstrip('/')}/_stcore/health"
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if proc is not None and proc.poll() is not None:
+            raise RuntimeError(
+                f"Streamlit server process exited unexpectedly with code {proc.returncode}"
+            )
+        try:
+            with urllib.request.urlopen(health_url, timeout=1) as resp:
+                if resp.status == 200:
+                    return True
+        except (urllib.error.URLError, OSError, TimeoutError):
+            pass
+        time.sleep(0.1)
+    raise TimeoutError(
+        f"Streamlit server did not become healthy within {timeout} seconds at {health_url}"
+    )
+
+
+def _terminate_process(proc):
+    if proc is not None and proc.poll() is None:
+        try:
+            proc.terminate()
+            proc.wait(timeout=5)
+        except ProcessLookupError:
+            pass
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        except Exception:
+            pass
+
+
+def _run_browser_app(args):
     try:
         from streamlit.web import cli as stcli
     except ImportError:
@@ -28,15 +73,66 @@ def _run_app(args):
         )
 
     # Streamlit is driven through its own CLI, which reads sys.argv.
+    port = args.port if getattr(args, "port", None) is not None else 8501
     argv = [
         "streamlit", "run", APP_PATH,
-        "--server.port", str(args.port),
+        "--server.port", str(port),
         "--server.address", args.address,
     ]
-    if args.no_browser:
+    if getattr(args, "no_browser", False):
         argv += ["--server.headless", "true"]
     sys.argv = argv
     sys.exit(stcli.main())
+
+
+def _run_window_app(args):
+    try:
+        import webview
+    except ImportError:
+        print('Install with pip install "reqreate[app,desktop]"')
+        return _run_browser_app(args)
+
+    port = args.port if getattr(args, "port", None) is not None else _find_free_port()
+    host = args.address if args.address not in ("0.0.0.0", "") else "localhost"
+    url = f"http://{host}:{port}"
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        APP_PATH,
+        "--server.port",
+        str(port),
+        "--server.address",
+        args.address,
+        "--server.headless",
+        "true",
+    ]
+
+    proc = subprocess.Popen(cmd)
+    fallback = False
+    try:
+        _wait_for_health(url, proc)
+        try:
+            webview.settings["ALLOW_DOWNLOADS"] = True
+            webview.create_window("REQreate", url, width=1280, height=900)
+            webview.start()
+            return 0
+        except Exception as exc:
+            fallback = True
+            print(f"Could not open desktop window: {exc}\nFalling back to browser.")
+    finally:
+        _terminate_process(proc)
+
+    if fallback:
+        return _run_browser_app(args)
+
+
+def _run_app(args):
+    if getattr(args, "window", False):
+        return _run_window_app(args)
+    return _run_browser_app(args)
 
 
 def _run_generate(args):
@@ -101,7 +197,12 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="command")
 
     app = sub.add_parser("app", help="open the web interface in a browser (runs locally)")
-    app.add_argument("--port", type=int, default=8501, help="port to serve on (default: 8501)")
+    app.add_argument("--port", type=int, default=None, help="port to serve on (default: 8501)")
+    app.add_argument(
+        "--window",
+        action="store_true",
+        help="open the web interface in a native desktop window",
+    )
     app.add_argument("--no-browser", action="store_true", help="do not open a browser window")
     app.add_argument(
         "--address", default="localhost",
