@@ -1,0 +1,54 @@
+name: Publish to PyPI
+
+# Publishes when a GitHub release is created. The version that gets published
+# is whatever REQreate/__init__.py says, so bump __version__ before tagging.
+#
+# This uses PyPI Trusted Publishing, so there is no API token stored in the
+# repository. It requires a one-time setup on PyPI: add a trusted publisher for
+# the `reqreate` project pointing at this repository, workflow `publish.yml`,
+# environment `pypi`. See https://docs.pypi.org/trusted-publishers/
+#
+# A published release is the only trigger, deliberately. A manual run cannot
+# choose a version, so it would rebuild whatever is on master and try to upload
+# files PyPI already has, failing with "File already exists" - which reads like
+# the release broke when it did not. To retry a release that genuinely failed
+# part way through, re-run the failed job from the Actions tab instead.
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Build distributions
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      # Required for Trusted Publishing.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

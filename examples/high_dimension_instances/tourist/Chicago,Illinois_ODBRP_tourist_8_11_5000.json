@@ -54,7 +54,7 @@
 			"time_unit": "s",
 			"pdf": [ {	"type": "normal",
 						"loc": 81000,
-						"scale": 5400,
+						"scale": 5400
 					} ],
 			"constraints": [ "time_stamp >= 0", 
 							"time_stamp >= min_early_departure",

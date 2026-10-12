@@ -1,4 +1,4 @@
-from fixed_lines import _check_subway_routes_serve_passenger
+from .fixed_lines import _check_subway_routes_serve_passenger
 import json
 import math
 import matplotlib.pyplot as plt
@@ -35,8 +35,8 @@ from scipy.stats import wald
 from multiprocessing import cpu_count
 import gc
 from datetime import datetime
-from dynamism import dynamism
-from logger_utils import get_logger
+from .dynamism import dynamism
+from .logger_utils import get_logger
 
 def eval_expression(input_string):
     
@@ -55,9 +55,15 @@ def eval_expression(input_string):
     
     code = compile(input_string, "<string>", "eval")
     
-    for name in code.co_names:
-        if name not in allowed_names:
-            raise NameError(f"Use of "+name+" is not allowed OR it is not in the parameters/attributes")
+    # Check nested code objects too (lambda/comprehension bodies), otherwise
+    # e.g. "(lambda: ().__class__)()" would bypass the allowlist.
+    pending = [code]
+    while pending:
+        current = pending.pop()
+        for name in current.co_names:
+            if name not in allowed_names:
+                raise NameError(f"Use of "+name+" is not allowed OR it is not in the parameters/attributes")
+        pending.extend(const for const in current.co_consts if isinstance(const, type(code)))
     return eval(code, {"__builtins__": {}}, allowed_names)
 
 def plot_requests(network, save_dir_images, origin_points, destination_points):

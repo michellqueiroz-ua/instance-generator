@@ -334,11 +334,11 @@ def get_nodes_osm_impl(G_walk, G_drive, lat, lon):
                 
     u, v, key = ox.nearest_edges(G_walk, node_point[1], node_point[0])
     nodes = [u, v]
-    node_walk = min(nodes, key=lambda n: ox.distance.great_circle_vec(lat, lon, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
+    node_walk = min(nodes, key=lambda n: ox.distance.great_circle(lat, lon, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
     
     u, v, key = ox.nearest_edges(G_drive, node_point[1], node_point[0])
     nodes = [u, v]
-    node_drive = min(nodes, key=lambda n: ox.distance.great_circle_vec(lat, lon, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
+    node_drive = min(nodes, key=lambda n: ox.distance.great_circle(lat, lon, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
     
     return (node_walk, node_drive)
 

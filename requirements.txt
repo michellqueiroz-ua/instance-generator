@@ -1,24 +1,2 @@
-osmnx
-networkx
-pandas
-numpy
-shapely
-matplotlib
-streamlit
-folium
-streamlit-folium
-plotly
-scipy
-osmapi
-geopandas
-geopy
-pyproj
-requests
-descartes
-fitter
-pyshp
-seaborn
-sqlalchemy
-sqlalchemy-utils
-powerlaw
-scikit-learn
+# pyproject.toml is the source of truth; install the package's app dependencies.
+-e .[app]

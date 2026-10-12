@@ -1,0 +1,265 @@
+name: Instance generation smoke test
+
+# Runs a real, small instance generation end to end and reports the outcome as
+# a comment on a tracking issue, with the generated files attached as artifacts.
+#
+# This exists because installing the package and launching the interface are
+# both covered by CI, but actually generating an instance is not, and cannot be
+# run from every environment (OpenStreetMap access is blocked in some). A run
+# here is the cheapest way to find out whether the whole pipeline works for a
+# given city.
+#
+# Manually triggered only - it takes hours and hits public OpenStreetMap
+# servers, so it should not run on every push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        description: 'Location to generate for (as OpenStreetMap names it)'
+        required: true
+        default: 'Aachen, Germany'
+      requests:
+        description: 'Number of requests. Keep small; runtime is dominated by the network download, not this.'
+        required: true
+        default: '20'
+      scenario:
+        description: 'Problem to generate'
+        type: choice
+        required: true
+        default: all
+        options:
+          - odbrp
+          - darp
+          - patient_transport
+          - all
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        scenario: ${{ fromJSON(inputs.scenario == 'all' && '["odbrp","darp","patient_transport"]' || format('["{0}"]', inputs.scenario)) }}
+    # Generation is slow but must not hang forever. A 20-request Aachen run was
+    # killed at 120 minutes while still computing distance matrices, so this is
+    # deliberately generous - just under the 6 h GitHub ceiling. The point of
+    # this job is to find out how long a real run takes, which it cannot do if
+    # the timeout cuts it off first.
+    timeout-minutes: 350
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install REQreate from this checkout
+        run: python -m pip install ".[app]"
+
+      - name: Check whether OpenStreetMap is reachable from this runner
+        # Diagnostic only, never fails the job. GitHub runners share egress IPs,
+        # so Overpass may rate-limit us - which is itself worth knowing, since
+        # it exercises the mirror failover.
+        continue-on-error: true
+        run: |
+          for host in overpass-api.de overpass.kumi.systems overpass.private.coffee; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 "https://$host/api/status" || echo "unreachable")
+            echo "$host -> $code"
+          done
+
+      - name: Build the configuration
+        id: config
+        run: |
+          mkdir -p run
+          python - <<'PY'
+          import json, os
+          cfg = json.load(open(f".github/smoke-test/aachen_{os.environ['SCENARIO']}_20.json"))
+          cfg['network'] = os.environ['CITY']
+          cfg['requests'] = int(os.environ['REQUESTS'])
+          with open('run/config.json', 'w') as f:
+              json.dump(cfg, f, indent=2)
+          print(f"city={cfg['network']} requests={cfg['requests']} problem={cfg['problem']}")
+          PY
+        env:
+          CITY: ${{ inputs.city }}
+          REQUESTS: ${{ inputs.requests }}
+          SCENARIO: ${{ matrix.scenario }}
+
+      - name: Generate the instance
+        id: generate
+        # Never fail the step directly - the outcome is reported on an issue
+        # below, and the log is needed either way.
+        run: |
+          set +e
+          cd run
+          start=$(date +%s)
+          reqreate generate config.json 2>&1 | tee generate.log
+          status=${PIPESTATUS[0]}
+          end=$(date +%s)
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          echo "duration=$(( (end - start) / 60 ))" >> "$GITHUB_OUTPUT"
+          printf 'exit_code=%s\nduration=%s\n' "$status" "$(( (end - start) / 60 ))" > result.env
+          exit 0
+
+      - name: Inspect what was produced
+        id: inspect
+        if: always()
+        run: |
+          cd run
+          {
+            echo "### Output tree"
+            echo '```'
+            find . -maxdepth 3 -not -path './config.json' -not -path './inspect.md' | sort | head -60
+            echo '```'
+            echo ""
+            csv_count=$(find . -name '*.csv' | wc -l)
+            echo "CSV files produced: $csv_count"
+            echo "csv_count=$csv_count" >> "$GITHUB_OUTPUT"
+            echo "csv_count=$csv_count" >> result.env
+          } > inspect.md
+          cat inspect.md
+
+      - name: Upload the generated instance
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: instance-${{ github.run_id }}-${{ matrix.scenario }}
+          path: run/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail the run if the instance was not produced
+        if: always() && (steps.generate.outputs.exit_code != '0' || steps.inspect.outputs.csv_count == '0')
+        run: |
+          echo "Generation failed - see the smoke-test issue for this run."
+          exit 1
+
+  report:
+    needs: generate
+    if: always()
+    runs-on: ubuntu-latest
+    concurrency:
+      group: smoke-test-report
+      cancel-in-progress: false
+    steps:
+      - name: Download generated instances
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: instance-${{ github.run_id }}-*
+          path: artifacts
+
+      - name: Comment on the smoke-test issue
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const city = process.env.CITY;
+            const requests = process.env.REQUESTS;
+            const scenario = process.env.SCENARIO;
+            const scenarios = scenario === 'all' ? ['odbrp', 'darp', 'patient_transport'] : [scenario];
+
+            const read = (p, n) => {
+              try {
+                const lines = fs.readFileSync(p, 'utf8').split('\n');
+                return lines.slice(-n).join('\n');
+              } catch (e) {
+                return `(no ${p})`;
+              }
+            };
+
+            const runUrl =
+              `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}` +
+              `/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            const results = scenarios.map(name => {
+              const dir = path.join('artifacts', `instance-${process.env.GITHUB_RUN_ID}-${name}`);
+              const values = Object.fromEntries(
+                read(path.join(dir, 'result.env'), 10).split('\n')
+                  .filter(line => line.includes('=')).map(line => line.split('='))
+              );
+              const ok = values.exit_code === '0' && Number(values.csv_count) > 0;
+              return {
+                name, ok,
+                summary: ok
+                  ? `Generation completed in about ${values.duration} minutes and produced ${values.csv_count} CSV files.`
+                  : `Generation did not produce a usable instance (exit code \`${values.exit_code || 'unknown'}\`, ${values.csv_count || '0'} CSV files after about ${values.duration || '?'} minutes).`,
+                inspect: read(path.join(dir, 'inspect.md'), 100),
+                tail: read(path.join(dir, 'generate.log'), 60),
+              };
+            });
+            const ok = results.every(result => result.ok) && process.env.GENERATE_RESULT === 'success';
+            const title = ok
+              ? `Smoke test passed: ${city} (${requests} requests; ${scenario})`
+              : `Smoke test FAILED: ${city} (${requests} requests; ${scenario})`;
+
+            const body = [
+              `The generated files are attached to the workflow run as an artifact: ${runUrl}`,
+              ``,
+              ...results.flatMap(result => [
+                `### ${result.name}: ${result.ok ? 'passed' : 'FAILED'}`,
+                result.summary,
+                '',
+                result.inspect,
+                '',
+                'Last 60 lines of the log:',
+                '```',
+                result.tail,
+                '```',
+              ]),
+            ].join('\n');
+
+            const repo = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              ...repo, state: 'open', labels: 'smoke-test', per_page: 100,
+            });
+            let issue = issues.find(candidate => !candidate.pull_request);
+            if (!issue) {
+              const previousSmokeIssues = await github.paginate(github.rest.issues.listForRepo, {
+                ...repo, state: 'open', per_page: 100,
+              });
+              issue = previousSmokeIssues
+                .filter(candidate =>
+                  !candidate.pull_request && /^Smoke test (?:passed|FAILED):/.test(candidate.title))
+                .sort((a, b) => b.number - a.number)[0];
+            }
+            if (!issue) {
+              try {
+                await github.rest.issues.getLabel({ ...repo, name: 'smoke-test' });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  ...repo, name: 'smoke-test', color: '0e8a16',
+                });
+              }
+              const created = await github.rest.issues.create({
+                ...repo, title, body: 'Results of manually triggered smoke tests.',
+                labels: ['smoke-test'],
+              });
+              issue = created.data;
+            } else {
+              await github.rest.issues.update({
+                ...repo,
+                issue_number: issue.number,
+                title,
+                labels: [
+                  ...issue.labels.map(({ name }) => name),
+                  ...(issue.labels.some(({ name }) => name === 'smoke-test') ? [] : ['smoke-test']),
+                ],
+              });
+            }
+            await github.rest.issues.createComment({ ...repo, issue_number: issue.number, body });
+        env:
+          CITY: ${{ inputs.city }}
+          REQUESTS: ${{ inputs.requests }}
+          SCENARIO: ${{ inputs.scenario }}
+          GENERATE_RESULT: ${{ needs.generate.result }}

@@ -16,4 +16,4 @@ module load calcua/supported
 source $VSC_DATA/miniconda3/etc/profile.d/conda.sh
 conda activate ox
 
-python REQreate.py
+# reqreate generate ../examples/ODBRP_benchmark_configuration_files/2100_180_1000/ --skip-existing --continue-on-error

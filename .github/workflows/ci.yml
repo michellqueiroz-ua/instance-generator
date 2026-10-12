@@ -1,0 +1,77 @@
+name: CI
+
+# Checks that the package still installs cleanly and that the command works.
+# This is what would have caught the undeclared dependencies that made the
+# package uninstallable outside the author's conda environment.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: python -m pip install ".[app,analysis]"
+
+      - name: Run unit tests
+        run: |
+          python -m pip install pytest
+          python -m pytest tests -v
+
+      - name: The command exists
+        run: reqreate --version
+
+      - name: Core generation path imports
+        # Run from a directory that is not the checkout, so this fails if the
+        # package depends on files that are not actually installed.
+        working-directory: /tmp
+        run: |
+          python -c "
+          from REQreate.input_json import input_json
+          import REQreate.json_to_csv
+          from REQreate.retrieve_network import download_network_information
+          from REQreate.overpass_config import configure_overpass, get_mirrors
+          import REQreate.trip_patterns_yellow
+          print('core path OK, mirrors:', get_mirrors())
+          "
+
+      - name: Nearest-node lookup works on an unprojected graph
+        # osmnx needs scikit-learn for nearest_nodes on unprojected (lat/lon)
+        # graphs, which the core generation path calls throughout. A missing
+        # scikit-learn only surfaces ~30 minutes into a real run, so check it
+        # here in a second, with no network access.
+        working-directory: /tmp
+        run: |
+          python -c "
+          import networkx as nx, osmnx as ox
+          G = nx.MultiDiGraph(crs='epsg:4326')
+          G.add_node(1, x=6.08, y=50.77)
+          G.add_node(2, x=6.09, y=50.78)
+          G.add_edge(1, 2, length=100)
+          print('nearest node:', ox.nearest_nodes(G, 6.085, 50.775))
+          "
+
+      - name: The web interface starts and serves
+        working-directory: /tmp
+        run: |
+          reqreate app --port 8501 --no-browser &
+          for i in $(seq 1 60); do
+            if curl -sf -m 2 http://localhost:8501/_stcore/health > /dev/null; then
+              echo "app is serving"; exit 0
+            fi
+            sleep 2
+          done
+          echo "app did not come up"; exit 1

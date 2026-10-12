@@ -9,7 +9,9 @@ import random
 import itertools
 #import shapefile
 from shapely.geometry import Polygon
-#from descartes.patch import PolygonPatch
+## descartes is unmaintained and breaks with shapely 2.x; PolygonPatch was
+# imported here but never used.
+# from descartes.patch import PolygonPatch
 from shapely.geometry import Point
 import shapely.wkt
 import matplotlib
@@ -45,7 +47,13 @@ except ImportError:
         def init(**kwargs):
             pass
     ray = DummyRay()
-from instance_class import Instance
+# Runnable as a script from inside this directory (python population_density.py) as well as
+# via `python -m REQreate.population_density`; put the repository root on sys.path so the
+# REQreate package resolves either way.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
+from REQreate.instance_class import Instance
 from multiprocessing import cpu_count
 import pickle
 

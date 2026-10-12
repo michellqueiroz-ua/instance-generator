@@ -9,7 +9,9 @@ import random
 from pathlib import Path
 
 from shapely.geometry import Polygon
-from descartes.patch import PolygonPatch
+# descartes is unmaintained and breaks with shapely 2.x; PolygonPatch was
+# imported here but never used.
+# from descartes.patch import PolygonPatch
 from shapely.geometry import Point
 import matplotlib
 matplotlib.use('Agg')

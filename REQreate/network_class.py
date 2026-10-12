@@ -269,6 +269,12 @@ class Network:
 
         R = 6378.1 #Radius of the Earth
 
+        # Every caller draws the radius with scipy's rvs(size=1), which returns a
+        # length-1 array rather than a scalar, and the math module below rejects
+        # arrays. Coerce here, at the one place that consumes it, rather than at
+        # each of the twenty-one distribution branches in passenger_requests.
+        radius = float(np.asarray(radius).reshape(-1)[0])
+
         counter = 0
         number = 1
         np.random.seed(seed_coord)
@@ -511,10 +517,10 @@ class Network:
             raise ValueError('school name must be unique')
 
         u, v, key = ox.nearest_edges(self.G_walk, x, y)
-        school_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
+        school_node_walk = min((u, v), key=lambda n: ox.distance.great_circle(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
     
         u, v, key = ox.nearest_edges(self.G_drive, x, y)
-        school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
+        school_node_drive = min((u, v), key=lambda n: ox.distance.great_circle(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
 
         d = {
             'school_name':name,
@@ -529,10 +535,10 @@ class Network:
     def add_new_stop(self, types, x, y):
 
         u, v, key = ox.nearest_edges(self.G_walk, x, y)
-        stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
+        stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle(y, x, self.G_walk.nodes[n]['y'], self.G_walk.nodes[n]['x']))
     
         u, v, key = ox.nearest_edges(self.G_drive, x, y)
-        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
+        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle(y, x, self.G_drive.nodes[n]['y'], self.G_drive.nodes[n]['x']))
 
         d = {
             'osmid_walk':stop_node_walk,
@@ -543,7 +549,6 @@ class Network:
         }
         #self.bus_stations = self.bus_stations.concat(d, ignore_index=True)
         self.bus_stations = pd.concat([self.bus_stations, pd.DataFrame([d])], ignore_index=True)
-
 
 
 

@@ -7,7 +7,13 @@ import shapely
 from shapely.geometry import Polygon
 from shapely.geometry import Point
 from pathlib import Path
-from instance_class import Instance
+# Runnable as a script from inside this directory (python assing_bus_stops_zones.py) as well as
+# via `python -m REQreate.assing_bus_stops_zones`; put the repository root on sys.path so the
+# REQreate package resolves either way.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
+from REQreate.instance_class import Instance
 
 
 def assign_bus_stops_to_zones():

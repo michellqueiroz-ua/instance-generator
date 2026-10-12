@@ -1,19 +1,21 @@
-import gc
 import math
-from multiprocessing import cpu_count
 import networkx as nx
+import numpy as np
 import os
 import pandas as pd
-from logger_utils import get_logger
-try:
-    import ray
-    RAY_AVAILABLE = True
-except ImportError:
-    RAY_AVAILABLE = False
-    print("Warning: Ray not available. Using sequential processing (slower but works on Windows).")
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import dijkstra
+from .logger_utils import get_logger
 
 
 class DummyRay:
+    """Stand-in for ray so the unguarded ray calls below become no-ops.
+
+    Only installed when ray is genuinely missing. It is not a parallel
+    executor: ``put``/``get`` are the identity and ``remote`` runs the
+    function inline, so every caller must still take the sequential branch
+    for the actual work.
+    """
     @staticmethod
     def remote(func):
         class RemoteWrapper:
@@ -33,7 +35,32 @@ class DummyRay:
     def get(objs):
         return objs
 
-ray = DummyRay()
+
+try:
+    import ray
+    RAY_AVAILABLE = True
+except ImportError:
+    RAY_AVAILABLE = False
+    ray = DummyRay()
+    print("Warning: Ray not available. Using sequential processing (slower but works on Windows).")
+
+
+def _ray_init():
+    """Restart a local ray instance, sized by ray from the host machine.
+
+    A no-op when ray is missing, so call sites can call it unconditionally.
+
+    The previous call sites hardcoded ``num_cpus=8`` and a 14 GB object store
+    (and one of them disagreed with the other three), which fails outright on
+    any machine with less RAM or fewer cores. Passing nothing lets ray read
+    the actual core count and available memory, so there is one helper and no
+    fixed sizes to outgrow.
+    """
+    if not RAY_AVAILABLE:
+        return
+    ray.shutdown()
+    ray.init()
+
 
 def divide_chunks(l, n):
       
@@ -55,6 +82,45 @@ def shortest_path_nx_ss_sequential(G, u, weight):
     shortest_path_length_u = nx.single_source_dijkstra_path_length(G, u, weight=weight)
     return shortest_path_length_u
 
+
+def _distance_matrix_rows(G, origins, weight, value_type=float, chunksize=100):
+    nodes = list(G.nodes)
+    node_to_index = {node: index for index, node in enumerate(nodes)}
+    edge_weights = {}
+    for u, v, attributes in G.edges(data=True):
+        edge = (node_to_index[u], node_to_index[v])
+        edge_weight = float(attributes.get(weight, 1))
+        if edge not in edge_weights or edge_weight < edge_weights[edge]:
+            edge_weights[edge] = edge_weight
+
+    edges = list(edge_weights)
+    graph = csr_matrix(
+        (
+            [edge_weights[edge] for edge in edges],
+            ([edge[0] for edge in edges], [edge[1] for edge in edges]),
+        ),
+        shape=(len(nodes), len(nodes)),
+    )
+    rows = []
+    reachable_counts = []
+    origins = list(origins)
+    for chunk in divide_chunks(origins, chunksize):
+        source_indices = [node_to_index[origin] for origin in chunk]
+        distances = dijkstra(
+            graph, directed=G.is_directed(), indices=source_indices
+        )
+        for origin, source_distances in zip(chunk, distances):
+            reachable = np.flatnonzero(np.isfinite(source_distances))
+            row = {"osmid_origin": origin}
+            for target_index in reachable:
+                row[str(nodes[target_index])] = value_type(
+                    source_distances[target_index]
+                )
+            rows.append(row)
+            reachable_counts.append(len(reachable))
+    return rows, reachable_counts
+
+
 if RAY_AVAILABLE:
     @ray.remote
     def shortest_path_nx(G, u, v):
@@ -72,10 +138,6 @@ if RAY_AVAILABLE:
         return shortest_path_length_u
 
 def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_base):
-    
-    ray.shutdown()
-    ray.init(num_cpus=8, object_store_memory=14000000000)
-
     save_dir_csv = os.path.join(save_dir, 'csv')
     path_dist_csv_file_walk = os.path.join(save_dir_csv, output_file_base+'.dist.walk.csv')
 
@@ -95,38 +157,14 @@ def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_bas
         [bus_stops_ids.append(int(x)) for x in bus_stops_ids2 if x not in osmid_origins] 
 
         
-        G_walk_id = ray.put(G_walk)
-
-        #calculate shortest path between nodes in the walking network to the bus stops
-        results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u, weight="length") for u in bus_stops_ids])
-
-        j=0
-        for u in bus_stops_ids:
-            d = {}
-            d['osmid_origin'] = u
-            for v in G_walk.nodes():
-                
-                dist_uv = -1
-                try:
-                    dist_uv = float(results[j][v])
-                except KeyError:
-                    pass
-                if dist_uv != -1:
-                    sv = str(v)
-                    d[sv] = dist_uv
-            
-            #shortest_path_walk = shortest_path_walk.concat(d, ignore_index=True)
-            shortest_path_walk = pd.concat([shortest_path_walk,d], ignore_index=True)
-
-            j+=1
-            del d
-
-        del results
-        gc.collect()
+        rows, _ = _distance_matrix_rows(G_walk, bus_stops_ids, "length")
+        if rows:
+            shortest_path_walk = pd.concat(
+                [shortest_path_walk, pd.DataFrame(rows)], ignore_index=True
+            )
 
         shortest_path_walk.to_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
-        ray.shutdown()
 
         return shortest_path_walk
 
@@ -163,63 +201,14 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         else:
             print('Computing walk distance matrix...')
         
-        if RAY_AVAILABLE:
-            ray.shutdown()
-            ray.init(num_cpus=8, object_store_memory=14000000000)
-
-        count_divisions = 0
-
-        chunksize = 100
-        list_nodes = list(G_walk.nodes)
         test_bus_stops_ids = bus_stops['osmid_walk'].tolist()
         #remove duplicates from list
         bus_stops_ids = [] 
         [bus_stops_ids.append(x) for x in test_bus_stops_ids if x not in bus_stops_ids] 
-        c_bus_stops_ids = list(divide_chunks(bus_stops_ids, chunksize))
-        
-        if RAY_AVAILABLE:
-            G_walk_id = ray.put(G_walk)
-
-        #calculate shortest path between nodes in the walking network to the bus stops
-        chunk_num = 0
-        for l in c_bus_stops_ids:
-            chunk_num += 1
-            print(f'Processing chunk {chunk_num}/{len(c_bus_stops_ids)} ({len(l)} nodes)')
-            shortest_path_length_walk = []
-            
-            if RAY_AVAILABLE:
-                results = ray.get([shortest_path_nx_ss.remote(G_walk_id, u, weight="length") for u in l])
-            else:
-                # Sequential processing for Windows
-                results = [shortest_path_nx_ss_sequential(G_walk, u, weight="length") for u in l]
-
-            j=0
-            for u in l:
-                d = {}
-                d['osmid_origin'] = u
-                for v in G_walk.nodes():
-                    
-                    dist_uv = -1
-                    try:
-                        dist_uv = float(results[j][v])
-                    except KeyError:
-                        pass
-                    if dist_uv != -1:
-                        sv = str(v)
-                        d[sv] = dist_uv
-                shortest_path_length_walk.append(d)
-
-                j+=1
-                del d
-
-            xt = pd.DataFrame(shortest_path_length_walk)
-            #shortest_path_walk = shortest_path_walk.concat(xt, ignore_index=True)
-            shortest_path_walk = pd.concat([shortest_path_walk, xt], ignore_index=True)
-            
-
-            del shortest_path_length_walk
-            del results
-            gc.collect()
+        walk_rows, _ = _distance_matrix_rows(
+            G_walk, bus_stops_ids, "length"
+        )
+        shortest_path_walk = pd.DataFrame(walk_rows)
 
         shortest_path_walk.to_csv(path_dist_csv_file_walk)
         shortest_path_walk.set_index(['osmid_origin'], inplace=True)
@@ -240,70 +229,18 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         else:
             print('Computing drive travel time matrix...')
         
-        # Calculate shortest path using travel time considering max speed allowed on roads
-        if RAY_AVAILABLE:
-            ray.shutdown()
-            ray.init(num_cpus=cpu_count())
-
-        chunksize = 100
-        list_nodes = list(G_drive.nodes)
-        c_list_nodes = list(divide_chunks(list_nodes, chunksize))
-        
-        if RAY_AVAILABLE:
-            G_drive_id = ray.put(G_drive)
-        
-        shortest_path_drive = pd.DataFrame()
-        
-        chunk_num = 0
-        for l in c_list_nodes:
-            chunk_num += 1
-            if chunk_num % 10 == 0 or chunk_num == 1:  # Progress every 10 chunks
-                if logger:
-                    logger.progress(f'Processing chunk {chunk_num}/{len(c_list_nodes)}')
-            
-            shortest_path_length_drive = []
-            
-            if RAY_AVAILABLE:
-                results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="travel_time") for u in l])
-            else:
-                # Sequential processing
-                results = [shortest_path_nx_ss_sequential(G_drive, u, weight="travel_time") for u in l]
-
-            j = 0
-            for u in l:
-                d = {}
-                d['osmid_origin'] = u
-                count = 0
-                for v in G_drive.nodes():
-                    
-                    dist_uv = -1
-                    try:
-                        dist_uv = int(results[j][v])
-                    except KeyError:
-                        pass
-                    if dist_uv != -1:
-                        sv = str(v)
-                        d[sv] = dist_uv
-                        count += 1
-                shortest_path_length_drive.append(d)
-
-                if count == 1:
-                    unreachable_nodes.append(u)
-
-                j += 1
-                del d
-
-            xt = pd.DataFrame(shortest_path_length_drive)
-            shortest_path_drive = pd.concat([shortest_path_drive, xt], ignore_index=True)
-            del shortest_path_length_drive
-            del results
-            gc.collect()
+        travel_time_rows, reachable_counts = _distance_matrix_rows(
+            G_drive, G_drive.nodes, "travel_time", int
+        )
+        shortest_path_drive = pd.DataFrame(travel_time_rows)
+        unreachable_nodes.extend(
+            origin
+            for origin, count in zip(G_drive.nodes, reachable_counts)
+            if count == 1
+        )
 
         shortest_path_drive.to_csv(path_tt_csv_file_drive)
         shortest_path_drive.set_index(['osmid_origin'], inplace=True)
-        
-        if RAY_AVAILABLE:
-            ray.shutdown()
 
 
     if os.path.isfile(path_dist_csv_file_drive):
@@ -315,13 +252,7 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         shortest_dist_drive = pd.read_csv(path_dist_csv_file_drive)
         shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
 
-        if RAY_AVAILABLE:
-            ray.shutdown()
     else:
-        if RAY_AVAILABLE:
-            ray.shutdown()
-            ray.init(num_cpus=8, object_store_memory=14000000000)
-
         if logger:
             logger.subsection('Computing Drive Distance Matrix')
         else:
@@ -331,63 +262,18 @@ def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base)
         calculate shortest path using travel time considering max speed allowed on roads
         '''
 
-        chunksize = 100
-        list_nodes = list(G_drive.nodes)
-        c_list_nodes = list(divide_chunks(list_nodes, chunksize))
-        
-        if RAY_AVAILABLE:
-            G_drive_id = ray.put(G_drive)
-        #start = time.process_time()
-
-        #distance
-        chunk_num = 0
-        for l in c_list_nodes:
-            chunk_num += 1
-            print(f'Processing drive chunk {chunk_num}/{len(c_list_nodes)} ({len(l)} nodes)')
-            shortest_path_length_drive = []
-            
-            if RAY_AVAILABLE:
-                results = ray.get([shortest_path_nx_ss.remote(G_drive_id, u, weight="length") for u in l])
-            else:
-                # Sequential processing for Windows
-                results = [shortest_path_nx_ss_sequential(G_drive, u, weight="length") for u in l]
-
-            j=0
-            for u in l:
-                d = {}
-                d['osmid_origin'] = u
-                count = 0
-                for v in G_drive.nodes():
-                    
-                    dist_uv = -1
-                    try:
-                        dist_uv = float(results[j][v])
-                    except KeyError:
-                        pass
-                    if dist_uv != -1:
-                        sv = str(v)
-                        d[sv] = dist_uv
-                        count += 1
-                shortest_path_length_drive.append(d)
-
-                if count == 1:
-                    unreachable_nodes.append(u)
-
-                j+=1
-                del d
-
-            xt = pd.DataFrame(shortest_path_length_drive)
-            #shortest_dist_drive = shortest_dist_drive.concat(xt, ignore_index=True) 
-            shortest_dist_drive = pd.concat([shortest_dist_drive, xt], ignore_index=True)    
-            del shortest_path_length_drive
-            del results
-            gc.collect()
+        distance_rows, reachable_counts = _distance_matrix_rows(
+            G_drive, G_drive.nodes, "length"
+        )
+        shortest_dist_drive = pd.DataFrame(distance_rows)
+        unreachable_nodes.extend(
+            origin
+            for origin, count in zip(G_drive.nodes, reachable_counts)
+            if count == 1
+        )
 
         shortest_dist_drive.to_csv(path_dist_csv_file_drive)
         shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
-
-        if RAY_AVAILABLE:
-            ray.shutdown()
 
 
     return shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes

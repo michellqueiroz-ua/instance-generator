@@ -7,7 +7,13 @@ import shapely
 from shapely.geometry import Polygon
 from shapely.geometry import Point
 from pathlib import Path
-from instance_class import Instance
+# Runnable as a script from inside this directory (python make_travel_time_matrix.py) as well as
+# via `python -m REQreate.make_travel_time_matrix`; put the repository root on sys.path so the
+# REQreate package resolves either way.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
+from REQreate.instance_class import Instance
 
 if __name__ == '__main__':
 
@@ -199,7 +205,7 @@ if __name__ == '__main__':
         #stop_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, inst.network.G_walk.nodes[n]['y'], inst.network.G_walk.nodes[n]['x']))
     
         u, v, key = ox.nearest_edges(inst.network.G_drive, x, y)
-        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(y, x, inst.network.G_drive.nodes[n]['y'], inst.network.G_drive.nodes[n]['x']))
+        stop_node_drive = min((u, v), key=lambda n: ox.distance.great_circle(y, x, inst.network.G_drive.nodes[n]['y'], inst.network.G_drive.nodes[n]['x']))
 
         node_list.append(stop_node_drive)
 
