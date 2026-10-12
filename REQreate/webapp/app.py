@@ -14,6 +14,7 @@ from attribute_library import get_attributes_for_problem, get_required_attribute
 import zipfile
 import shutil
 from io import BytesIO
+import demo_config
 
 APP_BUILD = "a1d1933b"
 
@@ -312,13 +313,42 @@ if page == "Create New Instance":
         col1, col2 = st.columns(2)
         
         with col1:
-            place_name = st.text_input(
-                "Location (City, Country)",
-                value="Maastricht, Netherlands",
-                help="Enter the location in the format: City, Country. For larger cities, use 'City Municipality, Country' (e.g., 'Copenhagen Municipality, Denmark')"
-            )
-            st.caption("💡 Tip: For cities like Copenhagen, Amsterdam, use: **'City Municipality, Country'**")
-            
+            if demo_config.is_demo():
+                # Demo mode: only networks already prepared on this machine, so
+                # no request can trigger a live OpenStreetMap download.
+                prepared_cities = demo_config.available_cities()
+
+                if not prepared_cities:
+                    place_name = ""
+                    st.error(
+                        "No prepared networks are available on this server. "
+                        "The demo cannot generate instances right now."
+                    )
+                else:
+                    city_labels = [f"{c.label}, {c.country}" for c in prepared_cities]
+                    city_index = st.selectbox(
+                        "Location (prepared networks only)",
+                        options=range(len(prepared_cities)),
+                        format_func=lambda i: city_labels[i],
+                        help="The demo runs on pre-built networks. Install locally to use any city."
+                    )
+                    selected_city = prepared_cities[city_index]
+                    place_name = selected_city.folder
+
+                    if selected_city.note:
+                        st.caption(f"ℹ️ {selected_city.note}")
+                    st.caption(
+                        f"💡 Demo mode: {len(prepared_cities)} prepared network(s). "
+                        "For any other city, run the generator locally."
+                    )
+            else:
+                place_name = st.text_input(
+                    "Location (City, Country)",
+                    value="Maastricht, Netherlands",
+                    help="Enter the location in the format: City, Country. For larger cities, use 'City Municipality, Country' (e.g., 'Copenhagen Municipality, Denmark')"
+                )
+                st.caption("💡 Tip: For cities like Copenhagen, Amsterdam, use: **'City Municipality, Country'**")
+
         with col2:
             output_name = st.text_input(
                 "Output Folder Name",
@@ -388,6 +418,18 @@ if page == "Create New Instance":
             # Strip any quotes that might have been entered
             place_name_clean = place_name.strip('"').strip("'")
             output_name_clean = output_name.strip('"').strip("'")
+
+            # Demo guard: the picklist above restricts the UI, this stops any
+            # other path from reaching a live OpenStreetMap download.
+            if not demo_config.is_allowed(place_name_clean):
+                st.error(
+                    f"'{place_name_clean}' is not available on the demo. "
+                    "Only pre-built networks can be generated here."
+                )
+                st.info(
+                    "To generate instances for any city, run the generator locally."
+                )
+                st.stop()
             
             folder_name = output_name_clean if output_name_clean else place_name_clean.replace(", ", "_").replace(" ", "_")
             folder_name_clean = folder_name.replace(",", "").replace(" ", "_")

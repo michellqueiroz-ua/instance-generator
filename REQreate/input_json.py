@@ -26,6 +26,7 @@ from .dynamism import dynamism2
 from .urgency import urgency
 from .geographic_dispersion import geographic_dispersion
 from .logger_utils import init_logger
+from .isa_features_hook import export_generated_instance_features
 
 def get_multiplier_time_unit(time_unit):
 
@@ -1200,6 +1201,14 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
             full_final_filename = full_final_filename + '_' + str(replicate_num) + '.csv'
 
             os.rename(os.path.join(save_dir_csv, base_save_folder_name, output_name_csv), os.path.join(save_dir_csv, base_save_folder_name, full_final_filename))
+
+            #ISA-HODBRP T12: one features.csv row per generated instance, keyed by the final csv stem
+            export_generated_instance_features(
+                json_path=input_name,
+                instance_ref=full_final_filename,
+                network_graph=getattr(inst.network, 'G_drive', None),
+            )
+
             replicate_num = replicate_num + 1
 
     f.close()
