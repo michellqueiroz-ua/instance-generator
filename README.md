@@ -31,6 +31,7 @@ reqreate --version
 | Extra | Installs | Needed for |
 |---|---|---|
 | `app` | streamlit, folium, plotly | the web interface (`reqreate app`) |
+| `desktop` | pywebview | running the web interface in a native desktop window (`--window`) |
 | `analysis` | sqlalchemy | the taxi-dataset trip-pattern and `uber_movement` modules |
 | `parallel` | ray | distributing the distance matrices over cores - see below |
 
@@ -84,6 +85,17 @@ large networks, but no speedup has been measured; see the note above.
 
 Runs of the same location afterwards are quicker, because the OpenStreetMap
 responses are cached in a `cache/` folder next to the output.
+
+### Desktop window
+
+To open the interface in a native desktop window rather than a browser tab:
+
+```bash
+pip install "reqreate[app,desktop]"
+reqreate app --window
+```
+
+On Linux, pywebview requires WebKitGTK (`python3-gi gir1.2-webkit2-4.1` on Debian/Ubuntu) or the Qt backend.
 
 ### Where the output goes
 

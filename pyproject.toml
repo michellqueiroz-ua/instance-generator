@@ -44,6 +44,7 @@ dependencies = [
 # The web interface. Installed by default via the `app` extra so that
 # `pip install reqreate[app]` gives a working `reqreate app`.
 app = ["streamlit", "folium", "streamlit-folium", "plotly"]
+desktop = ["pywebview>=5"]
 # Parallel processing; optional, the code falls back to sequential without it.
 parallel = ["ray"]
 # Only needed by the uber_movement travel-speed regression module.
