@@ -25,7 +25,7 @@ APP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webapp", "a
 
 def _find_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
+        s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
