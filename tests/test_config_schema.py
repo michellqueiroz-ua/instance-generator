@@ -86,6 +86,24 @@ class ConfigSchemaTests(unittest.TestCase):
             path.write_text("{", encoding="utf-8")
             self.assertTrue(validate_config(path))
 
+    def test_patient_transport_smoke_config_declares_hospital_subset(self):
+        path = (
+            Path(__file__).parents[1]
+            / ".github"
+            / "smoke-test"
+            / "aachen_patient_transport_20.json"
+        )
+        config = json.loads(path.read_text(encoding="utf-8"))
+        parameters = {parameter["name"]: parameter for parameter in config["parameters"]}
+
+        self.assertIn("hospitals", parameters)
+        self.assertEqual(parameters["hospitals"]["type"], "array_locations")
+        self.assertEqual(parameters["hospitals"]["locs"], "hospitals")
+        self.assertIn(
+            "hospitals",
+            {attribute.get("subset_locations") for attribute in config["attributes"]},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
