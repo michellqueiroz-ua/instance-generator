@@ -65,7 +65,7 @@ reqreate app
 
 Your browser opens at `http://localhost:8501`. Then:
 
-1. Choose a **problem type** (DARP, ODBRP, or Patient Transport)
+1. Choose a **problem type** (DARP or ODBRP; Patient Transport is temporarily unavailable while a bug is fixed)
 2. Enter a **location**, for example `Aachen, Germany`
 3. Set the **number of requests**
 4. Click **Generate**, and leave the browser tab open

@@ -78,11 +78,20 @@ if page == "Create New Instance":
     
     # Problem Type Selection - OUTSIDE FORM for immediate updates
     st.subheader("🎯 Problem Type")
+    # Patient Transport is hidden until generation stops crashing on hospitals
+    # that have no name in OpenStreetMap. Set REQREATE_ENABLE_PATIENT_TRANSPORT=1
+    # to show it anyway, e.g. to test the fix.
+    patient_transport_enabled = os.environ.get("REQREATE_ENABLE_PATIENT_TRANSPORT") == "1"
+    problem_options = ["DARP", "ODBRP"]
+    if patient_transport_enabled:
+        problem_options.append("Patient Transport")
     problem_type = st.selectbox(
         "Select Problem Type",
-        ["DARP", "ODBRP", "Patient Transport"],
+        problem_options,
         help="DARP: Origin/Destination coordinates (general ride-sharing). ODBRP: Bus stops origin/destination (bus-based systems). Patient Transport: Non-urgent medical transportation with hospital destinations"
     )
+    if not patient_transport_enabled:
+        st.caption("Patient Transport is temporarily unavailable while a bug is being fixed.")
     
     # Show info for Patient Transport
     if problem_type == "Patient Transport":
