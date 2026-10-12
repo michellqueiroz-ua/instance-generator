@@ -14,6 +14,10 @@ from REQreate.webapp.attribute_library import get_required_attributes
 
 APP_PATH = Path(__file__).resolve().parents[1] / "REQreate" / "webapp" / "app.py"
 
+# Patient Transport is hidden by default while its hospital lookup is fixed;
+# the tests below still exercise it by switching it on.
+ENABLE_PATIENT_TRANSPORT = {"REQREATE_ENABLE_PATIENT_TRANSPORT": "1"}
+
 
 class WebAppTests(unittest.TestCase):
     @staticmethod
@@ -29,6 +33,16 @@ class WebAppTests(unittest.TestCase):
     def tearDownClass(cls):
         sys.path.remove(str(APP_PATH.parent))
 
+    def test_patient_transport_hidden_by_default(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("REQREATE_ENABLE_PATIENT_TRANSPORT", None)
+            app = AppTest.from_file(str(APP_PATH)).run()
+        self.assertEqual(len(app.exception), 0)
+        self.assertEqual(
+            self.widget(app, "selectbox", "Select Problem Type").options, ["DARP", "ODBRP"]
+        )
+
+    @patch.dict(os.environ, ENABLE_PATIENT_TRANSPORT)
     def test_renders_and_switches_problem_types(self):
         app = AppTest.from_file(str(APP_PATH)).run()
         self.assertEqual(len(app.exception), 0)
@@ -66,6 +80,7 @@ class WebAppTests(unittest.TestCase):
                 finally:
                     os.chdir(previous_dir)
 
+    @patch.dict(os.environ, ENABLE_PATIENT_TRANSPORT)
     def test_generated_configuration_for_each_problem(self):
         for problem in ("DARP", "ODBRP", "Patient Transport"):
             with self.subTest(problem=problem), tempfile.TemporaryDirectory() as directory:
