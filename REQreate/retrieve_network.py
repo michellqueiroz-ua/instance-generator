@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
 import numpy as np
 import os
-import osmapi as osm
 import osmnx as ox
 import pandas as pd
 import pickle
@@ -68,7 +67,7 @@ from .speed_info import _get_max_speed_road
 from .network_class import Network
 from .instance_class import Instance
 from .request_distribution_class import RequestDistributionTime
-from .trip_patterns_general import rank_model
+from .rank_model import rank_model
 from .logger_utils import get_logger
 from .overpass_config import configure_overpass
        
@@ -156,8 +155,6 @@ def download_network_information(
         '''
         polygon = ox.utils_geo.bbox_to_poly(north, south, east, west)
     else:
-        api_osm = osm.OsmApi()
-
         if isinstance(place_name, (str, dict)):
             # if it is a string (place name) or dict (structured place query), then
             # it is a single place

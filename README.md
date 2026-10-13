@@ -43,11 +43,11 @@ reqreate --version
 |---|---|---|
 | `app` | streamlit, folium, plotly | the web interface (`reqreate app`) |
 | `desktop` | pywebview | running the web interface in a native desktop window (`--window`) |
-| `analysis` | sqlalchemy | the taxi-dataset trip-pattern and `uber_movement` modules |
+| `analysis` | sqlalchemy, seaborn, powerlaw, pyshp | the archived research scripts in [`legacy/`](legacy/README.md) |
 | `parallel` | ray | distributing the distance matrices over cores - see below |
 
 ```bash
-pip install "reqreate[app,analysis]"
+pip install "reqreate[app]"
 ```
 
 The `parallel` extra installs ray. Until recently `compute_distance_matrix`
@@ -229,6 +229,45 @@ git clone https://github.com/michellqueiroz-ua/instance-generator.git
 cd instance-generator
 pip install -e ".[app]"
 ```
+
+## Citing REQreate
+
+If you use REQreate in your research, please cite:
+
+> Queiroz, M., Lucas, F., & Sörensen, K. (2024). Instance generation tool for on-demand transportation problems. *European Journal of Operational Research*, 317(3), 696–717. https://doi.org/10.1016/j.ejor.2024.03.006
+
+```bibtex
+@article{queiroz2024reqreate,
+  title   = {Instance generation tool for on-demand transportation problems},
+  author  = {Queiroz, Michell and Lucas, Flavien and S{\"o}rensen, Kenneth},
+  journal = {European Journal of Operational Research},
+  volume  = {317},
+  number  = {3},
+  pages   = {696--717},
+  year    = {2024},
+  doi     = {10.1016/j.ejor.2024.03.006}
+}
+```
+
+GitHub's "Cite this repository" button uses [`CITATION.cff`](CITATION.cff).
+
+## Data and licenses
+
+The REQreate code is released under the [MIT License](LICENSE).
+
+REQreate downloads its networks and points of interest from
+[OpenStreetMap](https://www.openstreetmap.org/) at run time; no OpenStreetMap
+data is included in this repository. Networks, travel-time matrices and
+instances generated with REQreate are derived from OpenStreetMap data:
+
+> Map data © OpenStreetMap contributors, available under the [Open Database License (ODbL)](https://www.openstreetmap.org/copyright).
+
+If you publish generated networks or instances, keep this attribution and
+follow the ODbL terms for the derived data. See [`NOTICE`](NOTICE) for details.
+
+The [`legacy/`](legacy/README.md) folder holds archived research scripts
+that analysed third-party trip datasets (NYC TLC, Chicago TNP, Uber Movement
+and others). Those datasets are not included.
 
 # Questions? Do not hesitate to send an e-mail to:
 

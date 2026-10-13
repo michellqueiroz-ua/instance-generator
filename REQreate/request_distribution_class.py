@@ -1,5 +1,4 @@
 import math
-import osmapi as osm
 import osmnx as ox
 import networkx as nx
 import numpy as np
