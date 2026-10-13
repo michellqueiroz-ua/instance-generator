@@ -52,7 +52,7 @@
       "cognitive_load": "high",
       "context": "Implement n_requests, demand_density, and spatial_cluster_coeff. Include fallback when service_area_km2 is missing or ambiguous, and document the fallback in logs/notes. Done means the three features compute deterministically on sample instances.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T03"],
       "deadline": "2026-05-28"
     },
@@ -65,7 +65,7 @@
       "cognitive_load": "high",
       "context": "Implement od_distance_mean and od_distance_std using driving distances from matrix/network data as primary method. If unavailable, apply explicit fallback and warning behavior. Done means outputs use driving distance by default and pass quick sanity checks.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T03"],
       "deadline": "2026-05-28"
     },
@@ -78,7 +78,7 @@
       "cognitive_load": "medium",
       "context": "Implement tw_width_mean, tw_width_std, tw_overlap_ratio, and tight_tw_fraction with robust handling for empty or malformed request sets. Done means all four metrics compute correctly on unit-like toy data and real sample files.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T02"],
       "deadline": "2026-05-28"
     },
@@ -91,7 +91,7 @@
       "cognitive_load": "high",
       "context": "Implement tw_tightness_factor using request-specific minimum trip time from driving travel-time data. Add fallback policy only when driving times are missing, and skip invalid rows safely. Done means metric matches definition and produces stable values across sampled instances.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T05", "ISA-HODBRP-T06"],
       "deadline": "2026-05-28"
     },
@@ -104,7 +104,7 @@
       "cognitive_load": "medium",
       "context": "Implement fleet_size, capacity_cv, fleet_utilization_ratio, and request_vehicle_ratio. Handle zero-division and empty fleet/request edge cases explicitly. Done means outputs are numeric and interpretable under normal and degenerate cases.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T02"],
       "deadline": "2026-05-28"
     },
@@ -117,7 +117,7 @@
       "cognitive_load": "high",
       "context": "Implement station_density, bsa_flexibility, and avg_station_degree using CSV stop data. For walking-based calculations, convert 10-minute default into distance using walk-speed input when present, with a documented default speed fallback. Done means outputs are consistent and bsa_flexibility edge interpretation is noted.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T03", "ISA-HODBRP-T01"],
       "deadline": "2026-05-29"
     },
@@ -130,7 +130,7 @@
       "cognitive_load": "high",
       "context": "Implement grid-based coverage_ratio with configurable grid density and walking threshold derived from the 10-minute rule. Add a performance guard so runtime remains practical. Done means output is stable and documented with grid/threshold parameters.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T09"],
       "deadline": "2026-05-29"
     },
@@ -143,7 +143,7 @@
       "cognitive_load": "low",
       "context": "Implement request_flux_dynamism, static_to_dynamic_ratio, and avg_request_urgency for static runs with predictable constant/near-constant behavior. Keep functions future-proof for dynamic variants. Done means all three features are always present and numeric.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T02"],
       "deadline": "2026-05-29"
     },
@@ -156,7 +156,7 @@
       "cognitive_load": "high",
       "context": "Wire compute_features into generation flow so each produced instance appends one row to data/results/features.csv with instance stem as key. Add schema enforcement and duplicate-key protection. Done means repeated generation produces clean, aligned CSV rows.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": [
         "ISA-HODBRP-T04",
         "ISA-HODBRP-T05",
@@ -176,7 +176,7 @@
       "cognitive_load": "medium",
       "context": "Generate data/results/perf_matrix.csv with SA, IP, GR normalized to [0,1] and strict index alignment to features.csv. Add assertion checks and clear error messages for mismatch. Done means file passes range and alignment checks.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "done",
       "depends_on": ["ISA-HODBRP-T12"],
       "deadline": "2026-05-29"
     },
@@ -189,7 +189,7 @@
       "cognitive_load": "high",
       "context": "Implement/update src/isa_pipeline.py to preprocess features (drop constant, handle NaN, remove static dynamic columns), fit InstanceSpace in Python, and export instance_space.csv plus footprint figures. Done means script runs end-to-end on current dataset.",
       "prompt_file": "prompts/isa_hodbrp_task_prompts.md",
-      "status": "not_started",
+      "status": "in_progress",
       "depends_on": ["ISA-HODBRP-T13"],
       "deadline": "2026-05-30"
     },
