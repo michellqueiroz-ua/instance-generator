@@ -37,14 +37,6 @@ Maastricht*/
 cache/
 *.pkl
 
-# Exception: pre-loaded Maastricht network for HF Spaces (network data only)
-!Maastricht, Netherlands/
-!Maastricht, Netherlands/csv/
-!Maastricht, Netherlands/csv/**
-!Maastricht, Netherlands/pickle/
-!Maastricht, Netherlands/pickle/**
-!Maastricht, Netherlands/graphml_format/
-!Maastricht, Netherlands/graphml_format/**
 
 # User session data (generated instances, auto-cleanup)
 _user_data/
