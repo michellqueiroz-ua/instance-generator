@@ -18,5 +18,5 @@ with `x` and `y` node attributes, `crs='epsg:4326'`, and `length` and
 `travel_time` edge attributes instead of downloading networks.
 
 Leave `REQreate/REQreate.py`, `REQreate/independent_jobs.sh`, `*.slurm` files,
-and the `trip_patterns_*.py` research scripts alone unless an issue names them.
+and the `legacy/` research scripts alone unless an issue names them.
 Keep changes minimal and match the surrounding code style.

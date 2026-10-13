@@ -44,7 +44,7 @@ jobs:
           import REQreate.json_to_csv
           from REQreate.retrieve_network import download_network_information
           from REQreate.overpass_config import configure_overpass, get_mirrors
-          import REQreate.trip_patterns_yellow
+          from REQreate.rank_model import rank_model
           print('core path OK, mirrors:', get_mirrors())
           "
 

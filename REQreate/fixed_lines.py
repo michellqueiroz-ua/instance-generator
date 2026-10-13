@@ -10,7 +10,6 @@ from multiprocessing import cpu_count
 import numpy as np
 import networkx as nx
 import os
-import osmapi as osm
 import osmnx as ox
 import pandas as pd
 try:
@@ -737,7 +736,6 @@ def get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_file_base):
     '''
     get fixed lines from OpenStreetMaps
     '''
-    api_osm = osm.OsmApi()
     pt_fixed_lines = []
 
     save_dir_csv = os.path.join(save_dir, 'csv')
@@ -762,7 +760,7 @@ def get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_file_base):
             'route':'tram',
         }
         
-        routes = ox.geometries_from_polygon(polygon, tags=tags)
+        routes = ox.features_from_polygon(polygon, tags=tags)
 
         #print('number of routes', len(routes))
 
@@ -810,14 +808,16 @@ def get_fixed_lines_osm(G_walk, G_drive, polygon, save_dir, output_file_base):
                     #fig, ax = ox.plot_graph(G_drive, show=False, close=False)
 
                     for u in poi['nodes']:
-                        nodeu = api_osm.NodeGet(u)
-                        node_point = (nodeu['lat'], nodeu['lon'])
-                        
-                        #ax.scatter(nodeu['lon'], nodeu['lat'], c='blue')
-                        #print(node_point)
-                        
-                        #nn = ox.get_nearest_node(G_drive, node_point)
-                        nn = ox.nearest_nodes(G_drive, nodeu['lon'], nodeu['lat'])
+                        # Coordinates come from the downloaded graphs; route
+                        # nodes missing from both graphs are skipped.
+                        if u in G_drive.nodes:
+                            nodeu = G_drive.nodes[u]
+                        elif u in G_walk.nodes:
+                            nodeu = G_walk.nodes[u]
+                        else:
+                            continue
+
+                        nn = ox.nearest_nodes(G_drive, nodeu['x'], nodeu['y'])
                         
                         if nn not in filtered_nodes_osm:
                             filtered_nodes_osm.append(nn)

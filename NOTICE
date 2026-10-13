@@ -1,0 +1,25 @@
+REQreate
+Copyright (c) 2021-2026 Michell Queiroz, Flavien Lucas, Kenneth Sörensen
+Licensed under the MIT License (see LICENSE).
+
+OpenStreetMap data
+------------------
+REQreate downloads street networks, points of interest, bus stops and other
+features from OpenStreetMap at run time. No OpenStreetMap data is distributed
+with this repository.
+
+Networks, travel-time matrices and instances generated from that data are
+derived from OpenStreetMap and must be attributed:
+
+    Map data © OpenStreetMap contributors, available under the
+    Open Database License (ODbL): https://www.openstreetmap.org/copyright
+
+If you publish or share generated networks or instances, keep this
+attribution and follow the ODbL terms for the derived data.
+
+Archived research scripts
+-------------------------
+legacy/ contains research scripts that analysed third-party trip datasets
+(NYC TLC taxi trips, Chicago TNP trips, Austin and San Francisco Bay Area
+data, Uber Movement). None of those datasets are included. Anyone obtaining
+them must follow each provider's terms of use.
