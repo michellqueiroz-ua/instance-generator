@@ -14,7 +14,12 @@ from attribute_library import get_attributes_for_problem, get_required_attribute
 import zipfile
 import shutil
 from io import BytesIO
-import demo_config
+try:
+    # demo_config.py lives at the repository root; it is only importable when
+    # running from a checkout. Installed packages run without demo mode.
+    import demo_config
+except ImportError:
+    demo_config = None
 
 APP_BUILD = "a1d1933b"
 
@@ -313,7 +318,7 @@ if page == "Create New Instance":
         col1, col2 = st.columns(2)
         
         with col1:
-            if demo_config.is_demo():
+            if demo_config is not None and demo_config.is_demo():
                 # Demo mode: only networks already prepared on this machine, so
                 # no request can trigger a live OpenStreetMap download.
                 prepared_cities = demo_config.available_cities()
@@ -421,7 +426,7 @@ if page == "Create New Instance":
 
             # Demo guard: the picklist above restricts the UI, this stops any
             # other path from reaching a live OpenStreetMap download.
-            if not demo_config.is_allowed(place_name_clean):
+            if demo_config is not None and not demo_config.is_allowed(place_name_clean):
                 st.error(
                     f"'{place_name_clean}' is not available on the demo. "
                     "Only pre-built networks can be generated here."
