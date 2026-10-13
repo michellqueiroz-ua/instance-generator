@@ -1,8 +1,8 @@
 import math
+from collections import OrderedDict
+
 import networkx as nx
 import numpy as np
-import os
-import pandas as pd
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
 from .logger_utils import get_logger
@@ -63,9 +63,9 @@ def _ray_init():
 
 
 def divide_chunks(l, n):
-      
+
     # looping till length l
-    for i in range(0, len(l), n): 
+    for i in range(0, len(l), n):
         yield l[i:i + n]
 
 # Non-ray version for sequential processing
@@ -81,44 +81,6 @@ def shortest_path_nx_ss_sequential(G, u, weight):
     shortest_path_length_u = {}
     shortest_path_length_u = nx.single_source_dijkstra_path_length(G, u, weight=weight)
     return shortest_path_length_u
-
-
-def _distance_matrix_rows(G, origins, weight, value_type=float, chunksize=100):
-    nodes = list(G.nodes)
-    node_to_index = {node: index for index, node in enumerate(nodes)}
-    edge_weights = {}
-    for u, v, attributes in G.edges(data=True):
-        edge = (node_to_index[u], node_to_index[v])
-        edge_weight = float(attributes.get(weight, 1))
-        if edge not in edge_weights or edge_weight < edge_weights[edge]:
-            edge_weights[edge] = edge_weight
-
-    edges = list(edge_weights)
-    graph = csr_matrix(
-        (
-            [edge_weights[edge] for edge in edges],
-            ([edge[0] for edge in edges], [edge[1] for edge in edges]),
-        ),
-        shape=(len(nodes), len(nodes)),
-    )
-    rows = []
-    reachable_counts = []
-    origins = list(origins)
-    for chunk in divide_chunks(origins, chunksize):
-        source_indices = [node_to_index[origin] for origin in chunk]
-        distances = dijkstra(
-            graph, directed=G.is_directed(), indices=source_indices
-        )
-        for origin, source_distances in zip(chunk, distances):
-            reachable = np.flatnonzero(np.isfinite(source_distances))
-            row = {"osmid_origin": origin}
-            for target_index in reachable:
-                row[str(nodes[target_index])] = value_type(
-                    source_distances[target_index]
-                )
-            rows.append(row)
-            reachable_counts.append(len(reachable))
-    return rows, reachable_counts
 
 
 if RAY_AVAILABLE:
@@ -137,143 +99,149 @@ if RAY_AVAILABLE:
         shortest_path_length_u = nx.single_source_dijkstra_path_length(G, u, weight=weight)
         return shortest_path_length_u
 
-def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_base):
-    save_dir_csv = os.path.join(save_dir, 'csv')
-    path_dist_csv_file_walk = os.path.join(save_dir_csv, output_file_base+'.dist.walk.csv')
 
-    if os.path.isfile(path_dist_csv_file_walk):
-        print('is file dist walk')
-        shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
+# Rows kept in memory per matrix. A row is one float32/int32 per graph node,
+# so 5000 rows of a 26k-node city take about 500 MB.
+MAX_CACHED_ROWS = 5000
 
-        test_bus_stops_ids = bus_stops_fr
+_UNREACHABLE_INT = -1
 
-        osmid_origins = shortest_path_walk['osmid_origin'].tolist()
 
-        #remove duplicates from list
-        bus_stops_ids2 = [] 
-        [bus_stops_ids2.append(int(x)) for x in test_bus_stops_ids if x not in bus_stops_ids2] 
+def _node_key(node):
+    """Accept node ids as ints, numpy ints, or the old string column labels."""
+    if isinstance(node, str):
+        try:
+            return int(node)
+        except ValueError:
+            return int(float(node))
+    return int(node)
 
-        bus_stops_ids = [] 
-        [bus_stops_ids.append(int(x)) for x in bus_stops_ids2 if x not in osmid_origins] 
 
-        
-        rows, _ = _distance_matrix_rows(G_walk, bus_stops_ids, "length")
-        if rows:
-            shortest_path_walk = pd.concat(
-                [shortest_path_walk, pd.DataFrame(rows)], ignore_index=True
+class _Loc:
+    def __init__(self, matrix):
+        self._matrix = matrix
+
+    def __getitem__(self, key):
+        origin, destination = key
+        return self._matrix.get(origin, destination)
+
+
+class LazyDistanceMatrix:
+    """Shortest-path matrix over a graph, computed one origin row at a time.
+
+    Replaces the all-pairs DataFrame, which needed ~75 GB for a 26k-node
+    city. Lookups keep the old DataFrame syntax, ``matrix.loc[origin, "dest"]``:
+    the first lookup from an origin runs one Dijkstra over the graph (tens of
+    milliseconds) and caches that row; later lookups are array reads.
+
+    Unreachable destinations return NaN and unknown nodes raise KeyError,
+    as the DataFrame did.
+
+    Travel times (``value_type=int``) are truncated to whole seconds in
+    float64 before being stored as int32, so they match the old matrix
+    exactly. Distances are stored as float32 (sub-millimetre differences).
+    """
+
+    def __init__(self, G, weight, value_type=float, max_rows=MAX_CACHED_ROWS):
+        self.weight = weight
+        self.value_type = value_type
+        self.max_rows = max_rows
+        self.directed = G.is_directed()
+        self.nodes = list(G.nodes)
+        self.node_to_index = {node: index for index, node in enumerate(self.nodes)}
+
+        # Parallel edges collapse to the cheapest one.
+        edge_weights = {}
+        for u, v, attributes in G.edges(data=True):
+            edge = (self.node_to_index[u], self.node_to_index[v])
+            edge_weight = float(attributes.get(weight, 1))
+            if edge not in edge_weights or edge_weight < edge_weights[edge]:
+                edge_weights[edge] = edge_weight
+        edges = list(edge_weights)
+        self.graph = csr_matrix(
+            (
+                [edge_weights[edge] for edge in edges],
+                ([edge[0] for edge in edges], [edge[1] for edge in edges]),
+            ),
+            shape=(len(self.nodes), len(self.nodes)),
+        )
+        self._rows = OrderedDict()
+        self.loc = _Loc(self)
+
+    def __contains__(self, node):
+        try:
+            return _node_key(node) in self.node_to_index
+        except (TypeError, ValueError):
+            return False
+
+    def _index(self, node):
+        return self.node_to_index[_node_key(node)]
+
+    def row(self, origin):
+        index = self._index(origin)
+        cached = self._rows.get(index)
+        if cached is not None:
+            self._rows.move_to_end(index)
+            return cached
+
+        distances = dijkstra(self.graph, directed=self.directed, indices=index)
+        if self.value_type is int:
+            reachable = np.isfinite(distances)
+            values = np.full(distances.shape, _UNREACHABLE_INT, dtype=np.int32)
+            values[reachable] = np.trunc(distances[reachable]).astype(np.int32)
+        else:
+            values = distances.astype(np.float32)
+
+        self._rows[index] = values
+        if len(self._rows) > self.max_rows:
+            self._rows.popitem(last=False)
+        return values
+
+    def get(self, origin, destination):
+        destination_index = self._index(destination)
+        value = self.row(origin)[destination_index]
+        if self.value_type is int:
+            return math.nan if value == _UNREACHABLE_INT else int(value)
+        return float(value) if np.isfinite(value) else math.nan
+
+    def __getstate__(self):
+        # The network object is pickled; ship the graph, not the cache.
+        state = self.__dict__.copy()
+        state["_rows"] = OrderedDict()
+        del state["loc"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.loc = _Loc(self)
+
+    def __getattr__(self, name):
+        # Fail loudly if code still expects the whole DataFrame.
+        if name in ("index", "columns", "iterrows", "to_csv", "values", "shape"):
+            raise AttributeError(
+                f"LazyDistanceMatrix has no '{name}': the full matrix is no "
+                "longer materialised; look up values with .loc[origin, dest]."
             )
+        raise AttributeError(name)
 
-        shortest_path_walk.to_csv(path_dist_csv_file_walk)
-        shortest_path_walk.set_index(['osmid_origin'], inplace=True)
 
-        return shortest_path_walk
+def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_base):
+    # The lazy matrix answers any origin, so extra stops need no update.
+    return LazyDistanceMatrix(G_walk, "length")
 
 
 def _get_distance_matrix(G_walk, G_drive, bus_stops, save_dir, output_file_base):
-    shortest_path_walk = []
-    shortest_path_drive = []
-    shortest_dist_drive = []
-    
-    save_dir_csv = os.path.join(save_dir, 'csv')
-    if not os.path.isdir(save_dir_csv):
-        os.mkdir(save_dir_csv)
-    
-    path_dist_csv_file_walk = os.path.join(save_dir_csv, output_file_base+'.dist.walk.csv')
-    path_dist_csv_file_drive = os.path.join(save_dir_csv, output_file_base+'.dist.drive.csv')
-    path_tt_csv_file_drive = os.path.join(save_dir_csv, output_file_base+'.tt.drive.csv')
-    
-    shortest_path_drive = pd.DataFrame()
-    shortest_path_walk = pd.DataFrame()
-    shortest_dist_drive = pd.DataFrame()
-
-    #calculates the shortest paths between all nodes walk
-
     logger = get_logger()
-    
-    if os.path.isfile(path_dist_csv_file_walk):
-        if logger:
-            logger.info('Loading existing walk distance matrix...')
-        shortest_path_walk = pd.read_csv(path_dist_csv_file_walk)
-        shortest_path_walk.set_index(['osmid_origin'], inplace=True)
+    if logger:
+        logger.info('Preparing on-demand distance matrices (computed per origin as needed)')
     else:
-        if logger:
-            logger.subsection('Computing Walk Distance Matrix')
-        else:
-            print('Computing walk distance matrix...')
-        
-        test_bus_stops_ids = bus_stops['osmid_walk'].tolist()
-        #remove duplicates from list
-        bus_stops_ids = [] 
-        [bus_stops_ids.append(x) for x in test_bus_stops_ids if x not in bus_stops_ids] 
-        walk_rows, _ = _distance_matrix_rows(
-            G_walk, bus_stops_ids, "length"
-        )
-        shortest_path_walk = pd.DataFrame(walk_rows)
+        print('Preparing on-demand distance matrices...')
 
-        shortest_path_walk.to_csv(path_dist_csv_file_walk)
-        shortest_path_walk.set_index(['osmid_origin'], inplace=True)
-    
+    shortest_path_walk = LazyDistanceMatrix(G_walk, "length")
+    shortest_path_drive = LazyDistanceMatrix(G_drive, "travel_time", int)
+    shortest_dist_drive = LazyDistanceMatrix(G_drive, "length")
+
+    # Callers ignore this list; it was derived from the full matrix.
     unreachable_nodes = []
-
-    # Calculate travel time matrix for drive network
-    if os.path.isfile(path_tt_csv_file_drive):
-        if logger:
-            logger.info('Loading existing drive travel time matrix...')
-        shortest_path_drive = pd.read_csv(path_tt_csv_file_drive)
-        shortest_path_drive.set_index(['osmid_origin'], inplace=True)
-
-    else:
-        if logger:
-            logger.subsection('Computing Drive Travel Time Matrix')
-            logger.info('This uses actual road speeds from the network')
-        else:
-            print('Computing drive travel time matrix...')
-        
-        travel_time_rows, reachable_counts = _distance_matrix_rows(
-            G_drive, G_drive.nodes, "travel_time", int
-        )
-        shortest_path_drive = pd.DataFrame(travel_time_rows)
-        unreachable_nodes.extend(
-            origin
-            for origin, count in zip(G_drive.nodes, reachable_counts)
-            if count == 1
-        )
-
-        shortest_path_drive.to_csv(path_tt_csv_file_drive)
-        shortest_path_drive.set_index(['osmid_origin'], inplace=True)
-
-
-    if os.path.isfile(path_dist_csv_file_drive):
-        if logger:
-            logger.info('Loading existing drive distance matrix...')
-        else:
-            print('Loading drive distance matrix...')
-
-        shortest_dist_drive = pd.read_csv(path_dist_csv_file_drive)
-        shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
-
-    else:
-        if logger:
-            logger.subsection('Computing Drive Distance Matrix')
-        else:
-            print('Computing drive distance matrix...')
-
-        '''
-        calculate shortest path using travel time considering max speed allowed on roads
-        '''
-
-        distance_rows, reachable_counts = _distance_matrix_rows(
-            G_drive, G_drive.nodes, "length"
-        )
-        shortest_dist_drive = pd.DataFrame(distance_rows)
-        unreachable_nodes.extend(
-            origin
-            for origin, count in zip(G_drive.nodes, reachable_counts)
-            if count == 1
-        )
-
-        shortest_dist_drive.to_csv(path_dist_csv_file_drive)
-        shortest_dist_drive.set_index(['osmid_origin'], inplace=True)
-
 
     return shortest_path_walk, shortest_path_drive, shortest_dist_drive, unreachable_nodes
