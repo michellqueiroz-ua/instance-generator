@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use REQreate, please cite the paper below."
+title: "REQreate: instance generator for on-demand transportation problems"
+type: software
+license: MIT
+repository-code: "https://github.com/michellqueiroz-ua/instance-generator"
+authors:
+  - family-names: Queiroz
+    given-names: Michell
+  - family-names: Lucas
+    given-names: Flavien
+  - family-names: Sörensen
+    given-names: Kenneth
+preferred-citation:
+  type: article
+  title: "Instance generation tool for on-demand transportation problems"
+  authors:
+    - family-names: Queiroz
+      given-names: Michell
+    - family-names: Lucas
+      given-names: Flavien
+    - family-names: Sörensen
+      given-names: Kenneth
+  journal: "European Journal of Operational Research"
+  volume: 317
+  issue: 3
+  start: 696
+  end: 717
+  year: 2024
+  doi: "10.1016/j.ejor.2024.03.006"

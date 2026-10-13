@@ -30,7 +30,7 @@ from matplotlib import pyplot as plt
 plt.style.use('ggplot')
 
 from matplotlib.colors import LogNorm
-from fitter import Fitter, get_common_distributions, get_distributions
+from distribution_fit import Fitter, get_common_distributions, get_distributions
 from multiprocessing import cpu_count
 
 try:
@@ -628,7 +628,7 @@ def Fitter_best_fitting_distribution(dists):
     f = Fitter(dists, timeout=180, distributions= get_common_distributions())
 
     f.fit()
-    _summary, _data = f.summary(plot=True)
+    _summary = f.summary(plot=True)
     print(f.get_best(method = 'sumsquare_error'))
 
     return _data

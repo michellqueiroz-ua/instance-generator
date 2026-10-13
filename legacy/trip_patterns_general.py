@@ -29,16 +29,16 @@ import networkx as nx
 import osmnx as ox
 
 import seaborn as sns
-from fitter import Fitter, get_common_distributions, get_distributions
+from distribution_fit import Fitter, get_common_distributions, get_distributions
 import powerlaw
 from pathlib import Path
-from .instance_class import Instance
+from REQreate.instance_class import Instance
 
-from .retrieve_POIs import get_POIs_matrix_csv
-from .retrieve_POIs import attribute_density_zones
-from .retrieve_POIs import calc_rank_between_zones
-from .retrieve_POIs import calc_probability_travel_between_zones
-from .retrieve_POIs import rank_of_displacements
+from REQreate.retrieve_POIs import get_POIs_matrix_csv
+from REQreate.retrieve_POIs import attribute_density_zones
+from REQreate.retrieve_POIs import calc_rank_between_zones
+from REQreate.retrieve_POIs import calc_probability_travel_between_zones
+from REQreate.retrieve_POIs import rank_of_displacements
 
 from scipy.stats.kde import gaussian_kde
 

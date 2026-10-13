@@ -27,7 +27,7 @@ import networkx as nx
 import osmnx as ox
 
 import seaborn as sns
-from fitter import Fitter, get_common_distributions, get_distributions
+from distribution_fit import Fitter, get_common_distributions, get_distributions
 import powerlaw
 from pathlib import Path
 # Runnable as a script from inside this directory (python trip_patterns_chicago_TNP.py) as well as
@@ -420,7 +420,7 @@ def Fitter_best_fitting_distribution(dists):
 
     f.fit()
     #print(f.summary(plot=True))
-    _summary, _data = f.summary(plot=True)
+    _summary = f.summary(plot=True)
 
     print(f.get_best(method = 'sumsquare_error'))
 

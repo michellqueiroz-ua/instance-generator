@@ -1,6 +1,5 @@
 import math
 import os
-import osmapi as osm
 import osmnx as ox
 import networkx as nx
 import numpy as np
@@ -42,8 +41,7 @@ class Network:
        
 
     def get_eta_walk(self, u, v, walk_speed):
-        
-        osm_api = osm.OsmApi()
+
         u = int(u)
         v = int(v)
         #returns estimated time walking in seconds from origin_node to destination_node
@@ -76,14 +74,6 @@ class Network:
         '''          
             
         if math.isnan(distance_walk):
-            '''
-            nodeu = osm_api.NodeGet(u)
-            nodev = osm_api.NodeGet(v)
-            origin = (nodeu['lat'], nodeu['lon'])
-            dest = (nodev['lat'], nodev['lon'])
-            distance_walk = geodesic(origin, dest).meters
-            eta_walk = int(math.ceil(distance_walk/speed))
-            '''
             eta_walk = -1
             
         else:

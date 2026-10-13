@@ -24,17 +24,16 @@ from scipy.stats import zscore
 import networkx as nx
 
 import seaborn as sns
-from fitter import Fitter, get_common_distributions, get_distributions
+from distribution_fit import Fitter, get_common_distributions, get_distributions
 import powerlaw
 from pathlib import Path
-# Runnable as a script from inside this directory (python trip_patterns_yellow.py) as well as
-# via `python -m REQreate.trip_patterns_yellow`; put the repository root on sys.path so the
+# Runnable as a script from inside this directory (python trip_patterns_green.py) as well as
+# via `python -m REQreate.trip_patterns_green`; put the repository root on sys.path so the
 # REQreate package resolves either way.
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
 from REQreate.instance_class import Instance
-
 
 def add_osmid_nodes(place_name, df, df_loc):
 
@@ -120,7 +119,7 @@ def heatmap_osmnx(place_name, database):
 
     plt.savefig(os.getcwd()+'/heatmap_destination_points.png')
     plt.close(fig)
-    
+
 def remove_false_records(df):
 
     df = df.loc[(df['trip_distance'] > 500)]
@@ -150,7 +149,6 @@ def ratio_eta_real_time(place_name, df_ratio):
         #origin_point = (latitude, longitude)
         #node_origin = ox.get_nearest_node(inst.network.G_drive, origin_point)
 
-
         #longitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'longitude']
         #latitude = df_loc.loc[df_loc['LocationID'] == row1['DOLocationID'], 'latitude']
         #destination_point = (latitude, longitude)
@@ -176,6 +174,7 @@ def ratio_eta_real_time(place_name, df_ratio):
     
 def geographic_dispersion(place_name, inst1, df_loc, day):
 
+
     save_dir = os.getcwd()+'/'+place_name
     pickle_dir = os.path.join(save_dir, 'pickle')
     network_class_file = pickle_dir+'/'+place_name+'.network.class.pkl'
@@ -199,7 +198,7 @@ def geographic_dispersion(place_name, inst1, df_loc, day):
     #mu
     #average travel time between origin and destinations
 
-    #inst1['direct_travel_time'] = inst1['do_time_sec'] - inst1['pu_time_sec']
+    inst1['direct_travel_time'] = inst1['do_time_sec'] - inst1['pu_time_sec']
     dtt = []
     for idx, req in inst1.iterrows():
         dtt.append(req['do_time_sec'] - req['pu_time_sec'])
@@ -347,7 +346,7 @@ def similarity(inst1, inst2):
 
     thtt = 360
     thts = 60
-    the = 60
+    the = 360
     #columns for computation
     earliest_departure = 'pu_time_sec'
     
@@ -441,7 +440,7 @@ def similarity(inst1, inst2):
     #print(count)
     
     si1i2 = si1i2/count
-    print(si1i2)
+    print('sim', si1i2)
 
     return si1i2
 
@@ -539,9 +538,9 @@ def real_data_tests_nyc_database(ed, ld):
     shp_attr = [dict(zip(fields_name, attr)) for attr in attributes]
 
     df_loc = pd.DataFrame(shp_attr).join(get_lat_lon(sf).set_index("LocationID"), on="LocationID")
-
+    
     if database_exists('sqlite:///nyc_database.db'):
-        print('here')
+        #print('here')
         nyc_database = sqla.create_engine('sqlite:///nyc_database.db')
 
     else:
@@ -554,71 +553,67 @@ def real_data_tests_nyc_database(ed, ld):
             zip_ref.extractall("./shape")
 
         j, chunksize = 1, 100000
-        #for month in range(9,10):
-        fp = "yellow_tripdata_2022-04.parquet"
-        #for df in pd.read_parquet(fp, chunksize=chunksize, iterator=True):
-        df = pd.read_parquet("yellow_tripdata_2022-04.parquet", engine='pyarrow')
-        print(df)
-        df = df.rename(columns={c: c.replace(' ', '_') for c in df.columns})
-        #print(df.columns)
-        df['pickup_day'] = [x[0:10] for x in df['tpep_pickup_datetime']]
-        df['dropoff_day'] = [x[0:10] for x in df['tpep_dropoff_datetime']]
-        df['pickup_time'] = [x[11:19] for x in df['tpep_pickup_datetime']]
-        df['dropoff_time'] = [x[11:19] for x in df['tpep_dropoff_datetime']]
+        for month in range(9,10):
+            fp = "green_tripdata_2019-{0:0=2d}.csv".format(month)
+            for df in pd.read_csv(fp, chunksize=chunksize, iterator=True):
+                df = df.rename(columns={c: c.replace(' ', '_') for c in df.columns})
+                #print(df.columns)
+                df['pickup_day'] = [x[0:10] for x in df['lpep_pickup_datetime']]
+                df['dropoff_day'] = [x[0:10] for x in df['lpep_dropoff_datetime']]
+                df['pickup_time'] = [x[11:19] for x in df['lpep_pickup_datetime']]
+                df['dropoff_time'] = [x[11:19] for x in df['lpep_dropoff_datetime']]
 
-        #compute pickup time min
-        df['h'] = [x[11:13] for x in df['tpep_pickup_datetime']]
-        #df['h'] = [x[11:13] for x in df['tpep_pickup_datetime']]
+                #compute pickup time min
+                df['h'] = [x[11:13] for x in df['lpep_pickup_datetime']]
+                #df['h'] = [x[11:13] for x in df['lpep_pickup_datetime']]
 
-        df['min'] = [x[14:16] for x in df['tpep_pickup_datetime']]
-        #df['min'] = [x[14:16] for x in df['tpep_pickup_datetime']]
+                df['min'] = [x[14:16] for x in df['lpep_pickup_datetime']]
+                #df['min'] = [x[14:16] for x in df['lpep_pickup_datetime']]
 
-        df['sec'] = [x[17:19] for x in df['tpep_pickup_datetime']]
-        #df['sec'] = [x[17:19] for x in df['tpep_pickup_datetime']]
+                df['sec'] = [x[17:19] for x in df['lpep_pickup_datetime']]
+                #df['sec'] = [x[17:19] for x in df['lpep_pickup_datetime']]
 
-        df['ih'] = df['h'].astype(int)
-        df['imin'] = df['min'].astype(int)
-        df['isec'] = df['sec'].astype(int)
+                df['ih'] = df['h'].astype(int)
+                df['imin'] = df['min'].astype(int)
+                df['isec'] = df['sec'].astype(int)
 
-        df['ih'] = df['ih'] * 3600
-        df['imin'] = df['imin'] * 60
-        
-        df['pu_time_sec'] = df['ih'] + df['imin'] + df['isec']
-        df['pu_time_sec'] = df['pu_time_sec'].astype(int)
+                df['ih'] = df['ih'] * 3600
+                df['imin'] = df['imin'] * 60
+                
+                df['pu_time_sec'] = df['ih'] + df['imin'] + df['isec']
+                df['pu_time_sec'] = df['pu_time_sec'].astype(int)
 
-        #compute dropoff time
-        df['dh'] = [x[11:13] for x in df['tpep_dropoff_datetime']]
-        #df['dh'] = [x[11:13] for x in df['tpep_dropoff_datetime']]
+                #compute dropoff time
+                df['dh'] = [x[11:13] for x in df['lpep_dropoff_datetime']]
+                #df['dh'] = [x[11:13] for x in df['lpep_dropoff_datetime']]
 
-        df['dmin'] = [x[14:16] for x in df['tpep_dropoff_datetime']]
-        #df['dmin'] = [x[14:16] for x in df['tpep_dropoff_datetime']]
+                df['dmin'] = [x[14:16] for x in df['lpep_dropoff_datetime']]
+                #df['dmin'] = [x[14:16] for x in df['lpep_dropoff_datetime']]
 
-        df['dsec'] = [x[17:19] for x in df['tpep_dropoff_datetime']]
-        #df['dsec'] = [x[17:19] for x in df['tpep_dropoff_datetime']]
+                df['dsec'] = [x[17:19] for x in df['lpep_dropoff_datetime']]
+                #df['dsec'] = [x[17:19] for x in df['lpep_dropoff_datetime']]
 
-        df['idh'] = df['dh'].astype(int)
-        df['idmin'] = df['dmin'].astype(int)
-        df['idsec'] = df['dsec'].astype(int)
+                df['idh'] = df['dh'].astype(int)
+                df['idmin'] = df['dmin'].astype(int)
+                df['idsec'] = df['dsec'].astype(int)
 
-        df['idh'] = df['idh'] * 3600
-        df['idmin'] = df['idmin'] * 60
-        
-        df['do_time_sec'] = df['idh'] + df['idmin'] + df['idsec']
-        df['do_time_sec'] = df['do_time_sec'].astype(int)
+                df['idh'] = df['idh'] * 3600
+                df['idmin'] = df['idmin'] * 60
+                
+                df['do_time_sec'] = df['idh'] + df['idmin'] + df['idsec']
+                df['do_time_sec'] = df['do_time_sec'].astype(int)
 
-        df = remove_false_records(df)
+                df = remove_false_records(df)
 
-        df['direct_travel_time'] = df['do_time_sec'] - df['pu_time_sec']
-        df['trip_distance'] = 1.609*df['trip_distance']*1000 #milest to meters
-        df['speed'] = df['trip_distance']/df['direct_travel_time']
-
-        df = add_osmid_nodes("New York City, New York", df, df_loc)
-        df.index += j
-        df.to_sql('table_record', nyc_database, if_exists='append')
-        j = df.index[-1] + 1
+                df['direct_travel_time'] = df['do_time_sec'] - df['pu_time_sec']
+                df['trip_distance'] = 1.609*df['trip_distance']*1000 #milest to meters
+                df['speed'] = df['trip_distance']/df['direct_travel_time']
+                df = add_osmid_nodes(df, df_loc)
+                df.index += j
+                df.to_sql('table_record', nyc_database, if_exists='append')
+                j = df.index[-1] + 1
         del df
 
-    
     #understand peak hours // off - peak 
     #Observar se os requests seguem normal distribution during peak hours and uniform during off peak. Pegar sample dos horários e plotar
     df_pu = pd.read_sql_query('SELECT h AS time, count(*) AS PUcount \
@@ -631,7 +626,6 @@ def real_data_tests_nyc_database(ed, ld):
     plt.savefig('number_trips_time.png')
     plt.close()
     #plt.show()
-
 
     #distance
     df_dist = pd.read_sql_query('SELECT trip_distance FROM table_record', nyc_database)
@@ -673,10 +667,9 @@ def real_data_tests_nyc_database(ed, ld):
     #similarity
     #ed = 420
     #ld = 540
-    '''
     similarities = []
     for day in range(1,2):
-        for day2 in range(1,3):
+        for day2 in range(1,5):
             if day2 > day:
 
                 d1 = '2019-09-{0:0=2d}'.format(day)
@@ -705,21 +698,21 @@ def real_data_tests_nyc_database(ed, ld):
                 #sample randomly
                 row_nr = min(len(df_1), len(df_2))
                 print(len(df_1), len(df_2))
-                """
+                '''
                 if (len(df_2) < len(df_1)):
                     df_1 = df_1.sample(n = row_nr, replace = False)
                 else:
                     df_2 = df_2.sample(n = row_nr, replace = False)
-                """
+                '''
 
                 if (len(df_1) > 500):
-                    df_1 = df_1.sample(n = 500, replace = False)
+                    df_1 = df_1.sample(n = min(row_nr, 500), replace = False)
                 if (len(df_2) > 500):
-                    df_2 = df_2.sample(n = 500, replace = False)
+                    df_2 = df_2.sample(n = min(row_nr, 500), replace = False)
 
                 print(len(df_1), len(df_2))
                 similarities.append(similarity(df_1, df_2))
-    '''
+
     
     #geographic dispersion
     df_gd = pd.read_sql_query('SELECT pickup_day, pu_time_sec, do_time_sec, PULocationID, DOLocationID, osmid_origin, osmid_destination \
@@ -783,6 +776,7 @@ def real_data_tests_nyc_database(ed, ld):
     print('average number of trips per day between ' + str(ed) + ' and ' + str(ld))
     print(avg_trips)
     
+
 if __name__ == '__main__':
     
     ed = 420*60
@@ -790,4 +784,6 @@ if __name__ == '__main__':
     real_data_tests_nyc_database(ed, ld)
 
     
+
+
 

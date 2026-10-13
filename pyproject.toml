@@ -27,13 +27,8 @@ dependencies = [
     "shapely",
     "matplotlib",
     "geopandas",
-    "osmapi",
     "scipy",
     "geopy",
-    "pyshp",
-    "seaborn",
-    "powerlaw",
-    "fitter",
     # Required by osmnx.nearest_nodes for unprojected graphs, which the core
     # generation path calls throughout. Not optional despite osmnx listing it as such.
     "scikit-learn",
@@ -47,8 +42,8 @@ app = ["streamlit", "folium", "streamlit-folium", "plotly"]
 desktop = ["pywebview>=5"]
 # Parallel processing; optional, the code falls back to sequential without it.
 parallel = ["ray"]
-# Only needed by the uber_movement travel-speed regression module.
-analysis = ["sqlalchemy<2.2", "sqlalchemy-utils"]
+# Only needed by the archived research scripts in legacy/ (not part of the package).
+analysis = ["sqlalchemy<2.2", "sqlalchemy-utils", "pyshp", "seaborn", "powerlaw"]
 
 [project.scripts]
 reqreate = "REQreate.cli:main"
