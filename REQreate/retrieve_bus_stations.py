@@ -3,33 +3,7 @@ from multiprocessing import cpu_count
 import os
 import osmnx as ox
 import pandas as pd
-from osmnx.distance import great_circle
-try:
-    import ray
-    RAY_AVAILABLE = True
-except ImportError:
-    RAY_AVAILABLE = False
-    # Create a dummy decorator when ray is not available
-    class DummyRay:
-        @staticmethod
-        def remote(func):
-            class RemoteWrapper:
-                def remote(*args, **kwargs):
-                    return func(*args, **kwargs)
-            return RemoteWrapper
-        @staticmethod
-        def shutdown():
-            pass
-        @staticmethod
-        def init(*args, **kwargs):
-            pass
-        @staticmethod
-        def put(obj):
-            return obj
-        @staticmethod
-        def get(objs):
-            return objs
-    ray = DummyRay()
+from .nearest import centroid_coordinates, nearest_edge_endpoints
 import gc
 import warnings
 
@@ -99,28 +73,29 @@ def filter_bus_stations(network, shortest_path_drive, save_dir, output_file_base
     num_removed = before_removed - after_removed
     return num_removed
 
-@ray.remote
-def get_bus_station(G_walk, G_drive, index, poi):
-
-    if poi['highway'] == 'bus_stop':
-        bus_station_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
-        
-        u, v, key = ox.nearest_edges(G_walk, bus_station_point[1], bus_station_point[0])
-        bus_station_node_walk = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
-        
-        u, v, key = ox.nearest_edges(G_drive, bus_station_point[1], bus_station_point[0])
-        bus_station_node_drive = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
-        
-        d = {
-            #'station_id': index,
-            'osmid_walk': bus_station_node_walk,
-            'osmid_drive': bus_station_node_drive,
-            'lat': poi.geometry.centroid.y,
-            'lon': poi.geometry.centroid.x,
+def bus_station_rows(G_walk, G_drive, poi_bus_stations):
+    """One row per bus stop, with its nearest walk and drive nodes."""
+    stops = poi_bus_stations[poi_bus_stations['highway'] == 'bus_stop']
+    lats, lons = centroid_coordinates(stops)
+    nodes_walk = nearest_edge_endpoints(G_walk, lats, lons)
+    nodes_drive = nearest_edge_endpoints(G_drive, lats, lons)
+    return [
+        {
+            'osmid_walk': walk,
+            'osmid_drive': drive,
+            'lat': lat,
+            'lon': lon,
             'type': 0,
         }
+        for walk, drive, lat, lon in zip(nodes_walk, nodes_drive, lats, lons)
+    ]
 
-        return d
+
+def drop_repeated_stops(bus_stations):
+    """Keep the first stop for each drive node (stops sharing a node are duplicates)."""
+    if len(bus_stations) == 0:
+        return bus_stations
+    return bus_stations.drop_duplicates(subset='osmid_drive', keep='first')
 
 def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
 
@@ -130,8 +105,6 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
     '''
 
     gc.collect()
-    ray.shutdown()
-    ray.init(num_cpus=8, object_store_memory=14000000000)
 
     save_dir_csv = os.path.join(save_dir, 'csv')
 
@@ -155,27 +128,8 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
         poi_bus_stations = ox.features_from_place(place_name, tags=tags)
 
         print('number pois: ', len(poi_bus_stations))
-        G_walk_id = ray.put(G_walk)
-        G_drive_id = ray.put(G_drive)
-        bus_stations = ray.get([get_bus_station.remote(G_walk_id, G_drive_id, index, poi) for index, poi in poi_bus_stations.iterrows()]) 
-        
-        ray.shutdown()
-
-        bus_stations = pd.DataFrame(bus_stations)
-        
-        #drop repeated occurences of bus stops
-        drop_index_list = []
-        for index1, stop1 in bus_stations.iterrows():
-            if index1 not in drop_index_list:
-                for index2, stop2 in bus_stations.iterrows():
-                    if index2 not in drop_index_list:
-                        if index1 != index2:
-                            #if (stop1['osmid_drive'] == stop2['osmid_drive']) and (stop1['osmid_walk'] == stop2['osmid_walk']):
-                            if (stop1['osmid_drive'] == stop2['osmid_drive']):
-                                drop_index_list.append(index2)
-
-        for index_to_drop in drop_index_list:
-            bus_stations = bus_stations.drop(index_to_drop)
+        bus_stations = pd.DataFrame(bus_station_rows(G_walk, G_drive, poi_bus_stations))
+        bus_stations = drop_repeated_stops(bus_stations)
 
         '''
 
