@@ -794,7 +794,8 @@ def _generate_requests(
     node_list_seq = []
     inst.depot_nodes_seq = []
 
-    if replicate_num == 0:
+    # density_pois only exists when POIs were downloaded (method_pois / zone_probabilities).
+    if replicate_num == 0 and 'density_pois' in inst.network.zones.columns:
         inst.network.zones['density_pois'] = inst.network.zones['density_pois']/100
 
     #print('suuum1 ', inst.network.zones['density_pois'].sum())

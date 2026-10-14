@@ -389,94 +389,70 @@ def attribute_density_zones(network, pois):
     print(network.zones['density_pois'].head())
     #print(network.zones['density_pois'].sum())
 
+def zone_rank_matrix(distances, number_pois):
+    """rank[u, v] = POIs in zones w (w != u, v) closer to u than v is.
+
+    ``distances[u, w]`` is the drive distance between zone centers; NaN
+    (unreachable) never counts as closer, as in the original loop.
+    """
+    distances = np.asarray(distances, dtype=float)
+    number_pois = np.asarray(number_pois)
+    n = len(number_pois)
+    ranks = np.zeros((n, n), dtype=number_pois.dtype)
+    for u in range(n):
+        pois = number_pois.copy()
+        pois[u] = 0
+        # closer[v, w]: w is strictly closer to u than v is (w == v is never closer)
+        closer = distances[u][np.newaxis, :] < distances[u][:, np.newaxis]
+        ranks[u] = closer @ pois
+    return ranks
+
+
+def zone_probability_matrix(ranks, alpha):
+    """P[u, v] = rank[u, v]^-alpha / sum_w rank[w, v]^-alpha, zero ranks and u == v give 0."""
+    ranks = np.asarray(ranks, dtype=float)
+    weights = np.zeros_like(ranks)
+    nonzero = ranks != 0
+    weights[nonzero] = ranks[nonzero] ** (-alpha)
+    column_sums = weights.sum(axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        probabilities = np.where(column_sums > 0, weights / column_sums, 0.0)
+    np.fill_diagonal(probabilities, 0.0)
+    return probabilities
+
+
 def calc_rank_between_zones(network):
 
-    network.zones['center_osmid'] = np.nan
-    total_zones = len(network.zones)
-    for idx, zone in network.zones.iterrows():
-        if idx % 10 == 0:
-            print(f'Finding zone centers: {idx}/{total_zones}')
-        center_point = (zone['center_y'], zone['center_x'])
-        center_osmid = ox.nearest_nodes(network.G_drive, center_point[1], center_point[0])
-        network.zones.loc[idx, 'center_osmid'] = int(center_osmid)
+    print('Finding zone centers...')
+    centers = ox.nearest_nodes(
+        network.G_drive,
+        network.zones['center_x'].to_numpy(),
+        network.zones['center_y'].to_numpy(),
+    )
+    network.zones['center_osmid'] = [int(c) for c in centers]
 
     print('Calculating zone ranks...')
-    zone_ranks = []
-    total_zones = len(network.zones)
-    
-    for idu, zoneu in network.zones.iterrows():
-        if idu % 10 == 0:
-            print(f'Processing zone {idu}/{total_zones}')
-        rank = {}
-        rank['zone_id'] = idu
-        for idv, zonev in network.zones.iterrows():
-            rank[idv] = 0
-            duv = network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonev['center_osmid']))]
-            for idw, zonew in network.zones.iterrows():
+    centers = network.zones['center_osmid'].tolist()
+    distances = np.full((len(centers), len(centers)), np.nan)
+    for i, cu in enumerate(centers):
+        for j, cv in enumerate(centers):
+            value = network.shortest_dist_drive.loc[int(cu), str(int(cv))]
+            if str(value) != 'nan':
+                distances[i, j] = float(value)
 
-                if ((idw != idu) and (idw != idv)):
-                    duw = network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonew['center_osmid']))]
-                    if duw < duv:
-                        rank[idv] += network.zones.loc[idw, 'number_pois']
-
-        zone_ranks.append(rank)
-        del rank
-
-    zone_ranks = pd.DataFrame(zone_ranks)  
-    #save_dir_csv = os.path.join(save_dir, 'csv')
-    #path_pois_file = os.path.join(save_dir_csv, place_name+'.pois.csv') 
-    #zone_ranks.to_csv(path_pois_file)
-    zone_ranks.set_index(['zone_id'], inplace=True)
-    #print(zone_ranks.head())
-    #zone_ranks["sum"] = zone_ranks.sum(axis=1)
+    ranks = zone_rank_matrix(distances, network.zones['number_pois'].to_numpy())
+    zone_ranks = pd.DataFrame(ranks, index=network.zones.index, columns=network.zones.index)
+    zone_ranks.index.name = 'zone_id'
 
     return zone_ranks
 
 def calc_probability_travel_between_zones(network, zone_ranks, alpha):
 
-    zone_probabilities = []
-
-    alpha = alpha*-1
-
-    for idu, zoneu in zone_ranks.iterrows():
-        puv = {}
-        puv['zone_id'] = idu
-        for idv, zonev in zone_ranks.iterrows():
-            
-            if idu != idv:
-                p1 = zone_ranks.loc[int(idu), int(idv)]
-
-                r2 = 0
-                for idw, zonew in zone_ranks.iterrows():
-                    p2 = zone_ranks.loc[int(idw), int(idv)]
-                    if p2 != 0:
-                        r2 += p2 ** alpha
-
-                if p1 != 0:
-                    r1 = p1 ** alpha
-                    
-                    puv[idv] = r1/r2
-                else:
-                    puv[idv] = 0
-            else:
-                puv[idv] = 0
-
-
-        zone_probabilities.append(puv)
-        del puv
-        gc.collect()
-
-    zone_probabilities = pd.DataFrame(zone_probabilities)  
-    zone_probabilities.set_index(['zone_id'], inplace=True)
+    probabilities = zone_probability_matrix(zone_ranks.to_numpy(), alpha)
+    zone_probabilities = pd.DataFrame(probabilities, index=zone_ranks.index, columns=zone_ranks.columns)
+    zone_probabilities.index.name = 'zone_id'
 
     return zone_probabilities
-    #zone_probabilities["sum"] = zone_probabilities.sum(axis=1)
-
-    #for idx, zone in zone_probabilities.iterrows():
-
-        #print(idx, ": ", zone['sum'])
-
-        #print(idx, ": ", zone_probabilities[int(idx)].sum())
  
 @ray.remote
 def get_zone(zones, pt):   
