@@ -22,7 +22,8 @@ This reference describes the configuration paths implemented by `REQreate/input_
 | `point` | Optional object with `lon` and `lat` for downloading a network around a point. `dist` is then read as the download radius/distance. `network` is still required. |
 | `dist` | Distance passed to the network downloader when `point` is present. |
 | `travel_time_matrix` | Optional list of place/attribute names for which to produce travel-time-matrix output. Each name must be registered as a location. |
-| `method_pois` | Optional list of methods; the current parser uses the first item. Its `locations` is a two-element list of origin/destination attribute names, and its `pdf` object specifies the distance distribution used to place the destination relative to the origin. |
+| `method_pois` | Optional list of methods; the current parser uses the first item. Its `locations` is a two-element list of origin/destination attribute names, and its `pdf` object specifies the distance distribution used to place the destination relative to the origin. The origin zone is drawn by each grid zone's share of points of interest, so this downloads POIs from OpenStreetMap the first time it is used for a network (cached afterwards). |
+| `zone_probabilities` | Optional boolean (default `false`). When `true`, downloads POIs if needed and computes zone ranks and travel probabilities between the grid zones, written to `<network>/csv/<network>.zone_ranks.csv` and `<network>.zone_probabilities.csv`. Not used for sampling requests. |
 
 `problem` values in the examples include `DARP`, `ODBRP`, and `PRICE`. The parser copies the value rather than validating it. The code's lower-level `Instance.set_problem_type` recognizes `DARP`, `ODBRP`, `ODBRPFL`, and `SBRP`.
 

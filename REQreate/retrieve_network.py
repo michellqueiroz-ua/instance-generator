@@ -67,7 +67,7 @@ from .speed_info import _get_max_speed_road
 from .network_class import Network
 from .instance_class import Instance
 from .request_distribution_class import RequestDistributionTime
-from .rank_model import rank_model
+from .rank_model import build_zone_grid
 from .logger_utils import get_logger
 from .overpass_config import configure_overpass
        
@@ -383,11 +383,14 @@ def download_network_information(
     network.shortest_path_drive = shortest_path_drive
     network.shortest_dist_drive = shortest_dist_drive
 
-    #save Points of Interest information
-    rank_model(network, place_name)
+    # Points of interest are downloaded only when a configuration needs them
+    # (method_pois or zone_probabilities); see input_json.
+    build_zone_grid(network, place_name)
     if logger:
-        logger.subsection('POI Rankings')
-        logger.info(f"Zone ranks calculated: {len(network.zone_ranks)} zones")
+        logger.subsection('Zones Grid')
+        logger.info(f"Grid zones: {len(network.zones)}")
+        logger.info("POIs not downloaded: they are fetched automatically when a "
+                    "configuration uses method_pois or zone_probabilities.")
         logger.success('Network generation complete!')
     else:
         print('Network successfully retrieved')
