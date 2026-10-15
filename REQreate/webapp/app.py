@@ -244,7 +244,7 @@ if page == "Create New Instance":
     
     st.markdown("---")
     
-    with st.form("instance_form"):
+    with st.form("instance_form", enter_to_submit=False):
         st.subheader("📍 Location Settings")
         col1, col2 = st.columns(2)
         
