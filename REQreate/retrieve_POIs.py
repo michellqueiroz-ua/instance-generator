@@ -3,6 +3,7 @@ from multiprocessing import cpu_count
 import os
 import osmnx as ox
 from .overpass_config import configure_overpass
+from .nearest import centroid_coordinates, nearest_nodes
 import pandas as pd
 import networkx as nx
 import numpy as np
@@ -42,39 +43,12 @@ def divide_chunks(l, n):
     for i in range(0, len(l), n): 
         yield l[i:i + n]
 
-@ray.remote
-def get_poi(G_drive, index, all_pois):
-
-    poi = all_pois.loc[index]
-    poi_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
-    
-    #u, v, key = ox.get_nearest_edge(G_walk, poi_point)
-    #poi_node_walk = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
-    
-    #u, v, key = ox.get_nearest_edge(G_drive, poi_point)
-    #poi_node_drive = min((u, v), key=lambda n: ox.distance.great_circle_vec(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
-    
-    poi_node_drive = ox.nearest_nodes(G_drive, poi_point[1], poi_point[0])
-
-    d = {
-        #'station_id': index,
-        #'osmid_walk': poi_node_walk,
-        'osmid_drive': poi_node_drive,
-        'lat': poi.geometry.centroid.y,
-        'lon': poi.geometry.centroid.x
-    }
-
-    return d
-
 def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
 
     warnings.filterwarnings(action="ignore")
     '''
     retrieve the pois from the location
     '''
-
-    ray.shutdown()
-    ray.init(num_cpus=cpu_count())
 
     save_dir_csv = os.path.join(save_dir, 'csv')
 
@@ -165,163 +139,14 @@ def get_POIs_matrix_csv(G_drive, place_name, save_dir, output_folder_base):
         #sum_pois = len(pois_amenity) + len(pois_building) + len(pois_leisure) + len(pois_office) + len(pois_shop1) + len(pois_tourism)
         #print('number pois: ', sum_pois)
 
-        #G_walk_id = ray.put(G_walk)
-        G_drive_id = ray.put(G_drive)
-        pois_amenity_id = ray.put(pois_amenity)
-        pois_building_id = ray.put(pois_building)
-        pois_leisure_id = ray.put(pois_leisure)
-        pois_office_id = ray.put(pois_office)
-        pois_shop_id1 = ray.put(pois_shop1)
-        pois_shop_id2 = ray.put(pois_shop2)
-        pois_shop_id3 = ray.put(pois_shop3)
-        pois_shop_id4 = ray.put(pois_shop4)
-        pois_shop_id5 = ray.put(pois_shop5)
-        pois_tourism_id = ray.put(pois_tourism)
-        chunksize = 100
-
-        pois_amenity_index = pois_amenity.index.tolist()
-        chunks_pois = list(divide_chunks(pois_amenity_index, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_amenity_id) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
+        # One batched nearest-node lookup per category (same order as before).
+        for category in (pois_amenity, pois_building, pois_leisure, pois_office,
+                         pois_shop1, pois_shop2, pois_shop3, pois_shop4, pois_shop5,
+                         pois_tourism):
+            lats, lons = centroid_coordinates(category)
+            nodes_drive = nearest_nodes(G_drive, lats, lons)
+            xt = pd.DataFrame({'osmid_drive': nodes_drive, 'lat': lats, 'lon': lons})
             pois = pd.concat([pois, xt], ignore_index=True)
-
-            
-            gc.collect()
-
-        pois_building_index = pois_building.index.tolist()
-        chunks_pois = list(divide_chunks(pois_building_index, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_building_id) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-
-        pois_leisure_index = pois_leisure.index.tolist()
-        chunks_pois = list(divide_chunks(pois_leisure_index, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_leisure_id) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-
-        pois_office_index = pois_office.index.tolist()
-        chunks_pois = list(divide_chunks(pois_office_index, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_office_id) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-
-        pois_shop_index1 = pois_shop1.index.tolist()
-        chunks_pois = list(divide_chunks(pois_shop_index1, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id1) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-
-        pois_shop_index2 = pois_shop2.index.tolist()
-        chunks_pois = list(divide_chunks(pois_shop_index2, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id2) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-
-        pois_shop_index3 = pois_shop3.index.tolist()
-        chunks_pois = list(divide_chunks(pois_shop_index3, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id3) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-
-        pois_shop_index4 = pois_shop4.index.tolist()
-        chunks_pois = list(divide_chunks(pois_shop_index4, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id4) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-
-        pois_shop_index5 = pois_shop5.index.tolist()
-        chunks_pois = list(divide_chunks(pois_shop_index5, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_shop_id5) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-
-        pois_tourism_index = pois_tourism.index.tolist()
-        chunks_pois = list(divide_chunks(pois_tourism_index, chunksize))
-        count = 0
-        for cpois in chunks_pois:
-            #print(count)
-            poisx = ray.get([get_poi.remote(G_drive_id, index_poi, pois_tourism_id) for index_poi in cpois]) 
-            count += 1
-
-            xt = pd.DataFrame(poisx)
-            #pois = pois.append(xt, ignore_index=True)
-            pois = pd.concat([pois, xt], ignore_index=True)
-            
-            gc.collect()
-        
-        
-        ray.shutdown()
 
         pois = pd.DataFrame(pois)
 
@@ -389,94 +214,70 @@ def attribute_density_zones(network, pois):
     print(network.zones['density_pois'].head())
     #print(network.zones['density_pois'].sum())
 
+def zone_rank_matrix(distances, number_pois):
+    """rank[u, v] = POIs in zones w (w != u, v) closer to u than v is.
+
+    ``distances[u, w]`` is the drive distance between zone centers; NaN
+    (unreachable) never counts as closer, as in the original loop.
+    """
+    distances = np.asarray(distances, dtype=float)
+    number_pois = np.asarray(number_pois)
+    n = len(number_pois)
+    ranks = np.zeros((n, n), dtype=number_pois.dtype)
+    for u in range(n):
+        pois = number_pois.copy()
+        pois[u] = 0
+        # closer[v, w]: w is strictly closer to u than v is (w == v is never closer)
+        closer = distances[u][np.newaxis, :] < distances[u][:, np.newaxis]
+        ranks[u] = closer @ pois
+    return ranks
+
+
+def zone_probability_matrix(ranks, alpha):
+    """P[u, v] = rank[u, v]^-alpha / sum_w rank[w, v]^-alpha, zero ranks and u == v give 0."""
+    ranks = np.asarray(ranks, dtype=float)
+    weights = np.zeros_like(ranks)
+    nonzero = ranks != 0
+    weights[nonzero] = ranks[nonzero] ** (-alpha)
+    column_sums = weights.sum(axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        probabilities = np.where(column_sums > 0, weights / column_sums, 0.0)
+    np.fill_diagonal(probabilities, 0.0)
+    return probabilities
+
+
 def calc_rank_between_zones(network):
 
-    network.zones['center_osmid'] = np.nan
-    total_zones = len(network.zones)
-    for idx, zone in network.zones.iterrows():
-        if idx % 10 == 0:
-            print(f'Finding zone centers: {idx}/{total_zones}')
-        center_point = (zone['center_y'], zone['center_x'])
-        center_osmid = ox.nearest_nodes(network.G_drive, center_point[1], center_point[0])
-        network.zones.loc[idx, 'center_osmid'] = int(center_osmid)
+    print('Finding zone centers...')
+    centers = ox.nearest_nodes(
+        network.G_drive,
+        network.zones['center_x'].to_numpy(),
+        network.zones['center_y'].to_numpy(),
+    )
+    network.zones['center_osmid'] = [int(c) for c in centers]
 
     print('Calculating zone ranks...')
-    zone_ranks = []
-    total_zones = len(network.zones)
-    
-    for idu, zoneu in network.zones.iterrows():
-        if idu % 10 == 0:
-            print(f'Processing zone {idu}/{total_zones}')
-        rank = {}
-        rank['zone_id'] = idu
-        for idv, zonev in network.zones.iterrows():
-            rank[idv] = 0
-            duv = network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonev['center_osmid']))]
-            for idw, zonew in network.zones.iterrows():
+    centers = network.zones['center_osmid'].tolist()
+    distances = np.full((len(centers), len(centers)), np.nan)
+    for i, cu in enumerate(centers):
+        for j, cv in enumerate(centers):
+            value = network.shortest_dist_drive.loc[int(cu), str(int(cv))]
+            if str(value) != 'nan':
+                distances[i, j] = float(value)
 
-                if ((idw != idu) and (idw != idv)):
-                    duw = network.shortest_dist_drive.loc[int(zoneu['center_osmid']), str(int(zonew['center_osmid']))]
-                    if duw < duv:
-                        rank[idv] += network.zones.loc[idw, 'number_pois']
-
-        zone_ranks.append(rank)
-        del rank
-
-    zone_ranks = pd.DataFrame(zone_ranks)  
-    #save_dir_csv = os.path.join(save_dir, 'csv')
-    #path_pois_file = os.path.join(save_dir_csv, place_name+'.pois.csv') 
-    #zone_ranks.to_csv(path_pois_file)
-    zone_ranks.set_index(['zone_id'], inplace=True)
-    #print(zone_ranks.head())
-    #zone_ranks["sum"] = zone_ranks.sum(axis=1)
+    ranks = zone_rank_matrix(distances, network.zones['number_pois'].to_numpy())
+    zone_ranks = pd.DataFrame(ranks, index=network.zones.index, columns=network.zones.index)
+    zone_ranks.index.name = 'zone_id'
 
     return zone_ranks
 
 def calc_probability_travel_between_zones(network, zone_ranks, alpha):
 
-    zone_probabilities = []
-
-    alpha = alpha*-1
-
-    for idu, zoneu in zone_ranks.iterrows():
-        puv = {}
-        puv['zone_id'] = idu
-        for idv, zonev in zone_ranks.iterrows():
-            
-            if idu != idv:
-                p1 = zone_ranks.loc[int(idu), int(idv)]
-
-                r2 = 0
-                for idw, zonew in zone_ranks.iterrows():
-                    p2 = zone_ranks.loc[int(idw), int(idv)]
-                    if p2 != 0:
-                        r2 += p2 ** alpha
-
-                if p1 != 0:
-                    r1 = p1 ** alpha
-                    
-                    puv[idv] = r1/r2
-                else:
-                    puv[idv] = 0
-            else:
-                puv[idv] = 0
-
-
-        zone_probabilities.append(puv)
-        del puv
-        gc.collect()
-
-    zone_probabilities = pd.DataFrame(zone_probabilities)  
-    zone_probabilities.set_index(['zone_id'], inplace=True)
+    probabilities = zone_probability_matrix(zone_ranks.to_numpy(), alpha)
+    zone_probabilities = pd.DataFrame(probabilities, index=zone_ranks.index, columns=zone_ranks.columns)
+    zone_probabilities.index.name = 'zone_id'
 
     return zone_probabilities
-    #zone_probabilities["sum"] = zone_probabilities.sum(axis=1)
-
-    #for idx, zone in zone_probabilities.iterrows():
-
-        #print(idx, ": ", zone['sum'])
-
-        #print(idx, ": ", zone_probabilities[int(idx)].sum())
  
 @ray.remote
 def get_zone(zones, pt):   

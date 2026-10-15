@@ -16,6 +16,7 @@ from .output_files import JsonConverter
 from .output_files import output_fixed_route_network
 from pathlib import Path
 from .retrieve_network import download_network_information
+from .rank_model import add_poi_density, add_zone_probabilities
 from .compute_distance_matrix import _get_distance_matrix
 from shapely.geometry import Point
 from shapely.geometry import Polygon
@@ -1050,7 +1051,22 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         #adds an specific dependency between the two nodes
         GA.add_edge(inst.parameters['method_pois']['value']['locations'][0], inst.parameters['method_pois']['value']['locations'][1])
 
-    
+    if 'zone_probabilities' in data and not isinstance(data['zone_probabilities'], bool):
+        raise TypeError('zone_probabilities must be true or false')
+
+    # POIs and zone probabilities are expensive (OpenStreetMap downloads), so
+    # they are computed here, only when this configuration asks for them, and
+    # cached in the network pickle for later runs.
+    network_updated = False
+    if 'method_pois' in data:
+        network_updated |= add_poi_density(inst.network, place_name)
+    if data.get('zone_probabilities', False):
+        network_updated |= add_zone_probabilities(inst.network, place_name)
+    if network_updated:
+        with open(network_class_file, 'wb') as output_network_class:
+            pickle.dump(inst.network, output_network_class, pickle.HIGHEST_PROTOCOL)
+
+
     inst.sorted_attributes = list(nx.topological_sort(GA))
     inst.GA = GA
     

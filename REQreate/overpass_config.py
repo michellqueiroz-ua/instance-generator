@@ -60,6 +60,20 @@ def get_mirrors():
     return list(DEFAULT_OVERPASS_MIRRORS)
 
 
+def get_cache_folder():
+    """Shared OpenStreetMap download cache, honouring REQREATE_CACHE_DIR.
+
+    Defaults to %LOCALAPPDATA%\\reqreate\\osm-cache on Windows and
+    ~/.cache/reqreate/osm-cache elsewhere.
+    """
+
+    override = os.environ.get("REQREATE_CACHE_DIR", "").strip()
+    if override:
+        return override
+    base = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), ".cache")
+    return os.path.join(base, "reqreate", "osm-cache")
+
+
 def _set_overpass_url(url):
     """Point osmnx at `url`, across both the 1.x and 2.x setting names."""
 
@@ -180,6 +194,10 @@ def configure_overpass(timeout=1800):
     # re-downloading everything that already succeeded.
     if hasattr(ox.settings, "use_cache"):
         ox.settings.use_cache = True
+    # One cache per user rather than ./cache in whatever folder the command
+    # runs from, so every run reuses earlier downloads of the same city.
+    if hasattr(ox.settings, "cache_folder"):
+        ox.settings.cache_folder = get_cache_folder()
 
     if _configured:
         return

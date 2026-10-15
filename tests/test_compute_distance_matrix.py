@@ -1,4 +1,6 @@
+import math
 import os
+import pickle
 import random
 import tempfile
 import unittest
@@ -36,8 +38,8 @@ class RayShimTests(unittest.TestCase):
         self.assertEqual(cdm.RAY_AVAILABLE, hasattr(cdm, 'shortest_path_nx_ss'))
 
 
-class DistanceMatrixTests(unittest.TestCase):
-    def test_sparse_dijkstra_rows_match_networkx_on_multigraph(self):
+class LazyDistanceMatrixTests(unittest.TestCase):
+    def multigraph(self):
         graph = nx.MultiDiGraph()
         graph.add_nodes_from(range(6))
         graph.add_edge(0, 1, length=5.5, travel_time=3.2)
@@ -46,44 +48,77 @@ class DistanceMatrixTests(unittest.TestCase):
         graph.add_edge(0, 2, length=2.5, travel_time=2.0)
         graph.add_edge(2, 0, length=4.0, travel_time=0.5)
         graph.add_edge(3, 4, length=7.0, travel_time=4.0)
-        origins = [0, 3, 5]
+        return graph
 
+    def test_values_match_networkx_on_multigraph(self):
+        graph = self.multigraph()
         for weight, value_type in (("length", float), ("travel_time", int)):
-            rows, reachable_counts = cdm._distance_matrix_rows(
-                graph, origins, weight, value_type, chunksize=2
-            )
-            expected_rows = []
-            expected_counts = []
-            for origin in origins:
-                distances = nx.single_source_dijkstra_path_length(
-                    graph, origin, weight=weight
-                )
-                row = {"osmid_origin": origin}
+            matrix = cdm.LazyDistanceMatrix(graph, weight, value_type)
+            for origin in graph.nodes:
+                expected = nx.single_source_dijkstra_path_length(
+                    graph, origin, weight=weight)
                 for target in graph.nodes:
-                    if target in distances:
-                        row[str(target)] = value_type(distances[target])
-                expected_rows.append(row)
-                expected_counts.append(len(distances))
+                    value = matrix.loc[origin, str(target)]
+                    if target in expected:
+                        self.assertAlmostEqual(
+                            value, value_type(expected[target]), places=3)
+                        self.assertIsInstance(value, value_type)
+                    else:
+                        self.assertTrue(math.isnan(value))
+                        # Callers test unreachability with this string check.
+                        self.assertEqual(str(value), 'nan')
 
-            self.assertEqual(rows, expected_rows)
-            self.assertEqual(reachable_counts, expected_counts)
+    def test_unknown_nodes_raise_key_error(self):
+        matrix = cdm.LazyDistanceMatrix(self.multigraph(), "length")
+        with self.assertRaises(KeyError):
+            matrix.loc[99, "0"]
+        with self.assertRaises(KeyError):
+            matrix.loc[0, "99"]
+        self.assertIn(0, matrix)
+        self.assertNotIn(99, matrix)
 
-    def test_matrices_match_networkx_on_a_small_graph(self):
+    def test_accepts_string_and_numpy_node_ids(self):
+        import numpy as np
+        matrix = cdm.LazyDistanceMatrix(self.multigraph(), "length")
+        self.assertEqual(matrix.loc[np.int64(0), "2"], matrix.loc["0", 2])
+        self.assertEqual(matrix.loc[0, "2.0"], matrix.loc[0, 2])
+
+    def test_cache_is_capped(self):
+        graph = synthetic_graph()
+        matrix = cdm.LazyDistanceMatrix(graph, "length", max_rows=5)
+        for origin in list(graph.nodes)[:20]:
+            matrix.loc[origin, "0"]
+        self.assertEqual(len(matrix._rows), 5)
+
+    def test_pickles_without_the_cache(self):
+        graph = synthetic_graph()
+        matrix = cdm.LazyDistanceMatrix(graph, "travel_time", int)
+        before = matrix.loc[0, "10"]
+        restored = pickle.loads(pickle.dumps(matrix))
+        self.assertEqual(len(restored._rows), 0)
+        self.assertEqual(restored.loc[0, "10"], before)
+
+    def test_whole_matrix_access_fails_loudly(self):
+        matrix = cdm.LazyDistanceMatrix(self.multigraph(), "length")
+        with self.assertRaisesRegex(AttributeError, "no longer materialised"):
+            matrix.index
+
+
+class GetDistanceMatrixTests(unittest.TestCase):
+    def test_matrices_match_networkx_and_write_no_csv(self):
         graph = synthetic_graph()
         stops = pd.DataFrame({'osmid_walk': list(graph.nodes())[:5]})
 
         with tempfile.TemporaryDirectory() as save_dir:
             walk, travel_time, distance, unreachable = cdm._get_distance_matrix(
                 graph.copy(), graph.copy(), stops, save_dir, 'synthetic')
-
-            self.assertTrue(os.path.isfile(
-                os.path.join(save_dir, 'csv', 'synthetic.dist.walk.csv')))
+            self.assertEqual(os.listdir(save_dir), [])
 
         expected = dict(nx.single_source_dijkstra_path_length(
             graph, 0, weight='length'))
         for node, length in expected.items():
-            self.assertEqual(walk.loc[0, str(node)], float(length))
-            self.assertEqual(distance.loc[0, str(node)], float(length))
+            self.assertAlmostEqual(walk.loc[0, str(node)], float(length), places=2)
+            self.assertAlmostEqual(distance.loc[0, str(node)], float(length), places=2)
 
         expected_tt = dict(nx.single_source_dijkstra_path_length(
             graph, 0, weight='travel_time'))
@@ -91,27 +126,21 @@ class DistanceMatrixTests(unittest.TestCase):
             self.assertEqual(travel_time.loc[0, str(node)], int(seconds))
 
         self.assertEqual(unreachable, [])
-        self.assertEqual(set(map(str, distance.dtypes)), {'float64'})
-        self.assertEqual(set(map(str, travel_time.dtypes)), {'int64'})
 
-    def test_update_walk_matrix_adds_the_new_stops(self):
+    def test_update_walk_matrix_answers_the_new_stops(self):
         graph = synthetic_graph()
-        stops = pd.DataFrame({'osmid_walk': list(graph.nodes())[:5]})
-
+        extra = list(graph.nodes())[5:8]
         with tempfile.TemporaryDirectory() as save_dir:
-            cdm._get_distance_matrix(
-                graph.copy(), graph.copy(), stops, save_dir, 'synthetic')
-
-            extra = list(graph.nodes())[5:8]
             updated = cdm._update_distance_matrix_walk(
                 graph.copy(), extra, save_dir, 'synthetic')
 
         for node in extra:
-            self.assertIn(node, updated.index)
+            self.assertIn(node, updated)
             expected = dict(nx.single_source_dijkstra_path_length(
                 graph, node, weight='length'))
             for target, length in expected.items():
-                self.assertEqual(updated.loc[node, str(target)], float(length))
+                self.assertAlmostEqual(
+                    updated.loc[node, str(target)], float(length), places=2)
 
 
 if __name__ == '__main__':

@@ -4,6 +4,7 @@ import osmnx as ox
 import pandas as pd
 from shapely.geometry import Polygon
 from osmnx.distance import great_circle
+from .nearest import centroid_coordinates, nearest_edge_endpoints
 
 
 def retrieve_hospitals(G_walk, G_drive, place_name, save_dir, output_folder_base):
@@ -41,26 +42,13 @@ def retrieve_hospitals(G_walk, G_drive, place_name, save_dir, output_folder_base
             print(f'Found {len(poi_hospitals)} healthcare facilities')
             
             if len(poi_hospitals) > 0:
-                for index, poi in poi_hospitals.iterrows():
-                    hospital_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
+                # Nearest nodes in walk and drive networks, one batched lookup per graph
+                lats, lons = centroid_coordinates(poi_hospitals)
+                nodes_walk = nearest_edge_endpoints(G_walk, lats, lons)
+                nodes_drive = nearest_edge_endpoints(G_drive, lats, lons)
 
-                    # Find nearest nodes in walk and drive networks
-                    u, v, key = ox.nearest_edges(G_walk, hospital_point[1], hospital_point[0])
-                    hospital_node_walk = min((u, v), key=lambda n: great_circle(
-                        poi.geometry.centroid.y, 
-                        poi.geometry.centroid.x, 
-                        G_walk.nodes[n]['y'], 
-                        G_walk.nodes[n]['x']
-                    ))
-                
-                    u, v, key = ox.nearest_edges(G_drive, hospital_point[1], hospital_point[0])
-                    hospital_node_drive = min((u, v), key=lambda n: great_circle(
-                        poi.geometry.centroid.y, 
-                        poi.geometry.centroid.x, 
-                        G_drive.nodes[n]['y'], 
-                        G_drive.nodes[n]['x']
-                    ))
-                
+                for (index, poi), hospital_node_walk, hospital_node_drive, lat, lon in zip(
+                        poi_hospitals.iterrows(), nodes_walk, nodes_drive, lats, lons):
                     # Get name, use amenity type as fallback
                     hospital_name = poi.get('name', f"{poi.get('amenity', 'hospital')}_{index}")
                     
@@ -69,8 +57,8 @@ def retrieve_hospitals(G_walk, G_drive, place_name, save_dir, output_folder_base
                         'amenity_type': poi.get('amenity', 'hospital'),
                         'osmid_walk': hospital_node_walk,
                         'osmid_drive': hospital_node_drive,
-                        'lat': poi.geometry.centroid.y,
-                        'lon': poi.geometry.centroid.x,
+                        'lat': lat,
+                        'lon': lon,
                     }
 
                     hospitals.append(d)

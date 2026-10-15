@@ -405,8 +405,13 @@ if page == "Create New Instance":
                 help="How to distribute requests spatially: uniform = random across network, rank_model = based on POI density"
             )
         
-        use_travel_time = st.checkbox("Use Travel Time Matrix", value=True, 
+        use_travel_time = st.checkbox("Use Travel Time Matrix", value=True,
                                     help="Use precomputed travel times (recommended for accuracy)")
+        compute_zone_probabilities = st.checkbox(
+            "Compute zone travel probabilities", value=False,
+            help="Downloads points of interest from OpenStreetMap (can add tens of minutes "
+                 "for a large city) and writes zone ranks and travel probabilities between "
+                 "zones to the csv folder. Not needed for uniform request generation.")
         
         # Submit button
         submitted = st.form_submit_button("🚀 Generate Instance", use_container_width=True)
@@ -610,6 +615,9 @@ if page == "Create New Instance":
                     "attributes": attributes_list
                 }
             
+            if compute_zone_probabilities:
+                config["zone_probabilities"] = True
+
             # Create configuration directory if it doesn't exist
             config_dir = "examples/webapp_instances/"
             os.makedirs(config_dir, exist_ok=True)

@@ -4,6 +4,7 @@ import osmnx as ox
 import pandas as pd
 from shapely.geometry import Polygon
 from osmnx.distance import great_circle
+from .nearest import centroid_coordinates, nearest_edge_endpoints
 
 
 def retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base):
@@ -44,25 +45,19 @@ def retrieve_schools(G_walk, G_drive, place_name, save_dir, output_folder_base):
         
         if len(poi_schools) > 0:
 
-            for index, poi in poi_schools.iterrows():
+            lats, lons = centroid_coordinates(poi_schools)
+            nodes_walk = nearest_edge_endpoints(G_walk, lats, lons)
+            nodes_drive = nearest_edge_endpoints(G_drive, lats, lons)
 
-                #print(poi)
+            for (index, poi), walk, drive, lat, lon in zip(poi_schools.iterrows(), nodes_walk, nodes_drive, lats, lons):
 
-                school_point = (poi.geometry.centroid.y, poi.geometry.centroid.x)
-
-                u, v, key = ox.nearest_edges(G_walk, school_point[1], school_point[0])
-                school_node_walk = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_walk.nodes[n]['y'], G_walk.nodes[n]['x']))
-            
-                u, v, key = ox.nearest_edges(G_drive, school_point[1], school_point[0])
-                school_node_drive = min((u, v), key=lambda n: great_circle(poi.geometry.centroid.y, poi.geometry.centroid.x, G_drive.nodes[n]['y'], G_drive.nodes[n]['x']))
-            
                 d = {
                     #'school_id':index,
                     'school_name':poi['name'],
-                    'osmid_walk':school_node_walk,
-                    'osmid_drive':school_node_drive,
-                    'lat':poi.geometry.centroid.y,
-                    'lon':poi.geometry.centroid.x,
+                    'osmid_walk':walk,
+                    'osmid_drive':drive,
+                    'lat':lat,
+                    'lon':lon,
                 }
 
                 schools.append(d)
