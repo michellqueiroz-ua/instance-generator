@@ -37,6 +37,10 @@ Maastricht*/
 cache/
 *.pkl
 
+
+# User session data (generated instances, auto-cleanup)
+_user_data/
+
 # User-generated configurations
 examples/webapp_instances/*.json
 

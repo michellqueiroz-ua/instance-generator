@@ -71,9 +71,7 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
     fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
     requests_folder = os.path.join(save_dir_images, 'requests')
-
-    if not os.path.isdir(requests_folder):
-        os.mkdir(requests_folder)
+    os.makedirs(requests_folder, exist_ok=True)
 
     #plot origin locations
     for origin in origin_points:
@@ -95,13 +93,37 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
 
 def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid, method_poi, distancex, pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv):
     
+    import time as time_module
+    start_time = time_module.time()
+    
     attributes = {}
     feasible_data = False
     first_time = True
     # Removed debug print: print(reqid)
     loc_attempts = 0
     att_attempts = 0
+    feasibility_attempts = 0
+    MAX_FEASIBILITY_ATTEMPTS = 100  # Reduced for large networks - prevent excessive waiting
+    
+    if reqid % 5 == 0 or reqid == 0:  # Log timing for every 5th request
+        print(f"Starting request {reqid} generation...")
+    
     while not feasible_data:
+        feasibility_attempts += 1
+        
+        # Progress indicator for long-running requests
+        if feasibility_attempts % 50 == 0:  # More frequent logging (was 100)
+            elapsed = time_module.time() - start_time
+            print(f"  ⚠️ Request {reqid}: attempt {feasibility_attempts} after {elapsed:.1f}s (loc_attempts={loc_attempts}, att_attempts={att_attempts})")
+        
+        # Safety check to prevent infinite loops - reduce limit for large networks
+        if feasibility_attempts > MAX_FEASIBILITY_ATTEMPTS:
+            elapsed = time_module.time() - start_time
+            print(f"❌ WARNING: Request {reqid} failed after {MAX_FEASIBILITY_ATTEMPTS} attempts ({elapsed:.1f}s)")
+            print(f"  - Location attempts: {loc_attempts}")
+            print(f"  - Attribute attempts: {att_attempts}")
+            print(f"  - This suggests constraints are too tight or network is problematic")
+            break
         
         attributes = {}
         feasible_data = True
@@ -118,6 +140,13 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
 
         
         for att in sorted_attributes:
+            
+            # Skip attributes that don't have a 'type' field (constraints like max_walking)
+            # Check BEFORE entering the while loop to avoid spam
+            if 'type' not in GA.nodes[att]:
+                if reqid == 0:  # Only log once for the first request
+                    print(f"Info: Skipping non-attribute node '{att}' (likely a constraint/parameter)")
+                continue  # Skip to next attribute in sorted_attributes
 
             not_feasible_attribute = True
             exhaustion_iterations = 0
@@ -126,6 +155,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
 
                 seed_attribute = ((reqid+1)*111*(replicate_num+1))+att_attempts+num_requests
                 att_attempts += 1
+                    
                 if GA.nodes[att]['type'] == 'location':
 
                     seed_location = ((reqid+1)*1111*(replicate_num+1))+loc_attempts+num_requests
@@ -762,11 +792,41 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
             
 
         if feasible_data:
+            # VALIDATION: Remove overlapping stops between origin and destination
+            if 'stops_orgn' in attributes and 'stops_dest' in attributes:
+                common_stops = set(attributes['stops_orgn']) & set(attributes['stops_dest'])
+                if common_stops:
+                    # Remove common stops from destination (keep origin intact)
+                    filtered_dest = [s for s in attributes['stops_dest'] if s not in common_stops]
+                    filtered_dest_walk = [w for s, w in zip(attributes['stops_dest'], attributes.get('stops_dest_walking_distance', [])) if s not in common_stops]
+                    
+                    if len(filtered_dest) > 0:
+                        attributes['stops_dest'] = filtered_dest
+                        if 'stops_dest_walking_distance' in attributes:
+                            attributes['stops_dest_walking_distance'] = filtered_dest_walk
+                    else:
+                        # All destination stops overlap with origin - regenerate
+                        feasible_data = False
+            
+            # VALIDATION: Check that stops arrays are not empty
+            if feasible_data and 'stops_orgn' in attributes and len(attributes['stops_orgn']) == 0:
+                feasible_data = False
+            
+            if feasible_data and 'stops_dest' in attributes and len(attributes['stops_dest']) == 0:
+                feasible_data = False
+        
+        if feasible_data:
             try:
                 attributes['seed_location'] = seed_location
             except Exception as e:
                 attributes['seed_location'] = -1
             attributes['reqid'] = reqid
+            
+            # Log completion time for slow requests
+            if reqid % 5 == 0 or reqid == 0:
+                elapsed = time_module.time() - start_time
+                print(f"✓ Request {reqid} completed in {elapsed:.2f}s (attempts: {feasibility_attempts})")
+            
             return attributes
 
     
@@ -1089,11 +1149,11 @@ def _generate_requests(
         # Sequential processing
         all_reqs = []
         for i in range(num_requests):
-            if (i + 1) % 10 == 0 or i == 0:  # Progress every 10 requests
+            if (i + 1) % 5 == 0 or i == 0:  # Progress every 5 requests (more frequent)
                 if logger:
                     logger.progress(f"Generated {i + 1}/{num_requests} requests")
                 else:
-                    print(f"Generated {i + 1}/{num_requests} requests")
+                    print(f"  → Generated {i + 1}/{num_requests} requests")
             req = _generate_single_data_impl(inst.GA, inst.network, inst.sorted_attributes, inst.parameters, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv)
             all_reqs.append(req)
 
@@ -1193,6 +1253,7 @@ def _generate_requests(
             if replicate_num == 0:
                 
                 output_file_ttm_csv = os.path.join(inst.save_dir_ttm, 'travel_time_matrix_' + final_filename + '_' + str(replicate_num) + '.csv')
+                os.makedirs(inst.save_dir_ttm, exist_ok=True)
 
                 if not os.path.exists(output_file_ttm_csv):
                     

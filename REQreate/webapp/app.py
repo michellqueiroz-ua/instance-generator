@@ -5,6 +5,7 @@ import subprocess
 import pandas as pd
 from pathlib import Path
 import time
+import uuid
 from streamlit_folium import st_folium
 from map_utils import create_request_map, create_heatmap
 import ast
@@ -13,6 +14,51 @@ from attribute_library import get_attributes_for_problem, get_required_attribute
 import zipfile
 import shutil
 from io import BytesIO
+try:
+    # demo_config.py lives at the repository root; it is only importable when
+    # running from a checkout. Installed packages run without demo mode.
+    import demo_config
+except ImportError:
+    demo_config = None
+
+APP_BUILD = "a1d1933b"
+
+try:
+    from solver_utils import SolverConfig, run_solver, parse_solution, extract_routes, format_statistics
+    SOLVER_AVAILABLE = True
+except ImportError:
+    SOLVER_AVAILABLE = False
+
+# ==================== SESSION & USER DATA MANAGEMENT ====================
+USER_DATA_DIR = "_user_data"
+
+# Assign a persistent session ID per browser tab
+if 'session_id' not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+
+def get_session_dir():
+    """Return the session-specific data directory for the current user."""
+    return os.path.join(USER_DATA_DIR, st.session_state.session_id)
+
+def cleanup_old_sessions(max_age_days=3):
+    """Delete user session folders older than max_age_days."""
+    if not os.path.exists(USER_DATA_DIR):
+        return
+    cutoff = time.time() - (max_age_days * 86400)
+    for entry in os.listdir(USER_DATA_DIR):
+        session_path = os.path.join(USER_DATA_DIR, entry)
+        if os.path.isdir(session_path):
+            try:
+                mtime = os.path.getmtime(session_path)
+                if mtime < cutoff:
+                    shutil.rmtree(session_path, ignore_errors=True)
+            except OSError:
+                pass
+
+# Run cleanup once per session
+if 'cleanup_done' not in st.session_state:
+    cleanup_old_sessions()
+    st.session_state.cleanup_done = True
 
 def prepare_requests_for_map(df):
     """
@@ -57,6 +103,22 @@ def create_zip_download(folder_path, zip_name):
     zip_buffer.seek(0)
     return zip_buffer.getvalue()
 
+def create_zip_subfolder(base_path, subfolder, zip_name):
+    """
+    Create a ZIP file of a specific subfolder within base_path.
+    """
+    target = Path(base_path) / subfolder
+    if not target.exists():
+        return None
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for file_path in target.rglob('*'):
+            if file_path.is_file():
+                arcname = Path(subfolder) / file_path.relative_to(target)
+                zip_file.write(file_path, arcname)
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
+
 st.set_page_config(
     page_title="REQreate - Instance Generator",
     page_icon="🚌",
@@ -65,6 +127,7 @@ st.set_page_config(
 
 # Title and description
 st.title("🚌 REQreate Instance Generator")
+st.caption(f"Build: {APP_BUILD}")
 st.markdown("""
 Generate realistic on-demand transportation instances based on real-world network data.
 This tool downloads OpenStreetMap data and creates synthetic passenger requests for your specified location.
@@ -129,6 +192,7 @@ if page == "Create New Instance":
         # Pre-select required attributes
         default_selection = required_attrs.copy()
         
+        # Use problem_type in key to reset selection when problem type changes
         selected_attrs = st.multiselect(
             "Select attributes to include:",
             options=attr_options,
@@ -136,6 +200,11 @@ if page == "Create New Instance":
             help="Select which attributes to include in your instance. Required attributes are pre-selected.",
             key=f"selected_attrs_{problem_type}"
         )
+        
+        # Ensure all required attributes are included
+        for req_attr in required_attrs:
+            if req_attr not in selected_attrs:
+                selected_attrs.append(req_attr)
     
     with col2:
         st.markdown("**Legend:**")
@@ -249,12 +318,42 @@ if page == "Create New Instance":
         col1, col2 = st.columns(2)
         
         with col1:
-            place_name = st.text_input(
-                "Location (City, Country)",
-                value="Maastricht, Netherlands",
-                help="Enter the location in the format: City, Country"
-            )
-            
+            if demo_config is not None and demo_config.is_demo():
+                # Demo mode: only networks already prepared on this machine, so
+                # no request can trigger a live OpenStreetMap download.
+                prepared_cities = demo_config.available_cities()
+
+                if not prepared_cities:
+                    place_name = ""
+                    st.error(
+                        "No prepared networks are available on this server. "
+                        "The demo cannot generate instances right now."
+                    )
+                else:
+                    city_labels = [f"{c.label}, {c.country}" for c in prepared_cities]
+                    city_index = st.selectbox(
+                        "Location (prepared networks only)",
+                        options=range(len(prepared_cities)),
+                        format_func=lambda i: city_labels[i],
+                        help="The demo runs on pre-built networks. Install locally to use any city."
+                    )
+                    selected_city = prepared_cities[city_index]
+                    place_name = selected_city.folder
+
+                    if selected_city.note:
+                        st.caption(f"ℹ️ {selected_city.note}")
+                    st.caption(
+                        f"💡 Demo mode: {len(prepared_cities)} prepared network(s). "
+                        "For any other city, run the generator locally."
+                    )
+            else:
+                place_name = st.text_input(
+                    "Location (City, Country)",
+                    value="Maastricht, Netherlands",
+                    help="Enter the location in the format: City, Country. For larger cities, use 'City Municipality, Country' (e.g., 'Copenhagen Municipality, Denmark')"
+                )
+                st.caption("💡 Tip: For cities like Copenhagen, Amsterdam, use: **'City Municipality, Country'**")
+
         with col2:
             output_name = st.text_input(
                 "Output Folder Name",
@@ -326,7 +425,23 @@ if page == "Create New Instance":
             end_hours = end_time.hour + end_time.minute / 60.0
             
             # Create output folder name (clean version for filenames)
-            folder_name = output_name if output_name else place_name.replace(", ", "_").replace(" ", "_")
+            # Strip any quotes that might have been entered
+            place_name_clean = place_name.strip('"').strip("'")
+            output_name_clean = output_name.strip('"').strip("'")
+
+            # Demo guard: the picklist above restricts the UI, this stops any
+            # other path from reaching a live OpenStreetMap download.
+            if demo_config is not None and not demo_config.is_allowed(place_name_clean):
+                st.error(
+                    f"'{place_name_clean}' is not available on the demo. "
+                    "Only pre-built networks can be generated here."
+                )
+                st.info(
+                    "To generate instances for any city, run the generator locally."
+                )
+                st.stop()
+            
+            folder_name = output_name_clean if output_name_clean else place_name_clean.replace(", ", "_").replace(" ", "_")
             folder_name_clean = folder_name.replace(",", "").replace(" ", "_")
             
             # Build configuration JSON based on problem type
@@ -356,7 +471,7 @@ if page == "Create New Instance":
                 # ODBRP configuration with bus stops
                 config = {
                     "seed": replicate_num,
-                    "network": place_name,
+                    "network": place_name_clean,
                     "problem": "ODBRP",
                     "set_fixed_speed": {
                         "vehicle_speed_data": vehicle_speed,
@@ -412,7 +527,7 @@ if page == "Create New Instance":
                 # Patient Transport configuration (DARP variant with hospital destinations)
                 config = {
                     "seed": replicate_num,
-                    "network": place_name,
+                    "network": place_name_clean,
                     "problem": "DARP",  # Uses DARP solver but with hospital constraints
                     "set_fixed_speed": {
                         "vehicle_speed_data": vehicle_speed,
@@ -469,7 +584,7 @@ if page == "Create New Instance":
                 # DARP configuration with coordinates
                 config = {
                     "seed": replicate_num,
-                    "network": place_name,
+                    "network": place_name_clean,
                     "problem": "DARP",
                     "set_fixed_speed": {
                         "vehicle_speed_data": vehicle_speed,
@@ -521,6 +636,7 @@ if page == "Create New Instance":
                 st.json(config)
             
             # Run generation
+            st.warning("⚠️ **Do not close this browser tab while generating!** Closing the tab will cancel the generation and all progress will be lost. This process can take from a few minutes to several hours depending on the network size and number of requests.")
             st.info("🔄 Starting instance generation... This may take several minutes.")
             
             progress_placeholder = st.empty()
@@ -538,28 +654,112 @@ if page == "Create New Instance":
                 
                 progress_bar.progress(1.0)
                 st.success(f"✅ Instance generated successfully!")
-                st.info(f"📁 Instance saved in: {place_name}/csv_format/")
+                
+                # Move generated instance files to session-specific folder
+                src_csv_fmt = os.path.join(place_name_clean, "csv_format")
+                session_csv_fmt = os.path.join(get_session_dir(), place_name_clean, "csv_format")
+                if os.path.exists(src_csv_fmt):
+                    os.makedirs(session_csv_fmt, exist_ok=True)
+                    for item in os.listdir(src_csv_fmt):
+                        src = os.path.join(src_csv_fmt, item)
+                        dst = os.path.join(session_csv_fmt, item)
+                        if os.path.isfile(src):
+                            shutil.move(src, dst)
+                        elif os.path.isdir(src):
+                            if os.path.exists(dst):
+                                for f in os.listdir(src):
+                                    shutil.move(os.path.join(src, f), os.path.join(dst, f))
+                                shutil.rmtree(src, ignore_errors=True)
+                            else:
+                                shutil.move(src, dst)
+                
+                # Also move json_format files
+                src_json_fmt = os.path.join(place_name_clean, "json_format")
+                session_json_fmt = os.path.join(get_session_dir(), place_name_clean, "json_format")
+                if os.path.exists(src_json_fmt):
+                    os.makedirs(session_json_fmt, exist_ok=True)
+                    for item in os.listdir(src_json_fmt):
+                        src = os.path.join(src_json_fmt, item)
+                        dst = os.path.join(session_json_fmt, item)
+                        if os.path.isfile(src):
+                            shutil.move(src, dst)
+                        elif os.path.isdir(src):
+                            if os.path.exists(dst):
+                                for f in os.listdir(src):
+                                    shutil.move(os.path.join(src, f), os.path.join(dst, f))
+                                shutil.rmtree(src, ignore_errors=True)
+                            else:
+                                shutil.move(src, dst)
+
+                # Also move travel_time_matrix files (if enabled/generated)
+                src_ttm = os.path.join(place_name_clean, "travel_time_matrix")
+                session_ttm = os.path.join(get_session_dir(), place_name_clean, "travel_time_matrix")
+                if os.path.exists(src_ttm):
+                    os.makedirs(session_ttm, exist_ok=True)
+                    for item in os.listdir(src_ttm):
+                        src = os.path.join(src_ttm, item)
+                        dst = os.path.join(session_ttm, item)
+                        if os.path.isfile(src):
+                            shutil.move(src, dst)
+                        elif os.path.isdir(src):
+                            if os.path.exists(dst):
+                                for f in os.listdir(src):
+                                    shutil.move(os.path.join(src, f), os.path.join(dst, f))
+                                shutil.rmtree(src, ignore_errors=True)
+                            else:
+                                shutil.move(src, dst)
+                
+                st.info(f"📁 Your instance files are stored in your session and will be available for 3 days.")
                 st.info(f"📄 File: {config_filename.replace('.json', '.csv')}")
                 
                 # Add download button
                 st.markdown("---")
                 st.subheader("📥 Download Instance")
                 
-                # Create ZIP of the entire location folder
+                # Create ZIP of user's session instance files
                 try:
-                    zip_data = create_zip_download(place_name, f"{place_name}.zip")
+                    session_location = os.path.join(get_session_dir(), place_name_clean)
+                    zip_data = create_zip_download(session_location, f"{place_name_clean}.zip")
                     st.download_button(
                         label="💾 Download Instance (ZIP)",
                         data=zip_data,
-                        file_name=f"{place_name}_instance.zip",
+                        file_name=f"{place_name_clean}_instance.zip",
                         mime="application/zip",
                         use_container_width=True
                     )
                     st.success("✅ Click the button above to download all files")
                 except Exception as e:
                     st.warning(f"⚠️ Could not prepare download: {str(e)}")
+            
+            except MemoryError as e:
+                st.error("❌ Out of Memory")
+                st.warning(f"""
+                **Generation ran out of memory during processing.**
+                
+                **Possible causes:**
+                - Area is extremely large (network > 2-3 GB)
+                - Too many nodes/edges in the network
+                - Other memory-intensive processes running
+                
+                **Available Memory:** {round(13.18, 2)} GB free RAM on your system
+                
+                **✅ Solutions:**
+                
+                1. **Try a smaller area/district** (most common fix)
+                2. **Close other applications** to free up RAM
+                3. **Restart Python/Streamlit** to clear memory
+                
+                **Alternative locations to try:**
+                   - **"Indre By, Copenhagen, Denmark"** (Copenhagen city center)
+                   - **"Aarhus, Denmark"** (smaller city)
+                   - **"Maastricht, Netherlands"** (known to work)
+                """)
+                
+                with st.expander("🔍 Technical Details"):
+                    st.exception(e)
                 
             except Exception as e:
+                error_msg = str(e)
                 if type(e).__name__ == "OverpassUnavailableError":
                     # Not a problem with the requested city: the OpenStreetMap
                     # query servers are refusing or rate-limiting us.
@@ -572,73 +772,326 @@ if page == "Create New Instance":
                     )
                     with st.expander("Details"):
                         st.code(str(e))
+                # Check for specific OSMnx errors
+                elif "InsufficientResponseError" in error_msg or "No matching features" in error_msg:
+                    st.error("❌ Location Not Found or No Data Available")
+                    st.warning(f"""
+                    **The location '{place_name_clean}' has issues:**
+                    
+                    Possible reasons:
+                    1. **Location name is incorrect** - Try a more specific name (e.g., "Amsterdam, Netherlands" instead of just "Amsterdam")
+                    2. **No OpenStreetMap data** - The area may not have the required features (bus stops, POIs, etc.)
+                    3. **Name spelling** - Check the spelling matches OpenStreetMap's database
+                    
+                    **Suggestions:**
+                    - Try a nearby larger city
+                    - Use the format: "City, Country" (e.g., "Copenhagen, Denmark")
+                    - Check if the location exists on [OpenStreetMap](https://www.openstreetmap.org/)
+                    - For Patient Transport, ensure hospitals exist in the area
+                    """)
+                    
+                    with st.expander("🔍 View Technical Error Details"):
+                        st.code(error_msg)
+                        
+                elif "did not geocode query" in error_msg and "(Multi)Polygon" in error_msg:
+                    st.error("❌ Location Query Returned a Point Instead of Area")
+                    st.warning(f"""
+                    **The location '{place_name_clean}' was found but as a point, not an area boundary.**
+                    
+                    **Solution:** Add "Municipality" or the administrative region to your query:
+                    
+                    **Examples:**
+                    - ✅ **Copenhagen Municipality, Denmark** (instead of "Copenhagen, Denmark")
+                    - ✅ **Amsterdam, Netherlands** (Amsterdam works - smaller city)
+                    - ✅ **Berlin, Germany** (Berlin works - city-state)
+                    - ✅ **København Kommune, Denmark** (Danish name)
+                    - ✅ **Barcelona, Spain**
+                    
+                    **Why?** Large cities often return a city center point instead of the full boundary.
+                    Adding "Municipality" tells OpenStreetMap to return the administrative boundary.
+                    
+                    **Try:** Replace your location with "{place_name_clean.split(',')[0]} Municipality, {', '.join(place_name_clean.split(',')[1:])}"
+                    """)
+                    
+                    with st.expander("🔍 View Technical Error Details"):
+                        st.code(error_msg)
                 else:
-                    st.error(f"❌ Generation failed: {str(e)}")
+                    st.error(f"❌ Generation failed: {error_msg}")
+                
+                with st.expander("📋 Show Full Error Trace"):
                     st.exception(e)
 
 elif page == "View Existing Instances":
     st.header("📂 Existing Instances")
     
-    # Find all instance folders (location folders with csv_format)
+    # Find all locations: merge pre-loaded networks (root) with user's session data
     instance_folders = []
+    seen_names = set()
     
-    # Check all directories in root
+    # 1) Scan root-level directories for network data (pre-loaded, shared)
+    SKIP_DIRS = {"REQreate", "cache", "environment", "examples", ".git", "__pycache__", "output", ".streamlit", "solver", USER_DATA_DIR}
     for item in os.listdir("."):
-        if os.path.isdir(item) and item not in ["REQreate", "cache", "environment", "examples", ".git", "__pycache__", "output"]:
-            csv_format_folder = os.path.join(item, "csv_format")
-            if os.path.exists(csv_format_folder):
-                # Count CSV files that are instances (not subdirectories)
-                csv_files = [f for f in os.listdir(csv_format_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(csv_format_folder, f))]
+        if os.path.isdir(item) and item not in SKIP_DIRS:
+            csv_folder = os.path.join(item, "csv")
+            has_network = os.path.exists(csv_folder)
+            if has_network:
+                seen_names.add(item)
+                # Check session folder for this location's instance files
+                session_csv_fmt = os.path.join(get_session_dir(), item, "csv_format")
+                has_csv_format = os.path.exists(session_csv_fmt)
+                csv_files = []
+                if has_csv_format:
+                    csv_files = [f for f in os.listdir(session_csv_fmt) if f.endswith('.csv') and os.path.isfile(os.path.join(session_csv_fmt, f))]
                 has_requests = False
                 if csv_files:
-                    # Check if any file has request data
                     try:
                         for f in csv_files:
-                            sample = pd.read_csv(os.path.join(csv_format_folder, f), nrows=1)
+                            sample = pd.read_csv(os.path.join(session_csv_fmt, f), nrows=1)
                             if 'origin' in sample.columns or 'origin_lat' in sample.columns:
                                 has_requests = True
                                 break
                     except:
                         pass
-                
                 instance_folders.append({
                     'name': item,
-                    'path': item,
+                    'network_path': item,
+                    'session_path': os.path.join(get_session_dir(), item),
                     'csv_count': len(csv_files),
-                    'has_requests': has_requests
+                    'has_requests': has_requests,
+                    'has_network': True,
+                    'has_csv_format': has_csv_format,
                 })
+    
+    # 2) Scan session folder for locations not already found (user generated a new location)
+    session_dir = get_session_dir()
+    if os.path.exists(session_dir):
+        for item in os.listdir(session_dir):
+            if item in seen_names:
+                continue
+            item_path = os.path.join(session_dir, item)
+            if os.path.isdir(item_path):
+                session_csv_fmt = os.path.join(item_path, "csv_format")
+                has_csv_format = os.path.exists(session_csv_fmt)
+                # Also check if the root folder has network data
+                root_csv = os.path.join(item, "csv")
+                has_network = os.path.exists(root_csv)
+                csv_files = []
+                if has_csv_format:
+                    csv_files = [f for f in os.listdir(session_csv_fmt) if f.endswith('.csv') and os.path.isfile(os.path.join(session_csv_fmt, f))]
+                has_requests = False
+                if csv_files:
+                    try:
+                        for f in csv_files:
+                            sample = pd.read_csv(os.path.join(session_csv_fmt, f), nrows=1)
+                            if 'origin' in sample.columns or 'origin_lat' in sample.columns:
+                                has_requests = True
+                                break
+                    except:
+                        pass
+                if has_csv_format or has_network:
+                    instance_folders.append({
+                        'name': item,
+                        'network_path': item,
+                        'session_path': item_path,
+                        'csv_count': len(csv_files),
+                        'has_requests': has_requests,
+                        'has_network': has_network,
+                        'has_csv_format': has_csv_format,
+                    })
     
     if not instance_folders:
         st.info("No instances found. Create your first instance using the 'Create New Instance' page!")
     else:
-        # Show instance info
-        st.markdown(f"Found **{len(instance_folders)}** instances")
+        st.markdown(f"Found **{len(instance_folders)}** location(s)")
         
-        # Format instance display with additional info
+        # Format instance display
         def format_instance(inst):
-            status = "✅ Has requests" if inst['has_requests'] else "⚠️ Network only"
-            return f"{inst['name']} - {inst['csv_count']} files ({status})"
+            parts = []
+            if inst['has_requests']:
+                parts.append(f"✅ {inst['csv_count']} instance file(s)")
+            if inst['has_network']:
+                parts.append("🌐 Network data")
+            if not parts:
+                parts.append("⚠️ Network only")
+            return f"{inst['name']} — {', '.join(parts)}"
         
         selected_idx = st.selectbox(
-            "Select Instance",
+            "Select Location / Network",
             options=range(len(instance_folders)),
             format_func=lambda i: format_instance(instance_folders[i])
         )
         
         selected_instance_info = instance_folders[selected_idx]
         selected_instance = selected_instance_info['name']
-        selected_instance_path = selected_instance_info['path']
+        selected_instance_path = selected_instance_info['network_path']  # root folder (network data)
+        selected_session_path = selected_instance_info['session_path']   # session folder (user instances)
         
         if selected_instance:
-            st.subheader(f"Instance: {selected_instance}")
+            st.subheader(f"📍 {selected_instance}")
             
-            # Create tabs for different views
-            tab1, tab2, tab3, tab4 = st.tabs(["📋 Data Preview", "🗺️ Map View", "🔥 Heatmap", "📁 Files"])
+            # Create tabs — Downloads FIRST
+            tab_download, tab_preview, tab_map, tab_heatmap, tab_solve = st.tabs(["📥 Downloads", "📋 Data Preview", "🗺️ Map View", "🔥 Heatmap", "🚀 Solve"])
             
-            csv_format_folder = os.path.join(selected_instance_path, "csv_format")
+            csv_format_folder = os.path.join(selected_session_path, "csv_format")
             
-            with tab1:
-                # Preview CSV files
+            # ==================== DOWNLOADS TAB ====================
+            with tab_download:
+                st.warning("⚠️ **Download your files before closing the browser.** Generated files are not stored permanently on the server.")
+                
+                # Three columns: Instances | Travel Time Matrix | Network
+                col_inst, col_ttm, col_net = st.columns(3)
+                
+                # --- Column 1: Instance CSV files (for solvers) ---
+                with col_inst:
+                    st.markdown("### 📊 Instances (CSV)")
+                    st.markdown("Passenger request files for solvers.")
+                    
+                    if selected_instance_info['has_csv_format'] and os.path.exists(csv_format_folder):
+                        csv_files = sorted([f for f in os.listdir(csv_format_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(csv_format_folder, f))])
+                        
+                        if csv_files:
+                            for f in csv_files:
+                                fpath = os.path.join(csv_format_folder, f)
+                                size_kb = os.path.getsize(fpath) / 1024
+                                st.text(f"📄 {f} ({size_kb:.1f} KB)")
+                            
+                            st.markdown("")
+                            try:
+                                zip_csv = create_zip_subfolder(selected_session_path, "csv_format", "csv_format.zip")
+                                if zip_csv:
+                                    st.download_button(
+                                        label=f"⬇️ Download Instances ({len(csv_files)} files)",
+                                        data=zip_csv,
+                                        file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_instances.zip",
+                                        mime="application/zip",
+                                        use_container_width=True,
+                                        key="dl_csv_format"
+                                    )
+                            except Exception as e:
+                                st.error(f"Could not prepare download: {str(e)}")
+                        else:
+                            st.info("No instance files yet. Generate requests first.")
+                    else:
+                        st.info("No instance files yet. Generate requests first.")
+                
+                # --- Column 2: Travel Time Matrix ---
+                with col_ttm:
+                    st.markdown("### ⏱️ Travel Times")
+                    st.markdown("Driving times between nodes.")
+                    st.caption("Travel Times UI v2")
+                    
+                    ttm_folder = os.path.join(selected_session_path, "travel_time_matrix")
+                    ttm_files = []
+                    if os.path.exists(ttm_folder):
+                        ttm_files = sorted([
+                            f for f in os.listdir(ttm_folder)
+                            if f.endswith('.csv') and os.path.isfile(os.path.join(ttm_folder, f))
+                        ])
+
+                    if ttm_files:
+                        for f in ttm_files:
+                            fpath = os.path.join(ttm_folder, f)
+                            size_kb = os.path.getsize(fpath) / 1024
+                            st.text(f"📄 {f} ({size_kb:.1f} KB)")
+
+                        st.markdown("")
+                        try:
+                            zip_ttm = create_zip_subfolder(selected_session_path, "travel_time_matrix", "travel_time_matrix.zip")
+                            if zip_ttm:
+                                st.download_button(
+                                    label=f"⬇️ Download ({len(ttm_files)} files)",
+                                    data=zip_ttm,
+                                    file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_ttm.zip",
+                                    mime="application/zip",
+                                    use_container_width=True,
+                                    key="dl_ttm"
+                                )
+                        except Exception as e:
+                            st.error(f"Could not prepare download: {str(e)}")
+                    else:
+                        st.info("No travel time matrix in your session yet.")
+
+                        network_csv_folder = os.path.join(selected_instance_path, "csv")
+                        network_ttm_candidates = []
+                        if os.path.exists(network_csv_folder):
+                            network_ttm_candidates = sorted([
+                                f for f in os.listdir(network_csv_folder)
+                                if f.endswith('.csv') and (
+                                    '.tt.drive.csv' in f or 'travel_time' in f.lower()
+                                ) and os.path.isfile(os.path.join(network_csv_folder, f))
+                            ])
+
+                        if network_ttm_candidates:
+                            st.caption("A network travel-time matrix exists. You can create a session copy for download.")
+                        else:
+                            st.caption("No network travel-time matrix found in csv data for this location.")
+
+                        if st.button("⚙️ Create Travel Time Matrix", use_container_width=True, key=f"create_ttm_{selected_instance}"):
+                            if not network_ttm_candidates:
+                                st.error("No network travel-time matrix found in csv data for this location.")
+                            else:
+                                try:
+                                    os.makedirs(ttm_folder, exist_ok=True)
+                                    copied = 0
+                                    for fname in network_ttm_candidates:
+                                        src = os.path.join(network_csv_folder, fname)
+                                        dst_name = f"travel_time_matrix_{fname}"
+                                        dst = os.path.join(ttm_folder, dst_name)
+                                        shutil.copy2(src, dst)
+                                        copied += 1
+
+                                    if copied > 0:
+                                        st.success(f"Created {copied} travel time matrix file(s).")
+                                        st.rerun()
+                                    else:
+                                        st.error("No travel time matrix files were created.")
+                                except Exception as e:
+                                    st.error(f"Could not create travel time matrix: {str(e)}")
+                
+                # --- Column 3: Network data ---
+                with col_net:
+                    st.markdown("### 🌐 Network Data")
+                    st.markdown("Road network, bus stops, distance matrices.")
+                    
+                    csv_folder = os.path.join(selected_instance_path, "csv")
+                    if selected_instance_info['has_network'] and os.path.exists(csv_folder):
+                        for filename in sorted(os.listdir(csv_folder)):
+                            if filename.endswith('.csv') and os.path.isfile(os.path.join(csv_folder, filename)):
+                                fpath = os.path.join(csv_folder, filename)
+                                size_mb = os.path.getsize(fpath) / (1024 * 1024)
+                                st.text(f"📄 {filename} ({size_mb:.1f} MB)")
+                        
+                        st.markdown("")
+                        try:
+                            zip_buffer = BytesIO()
+                            base = Path(selected_instance_path)
+                            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+                                for subfolder in ["csv", "pickle", "graphml_format"]:
+                                    sf_path = base / subfolder
+                                    if sf_path.exists():
+                                        for fp in sf_path.rglob('*'):
+                                            if fp.is_file():
+                                                arcname = fp.relative_to(base)
+                                                zf.write(fp, arcname)
+                            zip_buffer.seek(0)
+                            net_zip = zip_buffer.getvalue()
+                            net_size_mb = len(net_zip) / (1024 * 1024)
+                            
+                            st.download_button(
+                                label=f"⬇️ Download Network ({net_size_mb:.0f} MB)",
+                                data=net_zip,
+                                file_name=f"{selected_instance.replace(' ', '_').replace(',', '')}_network.zip",
+                                mime="application/zip",
+                                use_container_width=True,
+                                key="dl_network"
+                            )
+                        except Exception as e:
+                            st.error(f"Could not prepare download: {str(e)}")
+                    else:
+                        st.info("No network data available.")
+            
+            # ==================== DATA PREVIEW TAB ====================
+            with tab_preview:
                 st.markdown("### 👀 Preview Data")
                 
                 # Check for network data files in csv folder
@@ -661,9 +1114,9 @@ elif page == "View Existing Instances":
                 # Show network data overview if available
                 if network_files:
                     st.markdown("#### 🌐 Network Data")
-                    cols = st.columns(len(network_files))
+                    cols = st.columns(min(len(network_files), 4))
                     for idx, (name, filepath) in enumerate(network_files.items()):
-                        with cols[idx]:
+                        with cols[idx % len(cols)]:
                             try:
                                 df_net = pd.read_csv(filepath)
                                 st.metric(name, len(df_net))
@@ -673,41 +1126,38 @@ elif page == "View Existing Instances":
                                 st.metric(name, "Error")
                     st.markdown("---")
                 
-                # Only show CSV files, not subdirectories
-                all_items = os.listdir(csv_format_folder)
-                csv_files_to_preview = [f for f in all_items if f.endswith('.csv') and os.path.isfile(os.path.join(csv_format_folder, f))]
-                
-                if csv_files_to_preview:
-                    selected_csv = st.selectbox("Select file to preview", csv_files_to_preview)
+                # Show instance CSV files
+                if os.path.exists(csv_format_folder):
+                    all_items = os.listdir(csv_format_folder)
+                    csv_files_to_preview = [f for f in all_items if f.endswith('.csv') and os.path.isfile(os.path.join(csv_format_folder, f))]
                     
-                    if selected_csv:
-                        try:
-                            df = pd.read_csv(os.path.join(csv_format_folder, selected_csv))
-                            st.dataframe(df.head(20), use_container_width=True)
-                            
-                            # Show basic stats
-                            st.markdown("#### Statistics")
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("Rows", len(df))
-                            with col2:
-                                st.metric("Columns", len(df.columns))
-                            with col3:
-                                st.metric("Size", f"{os.path.getsize(os.path.join(csv_format_folder, selected_csv)) / 1024:.1f} KB")
-                            
-                            # Download button
-                            csv_data = df.to_csv(index=False).encode('utf-8')
-                            st.download_button(
-                                label="📥 Download CSV",
-                                data=csv_data,
-                                file_name=selected_csv,
-                                mime="text/csv"
-                            )
-                            
-                        except Exception as e:
-                            st.error(f"Error loading file: {str(e)}")
+                    if csv_files_to_preview:
+                        selected_csv = st.selectbox("Select file to preview", csv_files_to_preview)
+                        
+                        if selected_csv:
+                            try:
+                                df = pd.read_csv(os.path.join(csv_format_folder, selected_csv))
+                                st.dataframe(df.head(20), use_container_width=True)
+                                
+                                # Show basic stats
+                                st.markdown("#### Statistics")
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st.metric("Rows", len(df))
+                                with col2:
+                                    st.metric("Columns", len(df.columns))
+                                with col3:
+                                    st.metric("Size", f"{os.path.getsize(os.path.join(csv_format_folder, selected_csv)) / 1024:.1f} KB")
+                                
+                            except Exception as e:
+                                st.error(f"Error loading file: {str(e)}")
+                    else:
+                        st.info("No instance CSV files to preview.")
+                else:
+                    st.info("No csv_format folder found for this location.")
             
-            with tab2:
+            # ==================== MAP TAB ====================
+            with tab_map:
                 st.markdown("### 🗺️ Request Distribution Map")
                 
                 # Look for requests file in csv_format folder only
@@ -832,7 +1282,7 @@ elif page == "View Existing Instances":
                             if os.path.isfile(os.path.join(csv_format_folder, f)):
                                 st.text(f"  • {f}")
             
-            with tab3:
+            with tab_heatmap:
                 st.markdown("### 🔥 Request Density Heatmap")
                 
                 # Look for requests file in csv_format folder only
@@ -890,45 +1340,284 @@ elif page == "View Existing Instances":
                     Generate a new instance with requests using the "Create New Instance" page.
                     """)
             
-            with tab4:
-                # Show folder structure
-                st.markdown("### 📁 Available Files")
-                col1, col2 = st.columns(2)
+            with tab_solve:
+                # Solve Instance
+                st.markdown("### 🚀 Solve Instance with C++ Solver")
                 
-                with col1:
-                    st.markdown("#### 📊 Instance Files (csv_format)")
+                if not SOLVER_AVAILABLE:
+                    st.warning("⚠️ Solver module not available in this environment. The C++ solver requires a local installation with g++ compiler.")
+                    st.info("To use the solver, run REQreate locally with `solver_utils.py` and the C++ solver source code.")
+                else:
+                    # Check solver availability
+                    solver_config = SolverConfig()
+                
+                    if not solver_config.is_available():
+                        st.info("ℹ️ C++ Solver Not Yet Compiled")
+                        st.info("""
+                        **Don't worry!** When you click "Run Solver" below, the system will:
+                        
+                        1. ✅ Automatically detect your operating system
+                        2. 🔨 Compile the C++ ODBRP solver with the correct flags
+                        3. 🚀 Run the optimization
+                        
+                        **Requirements:**
+                        - Windows: MinGW-w64 (g++ compiler with OpenMP support)
+                        - Linux: build-essential (`sudo apt install build-essential`)
+                        - Mac: Xcode command line tools
+                        
+                        💡 First run will take ~30 seconds to compile, then solve instantly!
+                        """)
+                    else:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.success(f"✅ Solver ready: `{solver_config.solver_path}`")
+                        with col2:
+                            if st.button("🔨 Recompile", help="Force recompilation of the C++ solver (useful after code changes)"):
+                                with st.spinner("Recompiling solver..."):
+                                    import platform
+                                    # Try WSL compilation first on Windows, then fall back to native
+                                    if platform.system() == 'Windows':
+                                        import shutil
+                                        if shutil.which('wsl'):
+                                            from solver_utils import compile_solver_wsl
+                                            result = compile_solver_wsl(progress_callback=st.write)
+                                        else:
+                                            from solver_utils import compile_solver
+                                            result = compile_solver(progress_callback=st.write)
+                                    else:
+                                        from solver_utils import compile_solver
+                                        result = compile_solver(progress_callback=st.write)
+                                        
+                                    if result['status'] == 'success':
+                                        st.success("✅ Solver recompiled successfully!")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"❌ Compilation failed:")
+                                        st.code(result['message'])
+                    
+                    # Always show configuration (auto-compile will happen on button click)
+                    st.markdown("---")
+                    
+                    # Find instance files (ODBRP only)
+                    csv_files = []
                     if os.path.exists(csv_format_folder):
-                        csv_files = sorted([f for f in os.listdir(csv_format_folder) if f.endswith('.csv') and os.path.isfile(os.path.join(csv_format_folder, f))])
-                        for file in csv_files:
-                            file_path = os.path.join(csv_format_folder, file)
-                            file_size = os.path.getsize(file_path) / 1024  # KB
-                            st.text(f"📄 {file} ({file_size:.1f} KB)")
-                
-                with col2:
-                    st.markdown("#### 🗂️ Other Files")
-                    for subfolder in ["pickle", "json_format", "graphml_format", "images", "csv"]:
-                        folder_path = os.path.join(selected_instance_path, subfolder)
-                        if os.path.exists(folder_path):
-                            file_count = len([f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))])
-                            if file_count > 0:
-                                st.text(f"📁 {subfolder}/ ({file_count} files)")
-                
-                # Add download button
-                st.markdown("---")
-                st.markdown("#### 📥 Download Instance")
-                try:
-                    zip_data = create_zip_download(selected_instance_path, f"{selected_instance}.zip")
-                    st.download_button(
-                        label="💾 Download All Files (ZIP)",
-                        data=zip_data,
-                        file_name=f"{selected_instance}_instance.zip",
-                        mime="application/zip",
-                        use_container_width=True
-                    )
-                    st.info("📦 ZIP includes all formats: CSV, JSON, GraphML, pickles, and visualizations")
-                except Exception as e:
-                    st.error(f"⚠️ Could not prepare download: {str(e)}")
-
+                        csv_files = [f for f in os.listdir(csv_format_folder) 
+                                    if f.endswith('.csv') and 'ODBRP' in f and os.path.isfile(os.path.join(csv_format_folder, f))]
+                    
+                    if not csv_files:
+                        st.warning("No CSV files found in this instance.")
+                    else:
+                        # Select instance file to solve
+                        st.markdown("#### 📄 Select Instance File")
+                        selected_file = st.selectbox(
+                            "Instance file:",
+                            csv_files,
+                            help="Select the instance file to solve"
+                        )
+                        
+                        instance_file_path = os.path.join(csv_format_folder, selected_file)
+                        
+                        # Solver parameters
+                        st.markdown("#### ⚙️ ODBRP Solver Parameters")
+                        
+                        # Basic parameters
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            time_limit = st.number_input(
+                                "Time Limit (seconds)",
+                                min_value=1,
+                                max_value=86400,
+                                value=3600,
+                                help="Maximum time for solver to run"
+                            )
+                        with col2:
+                            seed = st.number_input("Random Seed", min_value=0, value=0, help="Seed for reproducibility")
+                        with col3:
+                            number_depots = st.number_input("Number of Depots", min_value=1, max_value=10, value=1)
+                        
+                        # Depot configuration
+                        if number_depots > 1:
+                            st.markdown("**Depot Node IDs:**")
+                            depot_input = st.text_input("Depot IDs (comma-separated)", "0,1,2", help="Node IDs for depot locations")
+                            depot_ids = [int(x.strip()) for x in depot_input.split(',')]
+                        else:
+                            depot_ids = [0]
+                        
+                        # Vehicle configuration
+                        st.markdown("**Vehicle Fleet:**")
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            type_vehicles = st.number_input(
+                                "Vehicle Types", 
+                                min_value=1, 
+                                max_value=3, 
+                                value=1,
+                                help="Number of different vehicle types (e.g., 1 = all same type, 2 = small+large)"
+                            )
+                        with col2:
+                            num_vehicles1 = st.number_input(
+                                "Type 1: # Vehicles", 
+                                min_value=0, 
+                                value=5,
+                                help="Number of vehicles of type 1"
+                            )
+                        with col3:
+                            num_vehicles2 = st.number_input(
+                                "Type 2: # Vehicles", 
+                                min_value=0, 
+                                value=0,
+                                help="Number of vehicles of type 2 (0 if only 1 type)"
+                            )
+                        with col4:
+                            num_vehicles3 = st.number_input(
+                                "Type 3: # Vehicles", 
+                                min_value=0, 
+                                value=0,
+                                help="Number of vehicles of type 3 (0 if only 1 or 2 types)"
+                            )
+                        
+                        # Vehicle capacities
+                        st.markdown("**Vehicle Capacities:**")
+                        if type_vehicles >= 1:
+                            capacity_input = st.text_input("Capacities (comma-separated)", "4,8,12" if type_vehicles >= 3 else ("4,8" if type_vehicles == 2 else "4"))
+                            capacities = [int(x.strip()) for x in capacity_input.split(',')]
+                        else:
+                            capacities = [4]
+                        
+                        # Algorithm parameters
+                        with st.expander("🔬 Advanced Algorithm Parameters"):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                init_temp = st.number_input("Initial Temperature", min_value=0.1, max_value=5.0, value=1.3, step=0.1)
+                                maxnrep = st.number_input("Max Iterations", min_value=100, max_value=10000, value=350, step=50)
+                            with col2:
+                                lambda_param = st.number_input("Lambda (cooling)", min_value=0.1, max_value=0.99, value=0.9, step=0.01)
+                                increase_rep = st.number_input("Increase Rep", min_value=100, max_value=5000, value=800, step=100)
+                        
+                        # Configure solver
+                        solver_config.time_limit = time_limit
+                        solver_config.seed = seed
+                        solver_config.number_depots = number_depots
+                        solver_config.depot_ids = depot_ids
+                        solver_config.type_vehicles = type_vehicles
+                        solver_config.number_vehicles1 = num_vehicles1
+                        solver_config.number_vehicles2 = num_vehicles2
+                        solver_config.number_vehicles3 = num_vehicles3
+                        solver_config.capacity_vehicles = capacities
+                        solver_config.init_temperature = init_temp
+                        solver_config.lambda_param = lambda_param
+                        solver_config.maxnrep = maxnrep
+                        solver_config.increase_rep = increase_rep
+                        
+                        # Output path
+                        solution_folder = os.path.join(selected_session_path, "solutions")
+                        os.makedirs(solution_folder, exist_ok=True)
+                        solution_file = os.path.join(solution_folder, f"solution_{selected_file.replace('.csv', '.txt')}")
+                        
+                        st.markdown("---")
+                        
+                        # Solve button
+                        if st.button("🚀 Run ODBRP Solver", type="primary", use_container_width=True):
+                            progress_placeholder = st.empty()
+                            status_placeholder = st.empty()
+                            
+                            with st.spinner("Running solver..."):
+                                # Run solver
+                                def update_progress(msg):
+                                    progress_placeholder.info(msg)
+                                
+                                result = run_solver(
+                                    instance_file_path,
+                                    solution_file,
+                                    solver_config,
+                                    update_progress
+                                )
+                                
+                                # Display results
+                                if result['status'] == 'success':
+                                    status_placeholder.success(f"✅ Solved in {result['time']:.2f} seconds!")
+                                    
+                                    # Parse and display solution
+                                    solution = parse_solution(solution_file)
+                                    
+                                    if solution and 'error' not in solution:
+                                        st.markdown("---")
+                                        st.markdown("### 📊 Solution Statistics")
+                                        
+                                        # Display statistics
+                                        stats = format_statistics(solution)
+                                        if stats:
+                                            cols = st.columns(len(stats))
+                                            for idx, (key, value) in enumerate(stats.items()):
+                                                with cols[idx]:
+                                                    st.metric(key.replace('_', ' ').title(), f"{value:.2f}" if isinstance(value, float) else value)
+                                        else:
+                                            st.info("No statistics available yet. Solution is being processed...")
+                                        
+                                        # Display solution data
+                                        st.markdown("### 📋 Solution Details")
+                                        if solution.get('format') == 'csv' and 'data' in solution:
+                                            st.dataframe(solution['data'], use_container_width=True)
+                                        elif solution.get('format') == 'json':
+                                            st.json(solution)
+                                        
+                                        # Download solution
+                                        st.markdown("---")
+                                        with open(solution_file, 'rb') as f:
+                                            st.download_button(
+                                                label="💾 Download Solution",
+                                                data=f,
+                                                file_name=f"solution_{selected_file}",
+                                                mime="text/csv" if solution_file.endswith('.csv') else "application/json"
+                                            )
+                                    else:
+                                        st.warning("⚠️ Could not parse solution file")
+                                        if solution and 'error' in solution:
+                                            st.error(solution['error'])
+                                    
+                                    # Show solver output
+                                    if result.get('stdout'):
+                                        with st.expander("📄 Solver Output"):
+                                            st.code(result['stdout'])
+                                    
+                                    # Show command that was run
+                                    if result.get('command'):
+                                        with st.expander("🔧 Command Executed"):
+                                            st.code(result['command'], language='bash')
+                                    
+                                elif result['status'] == 'timeout':
+                                    status_placeholder.error(f"⏱️ {result['message']}")
+                                else:
+                                    status_placeholder.error(f"❌ {result['message']}")
+                                    
+                                    # Show debug log location if available
+                                    if result.get('debug_log'):
+                                        st.info(f"📋 Debug log saved to: `{result['debug_log']}`")
+                                    
+                                    # Show command and errors
+                                    if result.get('command'):
+                                        with st.expander("🔧 Command Executed"):
+                                            st.code(result['command'], language='bash')
+                                    
+                                    if result.get('stderr'):
+                                        with st.expander("🔍 Error Details (stderr)"):
+                                            st.code(result['stderr'])
+                                    
+                                    if result.get('stdout'):
+                                        with st.expander("📄 Solver Output (stdout)"):
+                                            st.code(result['stdout'])
+                        
+                        # Check for existing solutions
+                        if os.path.exists(solution_folder):
+                            solution_files = [f for f in os.listdir(solution_folder) if f.endswith(('.csv', '.json'))]
+                            if solution_files:
+                                st.markdown("---")
+                                st.markdown("### 📂 Previous Solutions")
+                                for sol_file in solution_files:
+                                    sol_path = os.path.join(solution_folder, sol_file)
+                                    sol_size = os.path.getsize(sol_path) / 1024
+                                    st.text(f"📄 {sol_file} ({sol_size:.1f} KB)")
+            
 elif page == "Documentation":
     st.header("📚 Documentation")
     
