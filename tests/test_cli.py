@@ -95,6 +95,33 @@ class GenerateCliTests(unittest.TestCase):
         self.assertIn(os.path.abspath("configs/a.json"), stderr.getvalue())
         self.assertIn(os.path.abspath("configs/a.json"), stdout.getvalue())
 
+    def test_network_command_builds_named_network(self):
+        with patch("REQreate.retrieve_network.build_network") as build_network:
+            result = cli.main(["network", "Test City", "--fixed-lines", "osm"])
+
+        self.assertEqual(result, 0)
+        build_network.assert_called_once_with(
+            "Test City", point=None, dist=None, get_fixed_lines="osm"
+        )
+
+    def test_network_command_parses_point_and_radius(self):
+        with patch("REQreate.retrieve_network.build_network") as build_network:
+            result = cli.main(
+                ["network", "Test City", "--point", "4.4", "51.2", "--dist", "1200"]
+            )
+
+        self.assertEqual(result, 0)
+        build_network.assert_called_once_with(
+            "Test City", point=(4.4, 51.2), dist=1200.0, get_fixed_lines=None
+        )
+
+    def test_network_command_requires_point_and_radius_together(self):
+        with patch("REQreate.retrieve_network.build_network") as build_network:
+            with self.assertRaises(SystemExit) as error:
+                cli.main(["network", "Test City", "--point", "4.4", "51.2"])
+        build_network.assert_not_called()
+        self.assertEqual(error.exception.code, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

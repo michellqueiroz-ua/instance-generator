@@ -54,6 +54,7 @@ from .fixed_lines import get_fixed_lines_deconet
 from .fixed_lines import get_fixed_lines_osm
 from .fixed_lines import plot_fixed_lines
 from .output_files import JsonConverter
+from .output_files import output_fixed_route_network
 from .retrieve_bus_stations import filter_bus_stations
 from .retrieve_bus_stations import get_bus_stations_matrix_csv
 from .retrieve_bus_stations import plot_bus_stations
@@ -70,6 +71,65 @@ from .request_distribution_class import RequestDistributionTime
 from .rank_model import build_zone_grid
 from .logger_utils import get_logger
 from .overpass_config import configure_overpass
+
+
+def _validate_network_name(place_name):
+    if (
+        not isinstance(place_name, str)
+        or not place_name.strip()
+        or place_name in {".", ".."}
+        or os.path.basename(place_name) != place_name
+        or "\\" in place_name
+        or "\0" in place_name
+        or any(char in place_name for char in '<>:"|?*')
+        or place_name.endswith((" ", "."))
+    ):
+        raise ValueError("Network name must be a non-empty folder name without path separators")
+    return place_name
+
+
+def _safe_network_path(place_name, *parts):
+    base_dir = os.path.abspath(os.getcwd())
+    candidate = os.path.abspath(os.path.normpath(os.path.join(base_dir, place_name, *parts)))
+    if os.path.commonpath([base_dir, candidate]) != base_dir:
+        raise ValueError("Resolved network path escapes the allowed base directory")
+    return candidate
+
+
+def build_network(
+    place_name,
+    *,
+    point=None,
+    dist=None,
+    get_fixed_lines=None,
+    max_speed_factor=0.5,
+    vehicle_speed_data="max",
+    vehicle_speed=None,
+):
+    """Download, build, and save a network without generating an instance."""
+    place_name = _validate_network_name(place_name)
+    graph_from_point = point is not None
+    lon, lat = point if graph_from_point else (-1, -1)
+    network = download_network_information(
+        place_name=place_name,
+        vehicle_speed_data=vehicle_speed_data,
+        vehicle_speed=vehicle_speed,
+        max_speed_factor=max_speed_factor,
+        get_fixed_lines=get_fixed_lines,
+        graph_from_point=graph_from_point,
+        lon=lon,
+        lat=lat,
+        dist=dist if graph_from_point else -1,
+    )
+
+    if get_fixed_lines is not None:
+        save_dir_fr = _safe_network_path(place_name, "fr_network")
+        os.makedirs(save_dir_fr, exist_ok=True)
+        output_fixed_route_network(
+            output_file_name=_safe_network_path(place_name, "fr_network", place_name + ".frn"),
+            network=network,
+        )
+    return network
        
 def download_network_information(
     place_name,
@@ -87,6 +147,7 @@ def download_network_information(
     dist=0
 ):
 
+    place_name = _validate_network_name(place_name)
     warnings.filterwarnings(action="ignore")
     '''
     download and compute several information from "place_name"
