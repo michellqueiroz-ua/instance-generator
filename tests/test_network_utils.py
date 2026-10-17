@@ -28,6 +28,12 @@ class NetworkListingTests(unittest.TestCase):
 
 
 class BuildNetworkTests(unittest.TestCase):
+    def test_build_network_rejects_path_traversal(self):
+        with patch("REQreate.retrieve_network.download_network_information") as download:
+            with self.assertRaisesRegex(ValueError, "without path separators"):
+                build_network("../outside")
+        download.assert_not_called()
+
     @patch("REQreate.retrieve_network.download_network_information")
     def test_build_network_forwards_network_settings_without_generating_instance(
         self, download

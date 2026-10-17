@@ -73,6 +73,19 @@ from .logger_utils import get_logger
 from .overpass_config import configure_overpass
 
 
+def _validate_network_name(place_name):
+    if (
+        not isinstance(place_name, str)
+        or not place_name.strip()
+        or place_name in {".", ".."}
+        or os.path.basename(place_name) != place_name
+        or "\\" in place_name
+        or "\0" in place_name
+    ):
+        raise ValueError("Network name must be a non-empty folder name without path separators")
+    return place_name
+
+
 def build_network(
     place_name,
     *,
@@ -84,6 +97,7 @@ def build_network(
     vehicle_speed=None,
 ):
     """Download, build, and save a network without generating an instance."""
+    place_name = _validate_network_name(place_name)
     graph_from_point = point is not None
     lon, lat = point if graph_from_point else (-1, -1)
     network = download_network_information(
@@ -123,6 +137,7 @@ def download_network_information(
     dist=0
 ):
 
+    place_name = _validate_network_name(place_name)
     warnings.filterwarnings(action="ignore")
     '''
     download and compute several information from "place_name"
