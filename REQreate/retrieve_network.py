@@ -81,6 +81,8 @@ def _validate_network_name(place_name):
         or os.path.basename(place_name) != place_name
         or "\\" in place_name
         or "\0" in place_name
+        or any(char in place_name for char in '<>:"|?*')
+        or place_name.endswith((" ", "."))
     ):
         raise ValueError("Network name must be a non-empty folder name without path separators")
     return place_name

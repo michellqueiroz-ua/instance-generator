@@ -34,6 +34,25 @@ class BuildNetworkTests(unittest.TestCase):
                 build_network("../outside")
         download.assert_not_called()
 
+    def test_build_network_rejects_windows_invalid_folder_names(self):
+        invalid_names = (
+            "invalid<name",
+            "invalid>name",
+            "invalid:name",
+            'invalid"name',
+            "invalid|name",
+            "invalid?name",
+            "invalid*name",
+            "trailing-space ",
+            "trailing-dot.",
+        )
+        with patch("REQreate.retrieve_network.download_network_information") as download:
+            for name in invalid_names:
+                with self.subTest(name=name):
+                    with self.assertRaisesRegex(ValueError, "without path separators"):
+                        build_network(name)
+        download.assert_not_called()
+
     @patch("REQreate.retrieve_network.download_network_information")
     def test_build_network_forwards_network_settings_without_generating_instance(
         self, download
