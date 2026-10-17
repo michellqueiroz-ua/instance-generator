@@ -86,6 +86,14 @@ def _validate_network_name(place_name):
     return place_name
 
 
+def _safe_network_path(place_name, *parts):
+    base_dir = os.path.abspath(os.getcwd())
+    candidate = os.path.abspath(os.path.normpath(os.path.join(base_dir, place_name, *parts)))
+    if os.path.commonpath([base_dir, candidate]) != base_dir:
+        raise ValueError("Resolved network path escapes the allowed base directory")
+    return candidate
+
+
 def build_network(
     place_name,
     *,
@@ -113,10 +121,10 @@ def build_network(
     )
 
     if get_fixed_lines is not None:
-        save_dir_fr = os.path.join(os.getcwd(), place_name, "fr_network")
+        save_dir_fr = _safe_network_path(place_name, "fr_network")
         os.makedirs(save_dir_fr, exist_ok=True)
         output_fixed_route_network(
-            output_file_name=os.path.join(save_dir_fr, place_name + ".frn"),
+            output_file_name=_safe_network_path(place_name, "fr_network", place_name + ".frn"),
             network=network,
         )
     return network
