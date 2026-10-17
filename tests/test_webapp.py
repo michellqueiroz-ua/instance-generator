@@ -7,6 +7,7 @@ from datetime import time
 from pathlib import Path
 from unittest.mock import patch
 
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from REQreate.webapp.attribute_library import get_required_attributes
@@ -32,6 +33,13 @@ class WebAppTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         sys.path.remove(str(APP_PATH.parent))
+
+    def test_instance_form_disables_enter_submission(self):
+        # AppTest cannot simulate Enter, so check the form's submission setting.
+        with patch("streamlit.form", wraps=st.form) as form:
+            app = AppTest.from_file(str(APP_PATH)).run()
+        self.assertEqual(len(app.exception), 0)
+        form.assert_called_once_with("instance_form", enter_to_submit=False)
 
     def test_patient_transport_hidden_by_default(self):
         with patch.dict(os.environ, {}, clear=False):
