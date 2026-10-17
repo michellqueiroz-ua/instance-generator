@@ -13,9 +13,8 @@ import pickle
 from .instance_class import Instance
 from .parameters_class import Parameters
 from .output_files import JsonConverter
-from .output_files import output_fixed_route_network
 from pathlib import Path
-from .retrieve_network import download_network_information
+from .retrieve_network import build_network
 from .rank_model import add_poi_density, add_zone_probabilities
 from .compute_distance_matrix import _get_distance_matrix
 from shapely.geometry import Point
@@ -163,16 +162,16 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 lat = -1
                 dist = -1
 
-            network = download_network_information(place_name=place_name, vehicle_speed_data=vehicle_speed_data, vehicle_speed=vehicle_speed, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines, graph_from_point=graph_from_point, lon=lon, lat=lat, dist=dist)
-
-            save_dir_fr = os.path.join(save_dir, 'fr_network')
-            if not os.path.isdir(save_dir_fr):
-                os.mkdir(save_dir_fr)
-
-            output_name_fr = place_name+'.frn'
-
-            if get_fixed_lines is not None:
-                output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)
+            point = (lon, lat) if graph_from_point else None
+            network = build_network(
+                place_name,
+                point=point,
+                dist=dist if graph_from_point else None,
+                get_fixed_lines=get_fixed_lines,
+                max_speed_factor=max_speed_factor,
+                vehicle_speed_data=vehicle_speed_data,
+                vehicle_speed=vehicle_speed,
+            )
 
             inst = Instance(folder_to_network=place_name)
 

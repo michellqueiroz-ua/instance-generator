@@ -25,6 +25,12 @@ class WebAppTests(unittest.TestCase):
     def widget(app, kind, label):
         return next(widget for widget in getattr(app, kind) if widget.label == label)
 
+    @staticmethod
+    def make_network(directory, name):
+        pickle_dir = Path(directory) / name / "pickle"
+        pickle_dir.mkdir(parents=True)
+        (pickle_dir / f"{name}.network.class.pkl").touch()
+
     @classmethod
     def setUpClass(cls):
         # The app imports its sibling modules as top-level modules when launched by Streamlit.
@@ -36,15 +42,56 @@ class WebAppTests(unittest.TestCase):
 
     def test_instance_form_disables_enter_submission(self):
         # AppTest cannot simulate Enter, so check the form's submission setting.
-        with patch("streamlit.form", wraps=st.form) as form:
-            app = AppTest.from_file(str(APP_PATH)).run()
+        with tempfile.TemporaryDirectory() as directory:
+            self.make_network(directory, "Test City")
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                with patch("streamlit.form", wraps=st.form) as form:
+                    app = AppTest.from_file(str(APP_PATH)).run()
+            finally:
+                os.chdir(previous_dir)
         self.assertEqual(len(app.exception), 0)
         form.assert_called_once_with("instance_form", enter_to_submit=False)
 
+    def test_instance_generation_requires_a_built_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
+            finally:
+                os.chdir(previous_dir)
+
+        self.assertEqual(len(app.exception), 0)
+        self.assertTrue(any("No networks yet" in item.value for item in app.info))
+        self.assertFalse(any(widget.label == "🚀 Generate Instance" for widget in app.button))
+
+    def test_network_form_disables_enter_submission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                with patch("streamlit.form", wraps=st.form) as form:
+                    app = AppTest.from_file(str(APP_PATH)).run()
+                    self.widget(app, "radio", "Navigation").set_value("Networks").run()
+            finally:
+                os.chdir(previous_dir)
+
+        self.assertEqual(len(app.exception), 0)
+        form.assert_called_once_with("network_form", enter_to_submit=False)
+
     def test_patient_transport_hidden_by_default(self):
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("REQREATE_ENABLE_PATIENT_TRANSPORT", None)
-            app = AppTest.from_file(str(APP_PATH)).run()
+        with tempfile.TemporaryDirectory() as directory:
+            self.make_network(directory, "Test City")
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                with patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop("REQREATE_ENABLE_PATIENT_TRANSPORT", None)
+                    app = AppTest.from_file(str(APP_PATH)).run()
+            finally:
+                os.chdir(previous_dir)
         self.assertEqual(len(app.exception), 0)
         self.assertEqual(
             self.widget(app, "selectbox", "Select Problem Type").options, ["DARP", "ODBRP"]
@@ -52,19 +99,29 @@ class WebAppTests(unittest.TestCase):
 
     @patch.dict(os.environ, ENABLE_PATIENT_TRANSPORT)
     def test_renders_and_switches_problem_types(self):
-        app = AppTest.from_file(str(APP_PATH)).run()
-        self.assertEqual(len(app.exception), 0)
-
-        for problem in ("DARP", "ODBRP", "Patient Transport"):
-            with self.subTest(problem=problem):
-                self.widget(app, "selectbox", "Select Problem Type").set_value(problem).run()
+        with tempfile.TemporaryDirectory() as directory:
+            self.make_network(directory, "Test City")
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
                 self.assertEqual(len(app.exception), 0)
-                self.assertEqual(self.widget(app, "selectbox", "Select Problem Type").value, problem)
-                self.assertTrue(
-                    set(get_required_attributes(problem)).issubset(
-                        self.widget(app, "multiselect", "Select attributes to include:").value
-                    )
-                )
+
+                for problem in ("DARP", "ODBRP", "Patient Transport"):
+                    with self.subTest(problem=problem):
+                        self.widget(app, "selectbox", "Select Problem Type").set_value(problem).run()
+                        self.assertEqual(len(app.exception), 0)
+                        self.assertEqual(
+                            self.widget(app, "selectbox", "Select Problem Type").value,
+                            problem,
+                        )
+                        self.assertTrue(
+                            set(get_required_attributes(problem)).issubset(
+                                self.widget(app, "multiselect", "Select attributes to include:").value
+                            )
+                        )
+            finally:
+                os.chdir(previous_dir)
 
     def test_output_folder_defaults_to_submitted_location(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -72,8 +129,9 @@ class WebAppTests(unittest.TestCase):
                 previous_dir = os.getcwd()
                 try:
                     os.chdir(directory)
+                    self.make_network(directory, "Antwerp, Belgium")
                     app = AppTest.from_file(str(APP_PATH)).run()
-                    self.widget(app, "text_input", "Location (City, Country)").set_value("Antwerp, Belgium")
+                    self.widget(app, "selectbox", "Built Network").set_value("Antwerp, Belgium")
                     self.widget(app, "button", "🚀 Generate Instance").click().run()
 
                     self.assertEqual(len(app.exception), 0)
@@ -96,12 +154,13 @@ class WebAppTests(unittest.TestCase):
                     previous_dir = os.getcwd()
                     try:
                         os.chdir(directory)
+                        self.make_network(directory, "Testville, Country")
                         app = AppTest.from_file(str(APP_PATH)).run()
                         self.widget(app, "selectbox", "Select Problem Type").set_value(problem).run()
                         if problem == "Patient Transport":
                             selected = self.widget(app, "multiselect", "Select attributes to include:")
                             selected.set_value(selected.value + ["max_ride_time"]).run()
-                        self.widget(app, "text_input", "Location (City, Country)").set_value("Testville, Country")
+                        self.widget(app, "selectbox", "Built Network").set_value("Testville, Country")
                         self.assertEqual(len(app.exception), 0)
                         self.widget(app, "text_input", "Output Folder Name").set_value("offline-test")
                         self.widget(app, "number_input", "Number of Requests").set_value(23)

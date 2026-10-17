@@ -54,6 +54,7 @@ from .fixed_lines import get_fixed_lines_deconet
 from .fixed_lines import get_fixed_lines_osm
 from .fixed_lines import plot_fixed_lines
 from .output_files import JsonConverter
+from .output_files import output_fixed_route_network
 from .retrieve_bus_stations import filter_bus_stations
 from .retrieve_bus_stations import get_bus_stations_matrix_csv
 from .retrieve_bus_stations import plot_bus_stations
@@ -70,6 +71,41 @@ from .request_distribution_class import RequestDistributionTime
 from .rank_model import build_zone_grid
 from .logger_utils import get_logger
 from .overpass_config import configure_overpass
+
+
+def build_network(
+    place_name,
+    *,
+    point=None,
+    dist=None,
+    get_fixed_lines=None,
+    max_speed_factor=0.5,
+    vehicle_speed_data="max",
+    vehicle_speed=None,
+):
+    """Download, build, and save a network without generating an instance."""
+    graph_from_point = point is not None
+    lon, lat = point if graph_from_point else (-1, -1)
+    network = download_network_information(
+        place_name=place_name,
+        vehicle_speed_data=vehicle_speed_data,
+        vehicle_speed=vehicle_speed,
+        max_speed_factor=max_speed_factor,
+        get_fixed_lines=get_fixed_lines,
+        graph_from_point=graph_from_point,
+        lon=lon,
+        lat=lat,
+        dist=dist if graph_from_point else -1,
+    )
+
+    if get_fixed_lines is not None:
+        save_dir_fr = os.path.join(os.getcwd(), place_name, "fr_network")
+        os.makedirs(save_dir_fr, exist_ok=True)
+        output_fixed_route_network(
+            output_file_name=os.path.join(save_dir_fr, place_name + ".frn"),
+            network=network,
+        )
+    return network
        
 def download_network_information(
     place_name,

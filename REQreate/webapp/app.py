@@ -10,6 +10,7 @@ from map_utils import create_request_map, create_heatmap
 import ast
 import re
 from attribute_library import get_attributes_for_problem, get_required_attributes, build_attributes_list
+from REQreate.webapp.network_utils import list_networks
 import zipfile
 import shutil
 from io import BytesIO
@@ -71,10 +72,77 @@ This tool downloads OpenStreetMap data and creates synthetic passenger requests 
 """)
 
 # Sidebar for navigation
-page = st.sidebar.radio("Navigation", ["Create New Instance", "View Existing Instances", "Documentation"])
+page = st.sidebar.radio(
+    "Navigation",
+    ["Create New Instance", "Networks", "View Existing Instances", "Documentation"],
+)
 
-if page == "Create New Instance":
+if page == "Networks":
+    st.header("Networks")
+    networks = list_networks()
+    if networks:
+        st.dataframe(
+            [
+                {
+                    "Network": network["name"],
+                    "Last modified": network["modified"],
+                    "Folder size": f'{network["size_bytes"] / 1024 ** 2:.1f} MB',
+                }
+                for network in networks
+            ],
+            hide_index=True,
+            use_container_width=True,
+        )
+    else:
+        st.info("No networks have been built yet.")
+
+    with st.form("network_form", enter_to_submit=False):
+        st.subheader("Download network")
+        place_name = st.text_input(
+            "Place or network name",
+            placeholder="e.g., Maastricht, Netherlands",
+        )
+        source = st.radio("Build from", ["Place name", "Point and radius"])
+        point = None
+        dist = None
+        if source == "Point and radius":
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                lon = st.number_input("Longitude", value=4.4777, format="%.6f")
+            with col2:
+                lat = st.number_input("Latitude", value=50.9307, format="%.6f")
+            with col3:
+                dist = st.number_input("Radius (meters)", min_value=1, value=1000)
+            point = (lon, lat)
+        fixed_lines = st.selectbox("Public transport fixed lines", ["None", "osm"])
+        build_submitted = st.form_submit_button("Download network")
+
+    if build_submitted:
+        if not place_name.strip():
+            st.error("Enter a place or network name.")
+        else:
+            try:
+                from REQreate.retrieve_network import build_network
+
+                build_network(
+                    place_name.strip(),
+                    point=point,
+                    dist=dist,
+                    get_fixed_lines=None if fixed_lines == "None" else fixed_lines,
+                )
+                st.success(f"Network built successfully: {place_name.strip()}")
+                st.rerun()
+            except Exception as error:
+                st.error(f"Network build failed: {error}")
+                st.exception(error)
+
+elif page == "Create New Instance":
     st.header("Create New Instance")
+    built_networks = list_networks()
+    if not built_networks:
+        st.info("No networks yet: download one on the Networks page")
+        st.stop()
+    network_options = [network["name"] for network in built_networks]
     
     # Problem Type Selection - OUTSIDE FORM for immediate updates
     st.subheader("🎯 Problem Type")
@@ -245,26 +313,26 @@ if page == "Create New Instance":
     st.markdown("---")
     
     with st.form("instance_form", enter_to_submit=False):
-        st.subheader("📍 Location Settings")
+        st.subheader("📍 Network and Output")
         col1, col2 = st.columns(2)
         
         with col1:
-            place_name = st.text_input(
-                "Location (City, Country)",
-                value="Maastricht, Netherlands",
-                help="Enter the location in the format: City, Country"
+            place_name = st.selectbox(
+                "Built Network",
+                network_options,
+                help="Choose a network built on the Networks page",
             )
             
         with col2:
             output_name = st.text_input(
                 "Output Folder Name",
                 value="",
-                placeholder="Defaults to the location name",
+                placeholder="Defaults to the network name",
                 key="output_name",
-                help="Name for the output folder (defaults to location name)"
+                help="Name for the output folder (defaults to network name)"
             )
         
-        st.subheader("🚍 Network Settings")
+        st.subheader("🚍 Vehicle and Routing Settings")
         col1, col2 = st.columns(2)
         
         with col1:
@@ -939,15 +1007,15 @@ elif page == "Documentation":
     
     ### Quick Start
     
-    1. **Go to "Create New Instance"**
-    2. **Enter your location** (e.g., "Maastricht, Netherlands")
-    3. **Configure parameters** (or use defaults)
-    4. **Click "Generate Instance"**
-    5. **Wait for completion** (typically 5-15 minutes)
+    1. **Go to "Networks"** and download a network by place name or point and radius.
+    2. **Go to "Create New Instance"** and select one of the built networks.
+    3. **Configure instance parameters** (or use defaults).
+    4. **Click "Generate Instance"** and wait for completion.
     
     ### Key Parameters
     
-    - **Location**: City and country name (as it appears in OpenStreetMap)
+    - **Network**: Select a network already built on the Networks page.
+    - **Vehicle speed**: Set for each instance; it does not change the saved network.
     - **Number of Requests**: How many passenger requests to generate
     - **Time Window**: When requests should occur
     - **Dynamism**: 0 = all requests known in advance, 1 = all arrive during operation
@@ -975,7 +1043,7 @@ elif page == "Documentation":
     
     - **Generation takes too long**: Reduce number of requests or bus stations
     - **Out of memory**: Use smaller area or fewer zones
-    - **Network not found**: Check location name spelling (must match OpenStreetMap)
+    - **No networks listed**: Download a network from the Networks page first.
     
     ### Requirements
     
