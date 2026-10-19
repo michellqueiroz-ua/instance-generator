@@ -215,6 +215,49 @@ class JobQueueTests(unittest.TestCase):
             if orphan.is_running():
                 orphan.kill()
 
+    def test_crash_before_identity_is_saved_does_not_execute_cli_job(self):
+        self.queue.close()
+        script = (
+            "import os, sys, time\n"
+            "from pathlib import Path\n"
+            "from REQreate.webapp.job_queue import JobQueue\n"
+            "queue = JobQueue(Path.cwd())\n"
+            "queue._command = lambda job: [sys.executable, '-u', '-m', 'REQreate.cli', '--version']\n"
+            "save = queue._save\n"
+            "def crash_before_save(job):\n"
+            " if job.get('pid'):\n"
+            "  Path('uncommitted_pid').write_text(str(job['pid']))\n"
+            "  os._exit(0)\n"
+            " save(job)\n"
+            "queue._save = crash_before_save\n"
+            "queue.submit_network('uncommitted')\n"
+            "while True: time.sleep(0.02)\n"
+        )
+        subprocess.run([sys.executable, "-c", script], cwd=self.directory, check=True, timeout=10)
+        pid = int((self.directory / "uncommitted_pid").read_text())
+
+        def exited():
+            try:
+                return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+            except psutil.NoSuchProcess:
+                return True
+
+        self.wait_for(exited)
+        record = json.loads(next((self.directory / "queue").glob("*.json")).read_text())
+        self.assertIsNone(record["pid"])
+        self.assertEqual(Path(record["log_path"]).read_text(), "")
+        self.queue = JobQueue(self.directory)
+        self.assertEqual(self.queue.jobs()[0]["status"], "interrupted")
+
+    def test_cli_gate_released_after_identity_is_saved(self):
+        self.commands["version"] = [sys.executable, "-u", "-m", "REQreate.cli", "--version"]
+        job, _ = self.queue.submit_network("version")
+        self.wait_for(lambda: self.status(job) == "done")
+        self.assertIn("reqreate", self.queue.tail(job["id"]).lower())
+        record = json.loads((self.directory / "queue" / f'{job["id"]}.json').read_text())
+        self.assertIsNotNone(record["pid"])
+        self.assertIsNotNone(record["process_created"])
+
     def test_generate_snapshots_config_without_changing_output_basename(self):
         config = self.directory / "example.json"
         config.write_text('{"network": "First city"}')

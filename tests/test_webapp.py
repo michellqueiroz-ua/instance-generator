@@ -40,6 +40,7 @@ class WebAppTests(unittest.TestCase):
         self.queue_patch = patch("REQreate.webapp.job_queue.JobQueue")
         self.queue_factory = self.queue_patch.start()
         self.queue = self.queue_factory.return_value
+        self.queue._closed = False
         self.queue.submit_generate.return_value = ({"id": "test-job"}, 1)
         self.queue.submit_network.return_value = ({"id": "test-network"}, 2)
         self.queue.jobs.return_value = []
@@ -270,6 +271,7 @@ class WebAppTests(unittest.TestCase):
             try:
                 os.chdir(directory)
                 first = AppTest.from_file(str(APP_PATH)).run()
+                st.cache_resource.clear()
                 second = AppTest.from_file(str(APP_PATH)).run()
                 self.assertEqual(len(first.exception), 0)
                 self.assertEqual(len(second.exception), 0)

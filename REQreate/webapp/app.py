@@ -1,5 +1,4 @@
 import streamlit as st
-import atexit
 import json
 import os
 import subprocess
@@ -12,7 +11,7 @@ import ast
 import re
 from attribute_library import get_attributes_for_problem, get_required_attributes, build_attributes_list
 from REQreate.webapp.network_utils import list_networks
-from REQreate.webapp.job_queue import JobQueue
+from REQreate.webapp.job_queue import get_job_queue
 from datetime import datetime, timezone
 import zipfile
 import shutil
@@ -73,13 +72,6 @@ st.markdown("""
 Generate realistic on-demand transportation instances based on real-world network data.
 This tool downloads OpenStreetMap data and creates synthetic passenger requests for your specified location.
 """)
-
-@st.cache_resource
-def get_job_queue(working_directory):
-    queue = JobQueue(working_directory)
-    atexit.register(queue.close)
-    return queue
-
 
 job_queue = get_job_queue(str(Path.cwd().resolve()))
 

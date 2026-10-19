@@ -1,6 +1,7 @@
 """Persistent, single-worker job queue, independent of Streamlit."""
 
 import copy
+import atexit
 import json
 import os
 import signal
@@ -16,6 +17,20 @@ import psutil
 
 
 FINISHED = {"done", "failed", "cancelled", "interrupted"}
+_queues = {}
+_queues_lock = threading.Lock()
+
+
+def get_job_queue(working_directory):
+    """Keep one owner even if Streamlit's resource cache is cleared."""
+    directory = str(Path(working_directory).resolve())
+    with _queues_lock:
+        queue = _queues.get(directory)
+        if queue is None or queue._closed:
+            queue = JobQueue(directory)
+            _queues[directory] = queue
+            atexit.register(queue.close)
+        return queue
 
 
 def _now():
@@ -213,7 +228,8 @@ class JobQueue:
                         )
                         self._process = subprocess.Popen(
                             self._command(job), cwd=self.working_directory,
-                            stdout=log, stderr=subprocess.STDOUT, **options,
+                            stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT,
+                            env={**os.environ, "_REQREATE_QUEUE_GATE": "1"}, **options,
                         )
                         try:
                             self._process_created = psutil.Process(self._process.pid).create_time()
@@ -221,7 +237,20 @@ class JobQueue:
                             self._process_created = None
                         job.update(pid=self._process.pid, process_created=self._process_created)
                         self._save(job)
+                        try:
+                            self._process.stdin.write(b"\x01")
+                            self._process.stdin.close()
+                        except BrokenPipeError:
+                            pass
                 except Exception as error:
+                    if self._process is not None:
+                        # EOF releases an uncommitted CLI child without executing the job.
+                        try:
+                            self._process.stdin.close()
+                        except BrokenPipeError:
+                            pass
+                        self._process.wait()
+                        self._process = None
                     with open(job["log_path"], "a", encoding="utf-8") as log:
                         log.write(f"Could not start job: {error}\n")
                     job.update(status="failed", finished=_now())
