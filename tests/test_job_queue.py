@@ -252,6 +252,15 @@ class JobQueueTests(unittest.TestCase):
             )
             self.queue.cancel(job["id"])
 
+    def test_submission_uses_form_config_even_if_shared_file_was_overwritten(self):
+        config = self.directory / "example.json"
+        config.write_text('{"network": "Other browser"}')
+        with self.queue._condition:
+            job, _ = self.queue.submit_generate(config, configuration={"network": "This browser"})
+            snapshot = Path(job["parameters"]["config"])
+            self.assertEqual(json.loads(snapshot.read_text()), {"network": "This browser"})
+            self.queue.cancel(job["id"])
+
 
 if __name__ == "__main__":
     unittest.main()

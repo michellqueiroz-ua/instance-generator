@@ -649,7 +649,7 @@ elif page == "Create New Instance":
                 st.json(config)
             
             try:
-                job, position = job_queue.submit_generate(config_path)
+                job, position = job_queue.submit_generate(config_path, configuration=config)
                 st.success(f"Added to the queue (position {position})")
                 st.info("Follow progress on the Queue page; download results from View Existing Instances.")
             except Exception as e:

@@ -38,7 +38,8 @@ class WebAppTests(unittest.TestCase):
 
     def setUp(self):
         self.queue_patch = patch("REQreate.webapp.job_queue.JobQueue")
-        self.queue = self.queue_patch.start().return_value
+        self.queue_factory = self.queue_patch.start()
+        self.queue = self.queue_factory.return_value
         self.queue.submit_generate.return_value = ({"id": "test-job"}, 1)
         self.queue.submit_network.return_value = ({"id": "test-network"}, 2)
         self.queue.jobs.return_value = []
@@ -152,7 +153,7 @@ class WebAppTests(unittest.TestCase):
                         config = json.load(config_file)
                     generate.assert_not_called()
                     self.queue.submit_generate.assert_called_once_with(
-                        str(Path("examples/webapp_instances") / config_name)
+                        str(Path("examples/webapp_instances") / config_name), configuration=config
                     )
                     self.assertTrue(any(
                         "Added to the queue (position 1)" in item.value for item in app.success
@@ -195,7 +196,9 @@ class WebAppTests(unittest.TestCase):
                         with config_path.open() as config_file:
                             config = json.load(config_file)
                         generate.assert_not_called()
-                        self.queue.submit_generate.assert_called_once_with(str(config_path))
+                        self.queue.submit_generate.assert_called_once_with(
+                            str(config_path), configuration=config
+                        )
                         self.assertEqual(config["network"], "Testville, Country")
                         self.assertEqual(config["problem"], "ODBRP" if problem == "ODBRP" else "DARP")
                         self.assertEqual(config["seed"], 4)
@@ -257,6 +260,41 @@ class WebAppTests(unittest.TestCase):
                 self.queue.resume.assert_called_once()
                 self.widget(app, "button", "Clear finished").click().run()
                 self.queue.clear_finished.assert_called_once()
+                self.assertEqual(len(app.exception), 0)
+            finally:
+                os.chdir(previous_dir)
+
+    def test_worker_is_shared_across_browser_sessions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                first = AppTest.from_file(str(APP_PATH)).run()
+                second = AppTest.from_file(str(APP_PATH)).run()
+                self.assertEqual(len(first.exception), 0)
+                self.assertEqual(len(second.exception), 0)
+                self.queue_factory.assert_called_once_with(str(Path(directory).resolve()))
+            finally:
+                os.chdir(previous_dir)
+
+    def test_queue_shows_running_log_and_can_cancel(self):
+        self.queue.jobs.return_value = [{
+            "id": "running12345", "type": "network",
+            "parameters": {"place": "Test City"}, "status": "running",
+            "created": "2026-01-01T00:00:00+00:00",
+            "started": "2026-01-01T00:00:01+00:00", "finished": None, "exit_code": None,
+        }]
+        self.queue.tail.return_value = "Network progress"
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
+                self.widget(app, "radio", "Navigation").set_value("Queue").run()
+                self.assertEqual(len(app.exception), 0)
+                self.assertTrue(any("Network progress" in item.value for item in app.code))
+                self.widget(app, "button", "Cancel network running1").click().run()
+                self.queue.cancel.assert_called_once_with("running12345")
                 self.assertEqual(len(app.exception), 0)
             finally:
                 os.chdir(previous_dir)

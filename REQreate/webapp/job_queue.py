@@ -87,14 +87,16 @@ class JobQueue:
             "place": place, "point": point, "dist": dist, "fixed_lines": fixed_lines,
         })
 
-    def submit_generate(self, config_path):
+    def submit_generate(self, config_path, configuration=None):
         config_path = Path(config_path).resolve()
-        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config = configuration if configuration is not None else json.loads(
+            config_path.read_text(encoding="utf-8")
+        )
         job_id = uuid.uuid4().hex
         # Keep the basename (used in generated output names), but isolate each submission.
         snapshot = self.directory / "configs" / job_id / config_path.name
         snapshot.parent.mkdir(parents=True)
-        shutil.copyfile(config_path, snapshot)
+        snapshot.write_text(json.dumps(config, indent=2), encoding="utf-8")
         return self._enqueue(job_id, "generate", {
             "config": str(snapshot), "network": config.get("network", ""),
         })
