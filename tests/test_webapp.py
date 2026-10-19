@@ -36,6 +36,17 @@ class WebAppTests(unittest.TestCase):
         # The app imports its sibling modules as top-level modules when launched by Streamlit.
         sys.path.insert(0, str(APP_PATH.parent))
 
+    def setUp(self):
+        self.queue_patch = patch("REQreate.webapp.job_queue.JobQueue")
+        self.queue = self.queue_patch.start().return_value
+        self.queue.submit_generate.return_value = ({"id": "test-job"}, 1)
+        self.queue.submit_network.return_value = ({"id": "test-network"}, 2)
+        self.queue.jobs.return_value = []
+        self.queue.paused = False
+        self.addCleanup(self.queue_patch.stop)
+        st.cache_resource.clear()
+        self.addCleanup(st.cache_resource.clear)
+
     @classmethod
     def tearDownClass(cls):
         sys.path.remove(str(APP_PATH.parent))
@@ -139,9 +150,13 @@ class WebAppTests(unittest.TestCase):
                     config_path = Path(directory) / "examples/webapp_instances" / config_name
                     with config_path.open() as config_file:
                         config = json.load(config_file)
-                    generate.assert_called_once_with(
-                        "examples/webapp_instances/", config_name, ""
+                    generate.assert_not_called()
+                    self.queue.submit_generate.assert_called_once_with(
+                        str(Path("examples/webapp_instances") / config_name)
                     )
+                    self.assertTrue(any(
+                        "Added to the queue (position 1)" in item.value for item in app.success
+                    ))
                     self.assertEqual(config["network"], "Antwerp, Belgium")
                 finally:
                     os.chdir(previous_dir)
@@ -150,6 +165,7 @@ class WebAppTests(unittest.TestCase):
     def test_generated_configuration_for_each_problem(self):
         for problem in ("DARP", "ODBRP", "Patient Transport"):
             with self.subTest(problem=problem), tempfile.TemporaryDirectory() as directory:
+                self.queue.reset_mock()
                 with patch("REQreate.input_json.input_json") as generate:
                     previous_dir = os.getcwd()
                     try:
@@ -178,9 +194,8 @@ class WebAppTests(unittest.TestCase):
                         config_path = Path("examples/webapp_instances") / config_name
                         with config_path.open() as config_file:
                             config = json.load(config_file)
-                        generate.assert_called_once_with(
-                            "examples/webapp_instances/", config_name, ""
-                        )
+                        generate.assert_not_called()
+                        self.queue.submit_generate.assert_called_once_with(str(config_path))
                         self.assertEqual(config["network"], "Testville, Country")
                         self.assertEqual(config["problem"], "ODBRP" if problem == "ODBRP" else "DARP")
                         self.assertEqual(config["seed"], 4)
@@ -208,6 +223,43 @@ class WebAppTests(unittest.TestCase):
                                 self.assertEqual(attributes["max_ride_time"]["expression"], "drivingDuration * 1.5")
                     finally:
                         os.chdir(previous_dir)
+
+    def test_network_download_adds_a_job(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
+                self.widget(app, "radio", "Navigation").set_value("Networks").run()
+                self.widget(app, "text_input", "Place or network name").set_value("Test City")
+                self.widget(app, "button", "Download network").click().run()
+                self.assertEqual(len(app.exception), 0)
+                self.queue.submit_network.assert_called_once_with(
+                    "Test City", point=None, dist=None, fixed_lines=None
+                )
+                self.assertTrue(any(
+                    "Added to the queue (position 2)" in item.value for item in app.success
+                ))
+            finally:
+                os.chdir(previous_dir)
+
+    def test_queue_page_controls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                self.queue.paused = True
+                app = AppTest.from_file(str(APP_PATH)).run()
+                self.widget(app, "radio", "Navigation").set_value("Queue").run()
+                self.assertEqual(len(app.exception), 0)
+                self.assertTrue(any("paused" in item.value for item in app.info))
+                self.widget(app, "button", "Resume").click().run()
+                self.queue.resume.assert_called_once()
+                self.widget(app, "button", "Clear finished").click().run()
+                self.queue.clear_finished.assert_called_once()
+                self.assertEqual(len(app.exception), 0)
+            finally:
+                os.chdir(previous_dir)
 
 
 if __name__ == "__main__":
