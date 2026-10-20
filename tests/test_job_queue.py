@@ -306,6 +306,16 @@ class JobQueueTests(unittest.TestCase):
             )
             self.queue.cancel(job["id"])
 
+    def test_generate_rejects_config_outside_working_directory(self):
+        with tempfile.TemporaryDirectory() as elsewhere:
+            config = Path(elsewhere) / "example.json"
+            config.write_text('{"network": "Elsewhere"}')
+            with self.assertRaises(ValueError):
+                self.queue.submit_generate(config)
+            with self.assertRaises(ValueError):
+                self.queue.submit_generate(self.directory / ".." / "example.json")
+        self.assertEqual(self.queue.jobs(), [])
+
     def test_submission_uses_form_config_even_if_shared_file_was_overwritten(self):
         config = self.directory / "example.json"
         config.write_text('{"network": "Other browser"}')

@@ -190,6 +190,27 @@ class WebAppTests(unittest.TestCase):
                 finally:
                     os.chdir(previous_dir)
 
+    def test_output_folder_name_cannot_leave_the_config_folder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "work"
+            root.mkdir()
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(root)
+                self.make_network(root, "Test City")
+                app = AppTest.from_file(str(APP_PATH)).run()
+                self.widget(app, "text_input", "Output Folder Name").set_value("../../escaped")
+                self.widget(app, "button", "🚀 Generate Instance").click().run()
+            finally:
+                os.chdir(previous_dir)
+
+            self.assertEqual(len(app.exception), 0)
+            written = list(Path(directory).rglob("*_DARP_10req.json"))
+            self.assertEqual(
+                [path.relative_to(root) for path in written],
+                [Path("examples/webapp_instances/escaped_DARP_10req.json")],
+            )
+
     @patch.dict(os.environ, ENABLE_PATIENT_TRANSPORT)
     def test_generated_configuration_for_each_problem(self):
         for problem in ("DARP", "ODBRP", "Patient Transport"):
