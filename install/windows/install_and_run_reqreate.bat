@@ -12,7 +12,7 @@ rem  the developer: it downloads and runs code from the internet.
 rem ======================================================================
 setlocal EnableExtensions
 
-set "REQREATE_VERSION=0.4.0"
+set "REQREATE_VERSION=0.4.1"
 if not defined REQREATE_SOURCE set "REQREATE_SOURCE=https://github.com/michellqueiroz-ua/instance-generator/archive/refs/tags/v%REQREATE_VERSION%.zip"
 if not defined REQREATE_VENV set "REQREATE_VENV=%LOCALAPPDATA%\reqreate\venv-%REQREATE_VERSION%"
 if not defined REQREATE_WORKDIR set "REQREATE_WORKDIR=%USERPROFILE%\Documents\REQreate"
