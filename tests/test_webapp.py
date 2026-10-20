@@ -67,6 +67,33 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(len(app.exception), 0)
         form.assert_called_once_with("instance_form", enter_to_submit=False)
 
+    def test_essentials_shown_and_other_settings_in_sections(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.make_network(directory, "Test City")
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
+            finally:
+                os.chdir(previous_dir)
+        self.assertEqual(len(app.exception), 0)
+
+        kinds = ("selectbox", "number_input", "time_input", "text_input", "slider",
+                 "checkbox", "multiselect", "button", "text_area")
+
+        def labels(block):
+            return {w.label for kind in kinds for w in getattr(block, kind)}
+
+        in_sections = set().union(*(labels(expander) for expander in app.expander))
+        essentials = {"Built Network", "Number of Requests", "Start Time", "End Time", "🚀 Generate Instance"}
+        self.assertTrue(essentials <= labels(app), essentials - labels(app))
+        self.assertFalse(essentials & in_sections, essentials & in_sections)
+        for extra in ("Output Folder Name", "Replicate Number", "Vehicle Speed (km/h)",
+                      "Walking Speed (km/h)", "Dynamism", "Max Delay (seconds)",
+                      "Request Distribution", "Use Travel Time Matrix",
+                      "Select attributes to include:", "Attribute Name"):
+            self.assertIn(extra, in_sections)
+
     def test_instance_generation_requires_a_built_network(self):
         with tempfile.TemporaryDirectory() as directory:
             previous_dir = os.getcwd()

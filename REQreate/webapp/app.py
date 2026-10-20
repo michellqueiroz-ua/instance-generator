@@ -228,84 +228,127 @@ elif page == "Create New Instance":
         ⚠️ Requires hospital data in network. Run: `python add_hospitals_to_existing_network.py "Location"`
         """)
     
-    # Attribute Selection - OUTSIDE FORM for immediate updates
-    st.subheader("📋 Request Attributes")
-    st.markdown(f"**Configure attributes for {problem_type} problem**")
-    
-    # Get available attributes for selected problem type
     available_attrs = get_attributes_for_problem(problem_type)
     required_attrs = get_required_attributes(problem_type)
-    
-    # Display attributes in a more readable format
-    st.markdown("**Standard Attributes:**")
-    
-    # Create columns for better layout
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        # Create multiselect with shorter labels
-        attr_options = list(available_attrs.keys())
-        
-        # Pre-select required attributes
-        default_selection = required_attrs.copy()
-        
+    attr_options = list(available_attrs.keys())
+
+    # The essentials come first, with the Generate button straight after them.
+    # Everything else has a sensible default and sits in collapsed sections
+    # below; widgets after the submit button still belong to the form, so
+    # changes made there are applied when Generate Instance is pressed.
+    with st.form("instance_form", enter_to_submit=False):
+        st.subheader("📍 Instance")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            place_name = st.selectbox(
+                "Built Network",
+                network_options,
+                help="Choose a network built on the Networks page",
+            )
+            num_requests = st.number_input("Number of Requests", min_value=1, value=10, help="Total passenger requests to generate")
+
+        with col2:
+            start_time = st.time_input("Start Time", value=pd.to_datetime("07:00").time(), help="Earliest request arrival time")
+            end_time = st.time_input("End Time", value=pd.to_datetime("08:00").time(), help="Latest request arrival time")
+
+        submitted = st.form_submit_button("🚀 Generate Instance", use_container_width=True)
+        st.caption("Everything else uses default values. Open the sections below to change them.")
+
+        with st.expander("📁 Output and replicates"):
+            col1, col2 = st.columns(2)
+            with col1:
+                output_name = st.text_input(
+                    "Output Folder Name",
+                    value="",
+                    placeholder="Defaults to the network name",
+                    key="output_name",
+                    help="Name for the output folder (defaults to network name)"
+                )
+            with col2:
+                replicate_num = st.number_input("Replicate Number", min_value=0, value=1, help="Generate multiple instances with same configuration (used as random seed)")
+
+        with st.expander("🚍 Vehicle and walking"):
+            col1, col2 = st.columns(2)
+            with col1:
+                vehicle_speed = st.number_input("Vehicle Speed (km/h)", min_value=5.0, value=20.0, step=5.0, help="Average vehicle speed for travel time calculations")
+                max_walking_distance = st.number_input("Max Walking Distance (m)", min_value=100, value=1000, step=100, help="Maximum distance passengers can walk to/from bus stops")
+            with col2:
+                walk_speed = st.number_input("Walking Speed (km/h)", min_value=1.0, value=5.0, step=0.5, help="Average walking speed for passengers")
+            st.caption("ℹ️ Note: Bus stations, schools, and hospitals are automatically retrieved from OpenStreetMap")
+
+        with st.expander("⚙️ Advanced settings"):
+            col1, col2 = st.columns(2)
+            with col1:
+                dynamism = st.slider("Dynamism", min_value=0.0, max_value=1.0, value=0.0, step=0.1,
+                                   help="Fraction of requests that arrive dynamically during operation. 0 = all requests known in advance (static), 1 = all requests arrive in real-time (dynamic)")
+                max_delay = st.number_input("Max Delay (seconds)", min_value=0, value=600,
+                                           help="Maximum ride time increase allowed (compared to direct trip). Represents passenger tolerance for detours")
+            with col2:
+                reaction_time = st.number_input("Reaction Time / Urgency (seconds)", min_value=0, value=120,
+                                               help="Time between request arrival and desired pickup. Lower values = more urgent requests")
+                request_distribution = st.selectbox(
+                    "Request Distribution",
+                    ["uniform", "rank_model"],
+                    help="How to distribute requests spatially: uniform = random across network, rank_model = based on POI density"
+                )
+            use_travel_time = st.checkbox("Use Travel Time Matrix", value=True,
+                                        help="Use precomputed travel times (recommended for accuracy)")
+            compute_zone_probabilities = st.checkbox(
+                "Compute zone travel probabilities", value=False,
+                help="Downloads points of interest from OpenStreetMap (can add tens of minutes "
+                     "for a large city) and writes zone ranks and travel probabilities between "
+                     "zones to the csv folder. Not needed for uniform request generation.")
+
+    # Attribute selection stays outside the form so it updates immediately.
+    with st.expander(f"📋 Request attributes ({problem_type})"):
         selected_attrs = st.multiselect(
             "Select attributes to include:",
             options=attr_options,
-            default=default_selection,
+            default=required_attrs.copy(),
             help="Select which attributes to include in your instance. Required attributes are pre-selected.",
             key=f"selected_attrs_{problem_type}"
         )
-    
-    with col2:
-        st.markdown("**Legend:**")
-        for attr_name in attr_options[:5]:  # Show first 5 as examples
-            is_required = "⭐" if attr_name in required_attrs else "○"
-            st.caption(f"{is_required} {attr_name}")
-        if len(attr_options) > 5:
-            st.caption(f"...and {len(attr_options)-5} more")
-    
-    # Show descriptions in expandable section
-    with st.expander("ℹ️ View Attribute Descriptions", expanded=False):
-        for attr_name in attr_options:
-            attr_info = available_attrs[attr_name]
-            required_badge = "⭐ **Required**" if attr_name in required_attrs else "○ Optional"
-            st.markdown(f"**{attr_name}** - {required_badge}")
-            st.caption(attr_info['description'])
-            st.divider()
-    
+        if st.checkbox("Show attribute descriptions", key=f"show_attr_descriptions_{problem_type}"):
+            for attr_name in attr_options:
+                attr_info = available_attrs[attr_name]
+                required_badge = "⭐ **Required**" if attr_name in required_attrs else "○ Optional"
+                st.markdown(f"**{attr_name}** - {required_badge}")
+                st.caption(attr_info['description'])
+
     # Validate that all required attributes are selected
     missing_required = [attr for attr in required_attrs if attr not in selected_attrs]
     if missing_required:
         st.error(f"❌ Missing required attributes: {', '.join(missing_required)}")
-    
-    # Custom Attributes Section
-    st.subheader("➕ Custom Attributes (Optional)")
-    
+
     # Initialize session state for custom attributes
     if 'custom_attrs' not in st.session_state:
         st.session_state.custom_attrs = []
-    
-    # Show existing custom attributes
+
+    custom_label = "➕ Custom attributes"
     if st.session_state.custom_attrs:
-        st.markdown("**Current Custom Attributes:**")
-        for idx, attr in enumerate(st.session_state.custom_attrs):
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.code(f"{attr['name']} ({attr['type']})", language="text")
-            with col2:
-                if st.button("❌", key=f"remove_{idx}", help="Remove this attribute"):
-                    st.session_state.custom_attrs.pop(idx)
-                    st.rerun()
-    
-    # Custom attribute builder
-    with st.expander("➕ Add New Custom Attribute"):
+        custom_label += f" ({len(st.session_state.custom_attrs)} added)"
+    with st.expander(custom_label):
+        # Show existing custom attributes
+        if st.session_state.custom_attrs:
+            st.markdown("**Current Custom Attributes:**")
+            for idx, attr in enumerate(st.session_state.custom_attrs):
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.code(f"{attr['name']} ({attr['type']})", language="text")
+                with col2:
+                    if st.button("❌", key=f"remove_{idx}", help="Remove this attribute"):
+                        st.session_state.custom_attrs.pop(idx)
+                        st.rerun()
+
+        # Custom attribute builder
+        st.markdown("**Add a custom attribute**")
         custom_name = st.text_input("Attribute Name", placeholder="e.g., patient_priority", key="custom_name")
         custom_type = st.selectbox("Type", ["integer", "real", "location", "array_primitives", "array_locations"], key="custom_type")
         custom_description = st.text_area("Description", placeholder="What does this attribute represent?", key="custom_desc")
-        
+
         custom_template = {"name": custom_name, "type": custom_type}
-        
+
         if custom_type in ["integer", "real"]:
             col1, col2 = st.columns(2)
             with col1:
@@ -321,7 +364,7 @@ elif page == "Create New Instance":
                     if custom_unit:
                         unit_value = st.selectbox("Value", ["mps", "kmh"], key="unit_val")
                         custom_template[custom_unit] = unit_value
-            
+
             if use_expression:
                 custom_expr = st.text_input("Expression", placeholder="e.g., drivingDuration * 2", key="custom_expr")
                 if custom_expr:
@@ -334,21 +377,21 @@ elif page == "Create New Instance":
                 with col2:
                     scale_val = st.number_input("Scale", value=1.0, key="scale_val")
                 custom_template["pdf"] = [{"type": dist_type, "loc": loc_val, "scale": scale_val}]
-        
+
         elif custom_type == "location":
             st.info("Location attributes are automatically generated from the network")
-        
+
         elif custom_type == "array_primitives":
             custom_expr = st.text_input("Expression", placeholder="e.g., stops(origin)", key="custom_expr_arr")
             if custom_expr:
                 custom_template["expression"] = custom_expr
-        
+
         elif custom_type == "array_locations":
             n_locs = st.number_input("Number of locations (N)", min_value=1, value=2, key="n_locs")
             method = st.selectbox("Generation method", ["random", "clustered"], key="gen_method")
             custom_template["N"] = n_locs
             custom_template["method"] = method
-        
+
         if st.button("➕ Add Attribute", type="primary", key="add_custom_btn"):
             if custom_name:
                 st.session_state.custom_attrs.append({
@@ -361,81 +404,6 @@ elif page == "Create New Instance":
                 st.rerun()
             else:
                 st.error("Please enter an attribute name")
-    
-    st.markdown("---")
-    
-    with st.form("instance_form", enter_to_submit=False):
-        st.subheader("📍 Network and Output")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            place_name = st.selectbox(
-                "Built Network",
-                network_options,
-                help="Choose a network built on the Networks page",
-            )
-            
-        with col2:
-            output_name = st.text_input(
-                "Output Folder Name",
-                value="",
-                placeholder="Defaults to the network name",
-                key="output_name",
-                help="Name for the output folder (defaults to network name)"
-            )
-        
-        st.subheader("🚍 Vehicle and Routing Settings")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            vehicle_speed = st.number_input("Vehicle Speed (km/h)", min_value=5.0, value=20.0, step=5.0, help="Average vehicle speed for travel time calculations")
-            max_walking_distance = st.number_input("Max Walking Distance (m)", min_value=100, value=1000, step=100, help="Maximum distance passengers can walk to/from bus stops")
-            
-        with col2:
-            walk_speed = st.number_input("Walking Speed (km/h)", min_value=1.0, value=5.0, step=0.5, help="Average walking speed for passengers")
-        
-        st.caption("ℹ️ Note: Bus stations, schools, and hospitals are automatically retrieved from OpenStreetMap")
-        
-        st.subheader("👥 Request Settings")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            num_requests = st.number_input("Number of Requests", min_value=1, value=10, help="Total passenger requests to generate")
-            replicate_num = st.number_input("Replicate Number", min_value=0, value=1, help="Generate multiple instances with same configuration (used as random seed)")
-            
-        with col2:
-            st.markdown("**Request Arrival Time Horizon**")
-            start_time = st.time_input("Start Time", value=pd.to_datetime("07:00").time(), help="Earliest request arrival time")
-            end_time = st.time_input("End Time", value=pd.to_datetime("08:00").time(), help="Latest request arrival time")
-        
-        st.subheader("⚙️ Advanced Settings")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            dynamism = st.slider("Dynamism", min_value=0.0, max_value=1.0, value=0.0, step=0.1, 
-                               help="Fraction of requests that arrive dynamically during operation. 0 = all requests known in advance (static), 1 = all requests arrive in real-time (dynamic)")
-            max_delay = st.number_input("Max Delay (seconds)", min_value=0, value=600,
-                                       help="Maximum ride time increase allowed (compared to direct trip). Represents passenger tolerance for detours")
-            
-        with col2:
-            reaction_time = st.number_input("Reaction Time / Urgency (seconds)", min_value=0, value=120,
-                                           help="Time between request arrival and desired pickup. Lower values = more urgent requests")
-            request_distribution = st.selectbox(
-                "Request Distribution",
-                ["uniform", "rank_model"],
-                help="How to distribute requests spatially: uniform = random across network, rank_model = based on POI density"
-            )
-        
-        use_travel_time = st.checkbox("Use Travel Time Matrix", value=True,
-                                    help="Use precomputed travel times (recommended for accuracy)")
-        compute_zone_probabilities = st.checkbox(
-            "Compute zone travel probabilities", value=False,
-            help="Downloads points of interest from OpenStreetMap (can add tens of minutes "
-                 "for a large city) and writes zone ranks and travel probabilities between "
-                 "zones to the csv folder. Not needed for uniform request generation.")
-        
-        # Submit button
-        submitted = st.form_submit_button("🚀 Generate Instance", use_container_width=True)
     
     # Process form submission
     if submitted:
