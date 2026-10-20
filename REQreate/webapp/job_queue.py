@@ -103,7 +103,12 @@ class JobQueue:
         })
 
     def submit_generate(self, config_path, configuration=None):
-        config_path = Path(config_path).resolve()
+        # Only queue configurations from inside the working directory, the
+        # folder the app writes them to.
+        resolved = os.path.realpath(config_path)
+        if not resolved.startswith(str(self.working_directory) + os.sep):
+            raise ValueError(f"Configuration must be inside {self.working_directory}: {config_path}")
+        config_path = Path(resolved)
         config = configuration if configuration is not None else json.loads(
             config_path.read_text(encoding="utf-8")
         )
