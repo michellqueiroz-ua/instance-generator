@@ -603,12 +603,12 @@ elif page == "Create New Instance":
             # Write through the resolved path, and only once it is known to be
             # inside config_dir.
             safe_config_path = os.path.realpath(config_path)
-            if not safe_config_path.startswith(os.path.realpath(config_dir) + os.sep):
+            if safe_config_path.startswith(os.path.realpath(config_dir) + os.sep):
+                with open(safe_config_path, 'w') as f:
+                    json.dump(config, f, indent=2)
+            else:
                 st.error("The output folder name can only use letters, digits, '_', '.' and '-'.")
                 st.stop()
-            
-            with open(safe_config_path, 'w') as f:
-                json.dump(config, f, indent=2)
             
             st.success(f"✅ Configuration created: {config_filename}")
             
