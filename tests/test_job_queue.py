@@ -207,13 +207,24 @@ class JobQueueTests(unittest.TestCase):
         subprocess.run([sys.executable, "-c", script], cwd=self.directory, check=True, timeout=10)
         record = json.loads(next((self.directory / "queue").glob("*.json")).read_text())
         orphan = psutil.Process(record["pid"])
+
+        def stopped():
+            # The orphan can exit between is_running() and status(), so a
+            # vanished process counts as stopped rather than an error.
+            try:
+                return not orphan.is_running() or orphan.status() == psutil.STATUS_ZOMBIE
+            except psutil.NoSuchProcess:
+                return True
+
         try:
             self.queue = JobQueue(self.directory)
             self.assertEqual(self.queue.jobs()[0]["status"], "interrupted")
-            self.wait_for(lambda: not orphan.is_running() or orphan.status() == psutil.STATUS_ZOMBIE)
+            self.wait_for(stopped)
         finally:
-            if orphan.is_running():
+            try:
                 orphan.kill()
+            except psutil.NoSuchProcess:
+                pass
 
     def test_crash_before_identity_is_saved_does_not_execute_cli_job(self):
         self.queue.close()
