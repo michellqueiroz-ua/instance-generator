@@ -600,11 +600,14 @@ elif page == "Create New Instance":
             # Save configuration file with descriptive name (no spaces or commas)
             config_filename = f"{folder_name_clean}_{problem_type}_{num_requests}req.json"
             config_path = os.path.join(config_dir, config_filename)
-            if not os.path.realpath(config_path).startswith(os.path.realpath(config_dir) + os.sep):
+            # Write through the resolved path, and only once it is known to be
+            # inside config_dir.
+            safe_config_path = os.path.realpath(config_path)
+            if not safe_config_path.startswith(os.path.realpath(config_dir) + os.sep):
                 st.error("The output folder name can only use letters, digits, '_', '.' and '-'.")
                 st.stop()
             
-            with open(config_path, 'w') as f:
+            with open(safe_config_path, 'w') as f:
                 json.dump(config, f, indent=2)
             
             st.success(f"✅ Configuration created: {config_filename}")
