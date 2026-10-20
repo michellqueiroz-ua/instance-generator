@@ -11,6 +11,8 @@ import ast
 import re
 from attribute_library import get_attributes_for_problem, get_required_attributes, build_attributes_list
 from REQreate.webapp.network_utils import list_networks
+from REQreate.webapp.job_queue import get_job_queue
+from datetime import datetime, timezone
 import zipfile
 import shutil
 from io import BytesIO
@@ -71,13 +73,65 @@ Generate realistic on-demand transportation instances based on real-world networ
 This tool downloads OpenStreetMap data and creates synthetic passenger requests for your specified location.
 """)
 
+job_queue = get_job_queue(str(Path.cwd().resolve()))
+
 # Sidebar for navigation
 page = st.sidebar.radio(
     "Navigation",
-    ["Create New Instance", "Networks", "View Existing Instances", "Documentation"],
+    ["Create New Instance", "Networks", "Queue", "View Existing Instances", "Documentation"],
 )
 
-if page == "Networks":
+if page == "Queue":
+    st.header("Queue")
+
+    @st.fragment(run_every="3s")
+    def show_queue():
+        if job_queue.paused:
+            st.info("Saved jobs are paused after restart. Press Resume to run them.")
+        if st.button("Resume"):
+            job_queue.resume()
+            st.rerun()
+        if st.button("Clear finished"):
+            job_queue.clear_finished()
+            st.rerun()
+        jobs = job_queue.jobs()
+        if not jobs:
+            st.info("No jobs yet. Download a network or generate an instance to add one.")
+            return
+        now = datetime.now(timezone.utc)
+        rows = []
+        for job in jobs:
+            parameters = job["parameters"]
+            started = job["started"]
+            end = datetime.fromisoformat(job["finished"]) if job["finished"] else now
+            duration = f"{(end - datetime.fromisoformat(started)).total_seconds():.0f}s" if started else "—"
+            rows.append({
+                "Job": job["id"][:8],
+                "Type": job["type"],
+                "Network/config": parameters.get("place") or (
+                    f'{parameters.get("network", "")} / {Path(parameters["config"]).name}'
+                ),
+                "Status": job["status"],
+                "Created": job["created"],
+                "Duration": duration,
+                "Exit code": job["exit_code"],
+            })
+        st.dataframe(rows, hide_index=True, use_container_width=True)
+        for job in jobs:
+            if job["status"] in {"queued", "running"}:
+                if st.button(f'Cancel {job["type"]} {job["id"][:8]}', key=f'cancel_{job["id"]}'):
+                    job_queue.cancel(job["id"])
+                    st.rerun()
+            if job["status"] == "running":
+                st.subheader(f'Live log: {job["id"][:8]}')
+                st.code(job_queue.tail(job["id"]) or "Waiting for output…", language=None)
+            elif job["status"] in {"failed", "done", "cancelled", "interrupted"}:
+                with st.expander(f'Log: {job["type"]} {job["id"][:8]} ({job["status"]})'):
+                    st.code(job_queue.tail(job["id"]) or "No output.", language=None)
+
+    show_queue()
+
+elif page == "Networks":
     st.header("Networks")
     networks = list_networks()
     if networks:
@@ -122,18 +176,16 @@ if page == "Networks":
             st.error("Enter a place or network name.")
         else:
             try:
-                from REQreate.retrieve_network import build_network
-
-                build_network(
+                job, position = job_queue.submit_network(
                     place_name.strip(),
                     point=point,
                     dist=dist,
-                    get_fixed_lines=None if fixed_lines == "None" else fixed_lines,
+                    fixed_lines=None if fixed_lines == "None" else fixed_lines,
                 )
-                st.success(f"Network built successfully: {place_name.strip()}")
-                st.rerun()
+                st.success(f"Added to the queue (position {position})")
+                st.info("Follow progress on the Queue page.")
             except Exception as error:
-                st.error(f"Network build failed: {error}")
+                st.error(f"Could not add network to the queue: {error}")
                 st.exception(error)
 
 elif page == "Create New Instance":
@@ -588,61 +640,13 @@ elif page == "Create New Instance":
             with st.expander("View Configuration JSON"):
                 st.json(config)
             
-            # Run generation
-            st.info("🔄 Starting instance generation... This may take several minutes.")
-            
-            progress_placeholder = st.empty()
-            log_placeholder = st.empty()
-            
-            # Create a progress bar
-            progress_bar = st.progress(0)
-            
             try:
-                # Import and run input_json directly with our configuration
-                from REQreate.input_json import input_json
-                
-                # Run the generation - it saves to place_name folder automatically
-                input_json("examples/webapp_instances/", config_filename, "")
-                
-                progress_bar.progress(1.0)
-                st.success(f"✅ Instance generated successfully!")
-                st.info(f"📁 Instance saved in: {place_name}/csv_format/")
-                st.info(f"📄 File: {config_filename.replace('.json', '.csv')}")
-                
-                # Add download button
-                st.markdown("---")
-                st.subheader("📥 Download Instance")
-                
-                # Create ZIP of the entire location folder
-                try:
-                    zip_data = create_zip_download(place_name, f"{place_name}.zip")
-                    st.download_button(
-                        label="💾 Download Instance (ZIP)",
-                        data=zip_data,
-                        file_name=f"{place_name}_instance.zip",
-                        mime="application/zip",
-                        use_container_width=True
-                    )
-                    st.success("✅ Click the button above to download all files")
-                except Exception as e:
-                    st.warning(f"⚠️ Could not prepare download: {str(e)}")
-                
+                job, position = job_queue.submit_generate(config_path, configuration=config)
+                st.success(f"Added to the queue (position {position})")
+                st.info("Follow progress on the Queue page; download results from View Existing Instances.")
             except Exception as e:
-                if type(e).__name__ == "OverpassUnavailableError":
-                    # Not a problem with the requested city: the OpenStreetMap
-                    # query servers are refusing or rate-limiting us.
-                    st.error("❌ Could not download OpenStreetMap data")
-                    st.warning(
-                        "Every Overpass API mirror refused the request. This is an "
-                        "availability problem with the public OpenStreetMap query "
-                        "servers, not a problem with the location you entered — the "
-                        "same run will usually succeed if you retry in a few minutes."
-                    )
-                    with st.expander("Details"):
-                        st.code(str(e))
-                else:
-                    st.error(f"❌ Generation failed: {str(e)}")
-                    st.exception(e)
+                st.error(f"Could not add instance to the queue: {e}")
+                st.exception(e)
 
 elif page == "View Existing Instances":
     st.header("📂 Existing Instances")
@@ -1010,7 +1014,25 @@ elif page == "Documentation":
     1. **Go to "Networks"** and download a network by place name or point and radius.
     2. **Go to "Create New Instance"** and select one of the built networks.
     3. **Configure instance parameters** (or use defaults).
-    4. **Click "Generate Instance"** and wait for completion.
+    4. **Click "Generate Instance"** to add a job, then monitor it on **Queue**.
+
+    ### Queue
+
+    Network downloads and instance generations join one FIFO queue. One job runs
+    at a time in a separate process, so you can keep using the app and batch work.
+    Submission confirms **Added to the queue (position N)**.
+
+    The **Queue** page refreshes every three seconds, showing status, duration,
+    and the running job's live log. Expand a finished job to see its log and
+    check the exit code for failures. **Cancel** removes queued work or stops
+    the running process and its children; partial output files are left in place.
+    **Clear finished** removes completed, failed, cancelled, and interrupted jobs
+    and their logs/config snapshots, not generated outputs.
+
+    Jobs and logs persist in `queue/` in the working directory. After an app
+    restart, running jobs become **interrupted** and queued work stays paused
+    until you press **Resume**. Otherwise new jobs run automatically.
+    Download completed results from **View Existing Instances**.
     
     ### Key Parameters
     

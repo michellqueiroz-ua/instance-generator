@@ -264,4 +264,8 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # Queued work must not start until the owner has persisted its process identity.
+    if os.environ.pop("_REQREATE_QUEUE_GATE", None) == "1":
+        if sys.stdin.buffer.read(1) != b"\x01":
+            sys.exit(1)
     sys.exit(main())
