@@ -188,6 +188,21 @@ def _run_generate(args):
     return 0
 
 
+def _run_network(args):
+    if (args.point is None) != (args.dist is None):
+        args.parser.error("--point and --dist must be provided together")
+
+    from .retrieve_network import build_network
+
+    build_network(
+        args.place,
+        point=tuple(args.point) if args.point is not None else None,
+        dist=args.dist,
+        get_fixed_lines=args.fixed_lines,
+    )
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="reqreate",
@@ -225,6 +240,21 @@ def main(argv=None):
     )
     gen.set_defaults(func=_run_generate)
 
+    network = sub.add_parser("network", help="download and build a network")
+    network.add_argument("place", help="place name and network folder name")
+    network.add_argument(
+        "--point", nargs=2, type=float, metavar=("LON", "LAT"),
+        help="build around a longitude/latitude point instead of a place boundary",
+    )
+    network.add_argument(
+        "--dist", type=float, help="radius in meters; required with --point",
+    )
+    network.add_argument(
+        "--fixed-lines", choices=("osm", "deconet"),
+        help="include public transport fixed lines",
+    )
+    network.set_defaults(func=_run_network, parser=network)
+
     args = parser.parse_args(argv)
     if not getattr(args, "func", None):
         # Bare `reqreate` is most likely someone wanting the interface.
@@ -234,4 +264,8 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # Queued work must not start until the owner has persisted its process identity.
+    if os.environ.pop("_REQREATE_QUEUE_GATE", None) == "1":
+        if sys.stdin.buffer.read(1) != b"\x01":
+            sys.exit(1)
     sys.exit(main())

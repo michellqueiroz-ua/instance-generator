@@ -160,16 +160,21 @@ public OpenStreetMap query servers are refusing or rate-limiting the request.
 **This is unrelated to the location you asked for** — the same run usually
 succeeds if you retry a few minutes later.
 
-REQreate retries and fails over across several mirrors automatically. If none
-of them are reachable, point it at an Overpass instance you can reach:
+REQreate retries and fails over to a second public server (maps.mail.ru)
+automatically. If neither is reachable, point it at Overpass instances you can
+reach, as a comma-separated list tried in order:
 
 ```bash
 # Linux / macOS
-export REQREATE_OVERPASS_URL=https://overpass.kumi.systems/api/interpreter
+export REQREATE_OVERPASS_URL=https://overpass-api.de/api,https://maps.mail.ru/osm/tools/overpass/api
 
 # Windows
-set REQREATE_OVERPASS_URL=https://overpass.kumi.systems/api/interpreter
+set REQREATE_OVERPASS_URL=https://overpass-api.de/api,https://maps.mail.ru/osm/tools/overpass/api
 ```
+
+On REQreate 0.3.0 or older, give these URLs **without** `/interpreter` at the
+end, exactly as above. Those versions add it a second time otherwise, and the
+servers reject the doubled path with `403 Forbidden`.
 
 Any instance you set this way must hold planet-wide data. A regional Overpass
 mirror answers a query for a place it does not cover with an empty result
@@ -178,7 +183,7 @@ rather than an error, which would produce an instance with no network in it.
 To check whether Overpass is reachable from your machine at all:
 
 ```bash
-python -c "import requests; print(requests.get('https://overpass-api.de/api/status', timeout=30).text[:300])"
+python -c "import requests; print(requests.get('https://overpass-api.de/api/status', headers={'User-Agent': 'reqreate'}, timeout=30).text[:300])"
 ```
 
 ### The install fails, or `reqreate` is not found

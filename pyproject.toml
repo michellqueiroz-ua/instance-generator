@@ -38,7 +38,7 @@ dependencies = [
 [project.optional-dependencies]
 # The web interface. Installed by default via the `app` extra so that
 # `pip install reqreate[app]` gives a working `reqreate app`.
-app = ["streamlit", "folium", "streamlit-folium", "plotly"]
+app = ["streamlit>=1.39.0", "folium", "streamlit-folium", "plotly", "psutil>=7.2.2"]
 desktop = ["pywebview>=5"]
 # Parallel processing; optional, the code falls back to sequential without it.
 parallel = ["ray"]

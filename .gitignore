@@ -43,6 +43,7 @@ _user_data/
 
 # User-generated configurations
 examples/webapp_instances/*.json
+queue/
 
 # Jupyter Notebook
 .ipynb_checkpoints

@@ -69,9 +69,11 @@ jobs:
         # it exercises the mirror failover.
         continue-on-error: true
         run: |
-          for host in overpass-api.de overpass.kumi.systems overpass.private.coffee; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 "https://$host/api/status" || echo "unreachable")
-            echo "$host -> $code"
+          # Same servers as DEFAULT_OVERPASS_MIRRORS. A User-Agent is needed:
+          # overpass-api.de answers curl's default one with 406.
+          for api in https://overpass-api.de/api https://maps.mail.ru/osm/tools/overpass/api; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 -A "reqreate-smoke-test" "$api/status" || echo "unreachable")
+            echo "$api -> $code"
           done
 
       - name: Build the configuration

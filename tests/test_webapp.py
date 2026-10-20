@@ -7,6 +7,7 @@ from datetime import time
 from pathlib import Path
 from unittest.mock import patch
 
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from REQreate.webapp.attribute_library import get_required_attributes
@@ -24,19 +25,113 @@ class WebAppTests(unittest.TestCase):
     def widget(app, kind, label):
         return next(widget for widget in getattr(app, kind) if widget.label == label)
 
+    @staticmethod
+    def make_network(directory, name):
+        pickle_dir = Path(directory) / name / "pickle"
+        pickle_dir.mkdir(parents=True)
+        (pickle_dir / f"{name}.network.class.pkl").touch()
+
     @classmethod
     def setUpClass(cls):
         # The app imports its sibling modules as top-level modules when launched by Streamlit.
         sys.path.insert(0, str(APP_PATH.parent))
 
+    def setUp(self):
+        self.queue_patch = patch("REQreate.webapp.job_queue.JobQueue")
+        self.queue_factory = self.queue_patch.start()
+        self.queue = self.queue_factory.return_value
+        self.queue._closed = False
+        self.queue.submit_generate.return_value = ({"id": "test-job"}, 1)
+        self.queue.submit_network.return_value = ({"id": "test-network"}, 2)
+        self.queue.jobs.return_value = []
+        self.queue.paused = False
+        self.addCleanup(self.queue_patch.stop)
+        st.cache_resource.clear()
+        self.addCleanup(st.cache_resource.clear)
+
     @classmethod
     def tearDownClass(cls):
         sys.path.remove(str(APP_PATH.parent))
 
+    def test_instance_form_disables_enter_submission(self):
+        # AppTest cannot simulate Enter, so check the form's submission setting.
+        with tempfile.TemporaryDirectory() as directory:
+            self.make_network(directory, "Test City")
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                with patch("streamlit.form", wraps=st.form) as form:
+                    app = AppTest.from_file(str(APP_PATH)).run()
+            finally:
+                os.chdir(previous_dir)
+        self.assertEqual(len(app.exception), 0)
+        form.assert_called_once_with("instance_form", enter_to_submit=False)
+
+    def test_essentials_shown_and_other_settings_in_sections(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.make_network(directory, "Test City")
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
+            finally:
+                os.chdir(previous_dir)
+        self.assertEqual(len(app.exception), 0)
+
+        kinds = ("selectbox", "number_input", "time_input", "text_input", "slider",
+                 "checkbox", "multiselect", "button", "text_area")
+
+        def labels(block):
+            return {w.label for kind in kinds for w in getattr(block, kind)}
+
+        in_sections = set().union(*(labels(expander) for expander in app.expander))
+        essentials = {"Built Network", "Number of Requests", "Start Time", "End Time", "🚀 Generate Instance"}
+        self.assertTrue(essentials <= labels(app), essentials - labels(app))
+        self.assertFalse(essentials & in_sections, essentials & in_sections)
+        for extra in ("Output Folder Name", "Replicate Number", "Vehicle Speed (km/h)",
+                      "Walking Speed (km/h)", "Dynamism", "Max Delay (seconds)",
+                      "Request Distribution", "Use Travel Time Matrix",
+                      "Select attributes to include:", "Attribute Name"):
+            self.assertIn(extra, in_sections)
+
+    def test_instance_generation_requires_a_built_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
+            finally:
+                os.chdir(previous_dir)
+
+        self.assertEqual(len(app.exception), 0)
+        self.assertTrue(any("No networks yet" in item.value for item in app.info))
+        self.assertFalse(any(widget.label == "🚀 Generate Instance" for widget in app.button))
+
+    def test_network_form_disables_enter_submission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                with patch("streamlit.form", wraps=st.form) as form:
+                    app = AppTest.from_file(str(APP_PATH)).run()
+                    self.widget(app, "radio", "Navigation").set_value("Networks").run()
+            finally:
+                os.chdir(previous_dir)
+
+        self.assertEqual(len(app.exception), 0)
+        form.assert_called_once_with("network_form", enter_to_submit=False)
+
     def test_patient_transport_hidden_by_default(self):
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("REQREATE_ENABLE_PATIENT_TRANSPORT", None)
-            app = AppTest.from_file(str(APP_PATH)).run()
+        with tempfile.TemporaryDirectory() as directory:
+            self.make_network(directory, "Test City")
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                with patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop("REQREATE_ENABLE_PATIENT_TRANSPORT", None)
+                    app = AppTest.from_file(str(APP_PATH)).run()
+            finally:
+                os.chdir(previous_dir)
         self.assertEqual(len(app.exception), 0)
         self.assertEqual(
             self.widget(app, "selectbox", "Select Problem Type").options, ["DARP", "ODBRP"]
@@ -44,19 +139,29 @@ class WebAppTests(unittest.TestCase):
 
     @patch.dict(os.environ, ENABLE_PATIENT_TRANSPORT)
     def test_renders_and_switches_problem_types(self):
-        app = AppTest.from_file(str(APP_PATH)).run()
-        self.assertEqual(len(app.exception), 0)
-
-        for problem in ("DARP", "ODBRP", "Patient Transport"):
-            with self.subTest(problem=problem):
-                self.widget(app, "selectbox", "Select Problem Type").set_value(problem).run()
+        with tempfile.TemporaryDirectory() as directory:
+            self.make_network(directory, "Test City")
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
                 self.assertEqual(len(app.exception), 0)
-                self.assertEqual(self.widget(app, "selectbox", "Select Problem Type").value, problem)
-                self.assertTrue(
-                    set(get_required_attributes(problem)).issubset(
-                        self.widget(app, "multiselect", "Select attributes to include:").value
-                    )
-                )
+
+                for problem in ("DARP", "ODBRP", "Patient Transport"):
+                    with self.subTest(problem=problem):
+                        self.widget(app, "selectbox", "Select Problem Type").set_value(problem).run()
+                        self.assertEqual(len(app.exception), 0)
+                        self.assertEqual(
+                            self.widget(app, "selectbox", "Select Problem Type").value,
+                            problem,
+                        )
+                        self.assertTrue(
+                            set(get_required_attributes(problem)).issubset(
+                                self.widget(app, "multiselect", "Select attributes to include:").value
+                            )
+                        )
+            finally:
+                os.chdir(previous_dir)
 
     def test_output_folder_defaults_to_submitted_location(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -64,8 +169,9 @@ class WebAppTests(unittest.TestCase):
                 previous_dir = os.getcwd()
                 try:
                     os.chdir(directory)
+                    self.make_network(directory, "Antwerp, Belgium")
                     app = AppTest.from_file(str(APP_PATH)).run()
-                    self.widget(app, "text_input", "Location (City, Country)").set_value("Antwerp, Belgium")
+                    self.widget(app, "selectbox", "Built Network").set_value("Antwerp, Belgium")
                     self.widget(app, "button", "🚀 Generate Instance").click().run()
 
                     self.assertEqual(len(app.exception), 0)
@@ -73,27 +179,54 @@ class WebAppTests(unittest.TestCase):
                     config_path = Path(directory) / "examples/webapp_instances" / config_name
                     with config_path.open() as config_file:
                         config = json.load(config_file)
-                    generate.assert_called_once_with(
-                        "examples/webapp_instances/", config_name, ""
+                    generate.assert_not_called()
+                    self.queue.submit_generate.assert_called_once_with(
+                        str(Path("examples/webapp_instances") / config_name), configuration=config
                     )
+                    self.assertTrue(any(
+                        "Added to the queue (position 1)" in item.value for item in app.success
+                    ))
                     self.assertEqual(config["network"], "Antwerp, Belgium")
                 finally:
                     os.chdir(previous_dir)
+
+    def test_output_folder_name_cannot_leave_the_config_folder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "work"
+            root.mkdir()
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(root)
+                self.make_network(root, "Test City")
+                app = AppTest.from_file(str(APP_PATH)).run()
+                self.widget(app, "text_input", "Output Folder Name").set_value("../../escaped")
+                self.widget(app, "button", "🚀 Generate Instance").click().run()
+            finally:
+                os.chdir(previous_dir)
+
+            self.assertEqual(len(app.exception), 0)
+            written = list(Path(directory).rglob("*_DARP_10req.json"))
+            self.assertEqual(
+                [path.relative_to(root) for path in written],
+                [Path("examples/webapp_instances/escaped_DARP_10req.json")],
+            )
 
     @patch.dict(os.environ, ENABLE_PATIENT_TRANSPORT)
     def test_generated_configuration_for_each_problem(self):
         for problem in ("DARP", "ODBRP", "Patient Transport"):
             with self.subTest(problem=problem), tempfile.TemporaryDirectory() as directory:
+                self.queue.reset_mock()
                 with patch("REQreate.input_json.input_json") as generate:
                     previous_dir = os.getcwd()
                     try:
                         os.chdir(directory)
+                        self.make_network(directory, "Testville, Country")
                         app = AppTest.from_file(str(APP_PATH)).run()
                         self.widget(app, "selectbox", "Select Problem Type").set_value(problem).run()
                         if problem == "Patient Transport":
                             selected = self.widget(app, "multiselect", "Select attributes to include:")
                             selected.set_value(selected.value + ["max_ride_time"]).run()
-                        self.widget(app, "text_input", "Location (City, Country)").set_value("Testville, Country")
+                        self.widget(app, "selectbox", "Built Network").set_value("Testville, Country")
                         self.assertEqual(len(app.exception), 0)
                         self.widget(app, "text_input", "Output Folder Name").set_value("offline-test")
                         self.widget(app, "number_input", "Number of Requests").set_value(23)
@@ -111,8 +244,9 @@ class WebAppTests(unittest.TestCase):
                         config_path = Path("examples/webapp_instances") / config_name
                         with config_path.open() as config_file:
                             config = json.load(config_file)
-                        generate.assert_called_once_with(
-                            "examples/webapp_instances/", config_name, ""
+                        generate.assert_not_called()
+                        self.queue.submit_generate.assert_called_once_with(
+                            str(config_path), configuration=config
                         )
                         self.assertEqual(config["network"], "Testville, Country")
                         self.assertEqual(config["problem"], "ODBRP" if problem == "ODBRP" else "DARP")
@@ -141,6 +275,79 @@ class WebAppTests(unittest.TestCase):
                                 self.assertEqual(attributes["max_ride_time"]["expression"], "drivingDuration * 1.5")
                     finally:
                         os.chdir(previous_dir)
+
+    def test_network_download_adds_a_job(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
+                self.widget(app, "radio", "Navigation").set_value("Networks").run()
+                self.widget(app, "text_input", "Place or network name").set_value("Test City")
+                self.widget(app, "button", "Download network").click().run()
+                self.assertEqual(len(app.exception), 0)
+                self.queue.submit_network.assert_called_once_with(
+                    "Test City", point=None, dist=None, fixed_lines=None
+                )
+                self.assertTrue(any(
+                    "Added to the queue (position 2)" in item.value for item in app.success
+                ))
+            finally:
+                os.chdir(previous_dir)
+
+    def test_queue_page_controls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                self.queue.paused = True
+                app = AppTest.from_file(str(APP_PATH)).run()
+                self.widget(app, "radio", "Navigation").set_value("Queue").run()
+                self.assertEqual(len(app.exception), 0)
+                self.assertTrue(any("paused" in item.value for item in app.info))
+                self.widget(app, "button", "Resume").click().run()
+                self.queue.resume.assert_called_once()
+                self.widget(app, "button", "Clear finished").click().run()
+                self.queue.clear_finished.assert_called_once()
+                self.assertEqual(len(app.exception), 0)
+            finally:
+                os.chdir(previous_dir)
+
+    def test_worker_is_shared_across_browser_sessions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                first = AppTest.from_file(str(APP_PATH)).run()
+                st.cache_resource.clear()
+                second = AppTest.from_file(str(APP_PATH)).run()
+                self.assertEqual(len(first.exception), 0)
+                self.assertEqual(len(second.exception), 0)
+                self.queue_factory.assert_called_once_with(str(Path(directory).resolve()))
+            finally:
+                os.chdir(previous_dir)
+
+    def test_queue_shows_running_log_and_can_cancel(self):
+        self.queue.jobs.return_value = [{
+            "id": "running12345", "type": "network",
+            "parameters": {"place": "Test City"}, "status": "running",
+            "created": "2026-01-01T00:00:00+00:00",
+            "started": "2026-01-01T00:00:01+00:00", "finished": None, "exit_code": None,
+        }]
+        self.queue.tail.return_value = "Network progress"
+        with tempfile.TemporaryDirectory() as directory:
+            previous_dir = os.getcwd()
+            try:
+                os.chdir(directory)
+                app = AppTest.from_file(str(APP_PATH)).run()
+                self.widget(app, "radio", "Navigation").set_value("Queue").run()
+                self.assertEqual(len(app.exception), 0)
+                self.assertTrue(any("Network progress" in item.value for item in app.code))
+                self.widget(app, "button", "Cancel network running1").click().run()
+                self.queue.cancel.assert_called_once_with("running12345")
+                self.assertEqual(len(app.exception), 0)
+            finally:
+                os.chdir(previous_dir)
 
 
 if __name__ == "__main__":

@@ -13,9 +13,8 @@ import pickle
 from .instance_class import Instance
 from .parameters_class import Parameters
 from .output_files import JsonConverter
-from .output_files import output_fixed_route_network
 from pathlib import Path
-from .retrieve_network import download_network_information
+from .retrieve_network import build_network
 from .rank_model import add_poi_density, add_zone_probabilities
 from .compute_distance_matrix import _get_distance_matrix
 from shapely.geometry import Point
@@ -61,6 +60,55 @@ def get_multiplier_speed_unit(speed_unit):
         mult = float(1/2.237)
 
     return mult
+
+# Built-in expression functions that read other attributes implicitly.
+IMPLICIT_ATTRIBUTES = {
+    'stops': ('max_walking', 'walk_speed'),
+    'walk': ('walk_speed',),
+}
+
+
+def _add_attribute_dependencies(GA):
+    """Add an edge to each attribute from every attribute it is computed from.
+
+    Raises ValueError when an expression calls stops() or walk() but the
+    attributes those functions read are not declared. Adding the edge anyway
+    would create them as empty nodes (and, mid-iteration, crash with
+    "dictionary changed size during iteration").
+    """
+
+    for node in list(GA.nodes()):
+
+        if 'expression' in GA.nodes[node]:
+            expression = re.split(r"[(,) ]", GA.nodes[node]['expression'])
+
+            for exp in expression:
+                if exp in GA:
+                    GA.add_edge(exp, node)
+
+                if exp in IMPLICIT_ATTRIBUTES:
+                    needed = IMPLICIT_ATTRIBUTES[exp]
+                    missing = [name for name in needed if name not in GA]
+                    if missing:
+                        raise ValueError(
+                            "attribute '" + str(node) + "' uses " + exp + "(), which needs the "
+                            "attribute(s) " + ", ".join(missing) + ". Add them to the "
+                            "configuration (in the web app: tick them under 'Select "
+                            "attributes to include')."
+                        )
+                    for name in needed:
+                        GA.add_edge(name, node)
+
+        if 'constraints' in GA.nodes[node]:
+
+            for constraint in GA.nodes[node]['constraints']:
+                constraint = re.split(r"[(,)><= ]", constraint)
+
+                for exp in constraint:
+                    if exp in GA:
+                        if exp != node:
+                            GA.add_edge(exp, node)
+
 
 def input_json(inst_directory, instance_filename, base_save_folder_name):
 
@@ -164,16 +212,16 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 lat = -1
                 dist = -1
 
-            network = download_network_information(place_name=place_name, vehicle_speed_data=vehicle_speed_data, vehicle_speed=vehicle_speed, max_speed_factor=max_speed_factor, get_fixed_lines=get_fixed_lines, graph_from_point=graph_from_point, lon=lon, lat=lat, dist=dist)
-
-            save_dir_fr = os.path.join(save_dir, 'fr_network')
-            if not os.path.isdir(save_dir_fr):
-                os.mkdir(save_dir_fr)
-
-            output_name_fr = place_name+'.frn'
-
-            if get_fixed_lines is not None:
-                output_fixed_route_network(output_file_name=os.path.join(save_dir_fr, output_name_fr), network=network)
+            point = (lon, lat) if graph_from_point else None
+            network = build_network(
+                place_name,
+                point=point,
+                dist=dist if graph_from_point else None,
+                get_fixed_lines=get_fixed_lines,
+                max_speed_factor=max_speed_factor,
+                vehicle_speed_data=vehicle_speed_data,
+                vehicle_speed=vehicle_speed,
+            )
 
             inst = Instance(folder_to_network=place_name)
 
@@ -1004,32 +1052,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 else:    
                     GA.nodes[name]['static_probability'] = 0
 
-        for node in list(GA.nodes()):
-
-            if 'expression' in GA.nodes[node]:
-                expression = re.split(r"[(,) ]", GA.nodes[node]['expression'])
-                
-                for exp in expression:
-                    if exp in GA:
-                        GA.add_edge(exp, node)
-
-                    #adds an specific dependency between max_walking_user and an attribute
-                    if exp == 'stops':
-                        GA.add_edge('max_walking', node)
-                        GA.add_edge('walk_speed', node)
-
-                    if exp == 'walk':
-                        GA.add_edge('walk_speed', node)
-
-            if 'constraints' in GA.nodes[node]:
-
-                for constraint in GA.nodes[node]['constraints']:
-                    constraint = re.split(r"[(,)><= ]", constraint)
-
-                    for exp in constraint:
-                        if exp in GA:
-                            if exp != node:
-                                GA.add_edge(exp, node)
+        _add_attribute_dependencies(GA)
 
 
         if 'travel_time_matrix' in inst.parameters:

@@ -15,27 +15,33 @@ This module:
 
 Call configure_overpass() once before any OSM download. It is idempotent.
 
-Set REQREATE_OVERPASS_URL to a comma-separated list of interpreter URLs to
+Set REQREATE_OVERPASS_URL to a comma-separated list of Overpass API URLs to
 override the mirror list, e.g. when running behind a private Overpass instance.
+Either form is accepted: https://host/api or https://host/api/interpreter.
 """
 
 import os
+import re
 import time
 import warnings
 
 import osmnx as ox
 
-# Tried in order. The first is osmnx's own default.
+# Tried in order. The first is osmnx's own default. These are API base URLs:
+# osmnx 2 appends "/interpreter" itself, so they must not end in it.
 #
 # These must be planet-wide instances. A regional mirror (there are several,
 # covering a single country) would answer a query for a place it does not hold
 # with an empty result rather than an error, which would silently produce an
 # instance with no network in it -- worse than the failure it was meant to
 # work around. Check coverage before adding a mirror here.
+#
+# overpass.kumi.systems and overpass.private.coffee used to be listed, but in
+# October 2026 both timed out on every query from a GitHub runner, so failing
+# over to them only added waiting before the same error.
 DEFAULT_OVERPASS_MIRRORS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass-api.de/api",
+    "https://maps.mail.ru/osm/tools/overpass/api",
 ]
 
 # Per mirror, before moving on to the next one.
@@ -49,12 +55,21 @@ class OverpassUnavailableError(RuntimeError):
     """Every Overpass mirror refused or failed to answer."""
 
 
+def _api_base(url):
+    """`url` without a trailing "/interpreter", the form osmnx 2 expects."""
+
+    url = url.strip().rstrip("/")
+    if url.endswith("/interpreter"):
+        url = url[: -len("/interpreter")]
+    return url
+
+
 def get_mirrors():
-    """Mirror list, honouring the REQREATE_OVERPASS_URL override."""
+    """Mirror API base URLs, honouring the REQREATE_OVERPASS_URL override."""
 
     override = os.environ.get("REQREATE_OVERPASS_URL", "").strip()
     if override:
-        mirrors = [url.strip() for url in override.split(",") if url.strip()]
+        mirrors = [_api_base(url) for url in override.split(",") if url.strip()]
         if mirrors:
             return mirrors
     return list(DEFAULT_OVERPASS_MIRRORS)
@@ -75,14 +90,19 @@ def get_cache_folder():
 
 
 def _set_overpass_url(url):
-    """Point osmnx at `url`, across both the 1.x and 2.x setting names."""
+    """Point osmnx at the Overpass API at `url`.
 
+    Both osmnx 2's overpass_url and 1.x's overpass_endpoint hold the API base
+    and osmnx appends "/interpreter" itself. Passing the full interpreter URL
+    sends every query to .../api/interpreter/interpreter, which the public
+    servers answer with 403 Forbidden.
+    """
+
+    url = _api_base(url)
     if hasattr(ox.settings, "overpass_url"):
-        # osmnx >= 1.6: full interpreter URL.
         ox.settings.overpass_url = url
     elif hasattr(ox.settings, "overpass_endpoint"):
-        # osmnx < 1.6: endpoint without the trailing /interpreter.
-        ox.settings.overpass_endpoint = url[: -len("/interpreter")] if url.endswith("/interpreter") else url
+        ox.settings.overpass_endpoint = url
     else:
         warnings.warn("osmnx exposes no Overpass URL setting; mirror failover is disabled")
 
@@ -119,6 +139,32 @@ def _network_error(exc):
     return transport_error or server_error or malformed_successful_response
 
 
+def _status_code(exc):
+    """HTTP status of an osmnx ResponseStatusCodeError in `exc`'s chain, or None.
+
+    osmnx only puts the status in the message: "'host' responded: 403 ...".
+    """
+
+    for cause in _causes(exc):
+        if type(cause).__name__ == "ResponseStatusCodeError":
+            match = re.search(r"responded: (\d{3})", str(cause))
+            if match:
+                return int(match.group(1))
+    return None
+
+
+def _retry_same_mirror(exc):
+    """False when this mirror will answer the same way however often we ask.
+
+    A 4xx other than 429 is the server refusing the request itself (403 for a
+    blocked client or a bad path, for instance). Repeating it only adds to the
+    reasons for blocking us, so go straight to the next mirror instead.
+    """
+
+    status = _status_code(exc)
+    return not (status is not None and 400 <= status < 500 and status != 429)
+
+
 def _causes(exc):
     """The exception plus its __cause__/__context__ chain."""
 
@@ -148,12 +194,13 @@ def _with_failover(original):
                         # Another mirror would answer the same way.
                         raise
                     last_error = exc
-                    if attempt < ATTEMPTS_PER_MIRROR:
+                    if attempt < ATTEMPTS_PER_MIRROR and _retry_same_mirror(exc):
                         delay = BACKOFF_SECONDS * (2 ** (attempt - 1))
                         print(f"Overpass request to {mirror} failed ({exc}); retrying in {delay}s")
                         time.sleep(delay)
                     else:
                         print(f"Overpass mirror {mirror} unreachable; trying the next one")
+                        break
 
         # Leave the setting on the default so a later run starts clean.
         _set_overpass_url(mirrors[0])
