@@ -39,6 +39,26 @@
 			"name": "destination",
 			"type": "location"
 		},
+		{
+			"name": "max_walking",
+			"type": "integer",
+			"time_unit": "s",
+			"pdf": [ {	"type": "uniform",
+					"loc": 550,
+					"scale": 50
+				} ],
+			"output_csv": false
+		},
+		{
+			"name": "walk_speed",
+			"type": "real",
+			"speed_unit": "mps",
+			"pdf": [ {	"type": "uniform",
+					"loc": 1.38889,
+					"scale": 0
+				} ],
+			"output_csv": false
+		},
 		{ 
 			"name": "stops_orgn",
 			"type": "array_primitives",

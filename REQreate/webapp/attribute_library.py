@@ -106,7 +106,7 @@ ODBRP_ATTRIBUTES = {
     "max_walking": {
         "name": "max_walking",
         "description": "Maximum walking distance/time",
-        "required": False,
+        "required": True,  # read by stops(), which stops_orgn/stops_dest use
         "template": {
             "name": "max_walking",
             "type": "integer",
@@ -118,7 +118,7 @@ ODBRP_ATTRIBUTES = {
     "walk_speed": {
         "name": "walk_speed",
         "description": "Walking speed (m/s)",
-        "required": False,
+        "required": True,  # read by stops(), which stops_orgn/stops_dest use
         "template": {
             "name": "walk_speed",
             "type": "real",

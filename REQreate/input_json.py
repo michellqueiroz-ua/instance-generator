@@ -60,6 +60,55 @@ def get_multiplier_speed_unit(speed_unit):
 
     return mult
 
+# Built-in expression functions that read other attributes implicitly.
+IMPLICIT_ATTRIBUTES = {
+    'stops': ('max_walking', 'walk_speed'),
+    'walk': ('walk_speed',),
+}
+
+
+def _add_attribute_dependencies(GA):
+    """Add an edge to each attribute from every attribute it is computed from.
+
+    Raises ValueError when an expression calls stops() or walk() but the
+    attributes those functions read are not declared. Adding the edge anyway
+    would create them as empty nodes (and, mid-iteration, crash with
+    "dictionary changed size during iteration").
+    """
+
+    for node in list(GA.nodes()):
+
+        if 'expression' in GA.nodes[node]:
+            expression = re.split(r"[(,) ]", GA.nodes[node]['expression'])
+
+            for exp in expression:
+                if exp in GA:
+                    GA.add_edge(exp, node)
+
+                if exp in IMPLICIT_ATTRIBUTES:
+                    needed = IMPLICIT_ATTRIBUTES[exp]
+                    missing = [name for name in needed if name not in GA]
+                    if missing:
+                        raise ValueError(
+                            "attribute '" + str(node) + "' uses " + exp + "(), which needs the "
+                            "attribute(s) " + ", ".join(missing) + ". Add them to the "
+                            "configuration (in the web app: tick them under 'Select "
+                            "attributes to include')."
+                        )
+                    for name in needed:
+                        GA.add_edge(name, node)
+
+        if 'constraints' in GA.nodes[node]:
+
+            for constraint in GA.nodes[node]['constraints']:
+                constraint = re.split(r"[(,)><= ]", constraint)
+
+                for exp in constraint:
+                    if exp in GA:
+                        if exp != node:
+                            GA.add_edge(exp, node)
+
+
 def input_json(inst_directory, instance_filename, base_save_folder_name):
 
     filename_json = inst_directory+instance_filename
@@ -1001,32 +1050,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 else:    
                     GA.nodes[name]['static_probability'] = 0
 
-        for node in GA.nodes():
-
-            if 'expression' in GA.nodes[node]:
-                expression = re.split(r"[(,) ]", GA.nodes[node]['expression'])
-                
-                for exp in expression:
-                    if exp in GA:
-                        GA.add_edge(exp, node)
-
-                    #adds an specific dependency between max_walking_user and an attribute
-                    if exp == 'stops':
-                        GA.add_edge('max_walking', node)
-                        GA.add_edge('walk_speed', node)
-
-                    if exp == 'walk':
-                        GA.add_edge('walk_speed', node)
-
-            if 'constraints' in GA.nodes[node]:
-
-                for constraint in GA.nodes[node]['constraints']:
-                    constraint = re.split(r"[(,)><= ]", constraint)
-
-                    for exp in constraint:
-                        if exp in GA:
-                            if exp != node:
-                                GA.add_edge(exp, node)
+        _add_attribute_dependencies(GA)
 
 
         if 'travel_time_matrix' in inst.parameters:
