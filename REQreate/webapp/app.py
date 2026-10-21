@@ -594,7 +594,7 @@ elif page == "Create New Instance":
                 config["zone_probabilities"] = True
 
             # Create configuration directory if it doesn't exist
-            config_dir = "examples/webapp_instances/"
+            config_dir = os.path.join("examples", "webapp_instances")
             os.makedirs(config_dir, exist_ok=True)
             
             # Save configuration file with descriptive name (no spaces or commas)
