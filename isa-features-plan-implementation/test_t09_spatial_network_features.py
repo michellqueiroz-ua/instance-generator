@@ -42,7 +42,7 @@ class TestT09SpatialNetworkFeatures(unittest.TestCase):
                     "stops_dest_walking_distance": "[500, 1200]",
                 },
             ],
-            # CSV-like matrix fallback for avg_station_degree proxy (all reachable).
+            # A complete stop matrix must not be read as road degree.
             "travel_time_matrix_sec": [
                 [1, 100, 110, 120],
                 [100, 1, 130, 140],
@@ -61,12 +61,13 @@ class TestT09SpatialNetworkFeatures(unittest.TestCase):
         # Endpoint candidate counts = [1,1,1,1] -> mean 1.0
         self.assertAlmostEqual(feats["bsa_flexibility"], 1.0, places=9)
 
-        # Matrix-reachability degree proxy: each stop reaches 3 others.
-        self.assertAlmostEqual(feats["avg_station_degree"], 3.0, places=9)
+        # No road degree and no road_network: NaN, not n_stops - 1.
+        self.assertTrue(math.isnan(feats["avg_station_degree"]))
 
         logs = "\n".join(captured.output)
         self.assertIn("bsa_flexibility walk-speed fallback used", logs)
         self.assertIn("bsa_flexibility=1.0 indicates one accessible stop", logs)
+        self.assertIn("avg_station_degree: no road degree", logs)
 
     def test_avg_station_degree_from_road_network_edges(self) -> None:
         instance = {
@@ -103,6 +104,29 @@ class TestT09SpatialNetworkFeatures(unittest.TestCase):
         self.assertTrue(math.isnan(feats["station_density"]))
         self.assertTrue(math.isnan(feats["bsa_flexibility"]))
         self.assertTrue(math.isnan(feats["avg_station_degree"]))
+
+
+class TestStopRoadDegrees(unittest.TestCase):
+    def test_degree_counts_distinct_road_neighbours_both_directions(self) -> None:
+        import networkx as nx
+        from reqreate_adapter import add_stop_road_degrees
+
+        graph = nx.MultiDiGraph()
+        # Stop node 1: two-way street to 2 (parallel edges), one-way in from 3,
+        # one-way out to 4 -> neighbours {2, 3, 4}.
+        graph.add_edge(1, 2)
+        graph.add_edge(1, 2)
+        graph.add_edge(2, 1)
+        graph.add_edge(3, 1)
+        graph.add_edge(1, 4)
+        stops = [{"osmid_drive": 1}, {"osmid_drive": 99}]
+
+        self.assertEqual(add_stop_road_degrees(stops, graph), 1)
+        self.assertEqual(stops[0]["degree"], 3)
+        self.assertNotIn("degree", stops[1])
+
+        feats = compute_features({"stops": stops, "requests": [], "vehicles": []})
+        self.assertAlmostEqual(feats["avg_station_degree"], 3.0, places=9)
 
 
 if __name__ == "__main__":

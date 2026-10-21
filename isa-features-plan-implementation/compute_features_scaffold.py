@@ -1145,55 +1145,10 @@ def _compute_avg_station_degree(instance: Dict[str, Any]) -> float:
                 degs = [float(len(neighbors.get(node_id, set()))) for node_id in stop_node_ids]
                 return safe_mean(degs)
 
-    # Second fallback: matrix reachability degree proxy from CSV matrix input.
-    matrix, _ = _resolve_drive_travel_time_matrix(instance)
-    if isinstance(matrix, list) and matrix:
-        degrees: List[float] = []
-        n = len(matrix)
-        for i in range(n):
-            row = matrix[i]
-            if not isinstance(row, list):
-                continue
-            deg = 0
-            for j, value in enumerate(row):
-                if i == j:
-                    continue
-                tt = to_float_or_nan(value)
-                if not math.isnan(tt) and math.isfinite(tt) and tt > 0.0:
-                    deg += 1
-            degrees.append(float(deg))
-        if degrees:
-            return safe_mean(degrees)
-
-    if isinstance(matrix, dict) and matrix:
-        neighbor_sets: Dict[Any, set] = {}
-        for key, value in matrix.items():
-            if isinstance(value, dict):
-                origin = _to_lookup_key(key)
-                if origin is None:
-                    continue
-                for dest_key, raw in value.items():
-                    tt = to_float_or_nan(raw)
-                    if math.isnan(tt) or not math.isfinite(tt) or tt <= 0.0:
-                        continue
-                    dest = _to_lookup_key(dest_key)
-                    if dest is None or dest == origin:
-                        continue
-                    neighbor_sets.setdefault(origin, set()).add(dest)
-            elif isinstance(key, str) and ":" in key:
-                left, right = key.split(":", 1)
-                origin = _to_lookup_key(left)
-                dest = _to_lookup_key(right)
-                tt = to_float_or_nan(value)
-                if origin is None or dest is None or origin == dest:
-                    continue
-                if math.isnan(tt) or not math.isfinite(tt) or tt <= 0.0:
-                    continue
-                neighbor_sets.setdefault(origin, set()).add(dest)
-
-        if neighbor_sets:
-            return safe_mean([float(len(v)) for v in neighbor_sets.values()])
-
+    # No road degree available. The stop travel-time matrix is not a fallback:
+    # REQreate's is complete, so every stop would get degree n_stops - 1.
+    if isinstance(stops, list) and stops:
+        LOGGER.warning("avg_station_degree: no road degree for any stop; returning NaN")
     return float("nan")
 
 

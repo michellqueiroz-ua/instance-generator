@@ -164,6 +164,62 @@ def service_area_km2_from_points(points_lon_lat: Sequence[Tuple[float, float]]) 
     return area if area > 0.0 else float("nan")
 
 
+def add_stop_road_degrees(stops: List[Dict[str, Any]], graph: Any) -> int:
+    """
+    Set ``stop["degree"]`` to the number of distinct road neighbours of the
+    stop's drive node (edge direction ignored), for avg_station_degree.
+
+    Returns how many stops received a degree; stops whose ``osmid_drive`` is
+    not in the graph are left without one.
+    """
+    if graph is None or not stops:
+        return 0
+
+    assigned = 0
+    for stop in stops:
+        node = stop.get("osmid_drive")
+        if node is None or node not in graph:
+            continue
+        if graph.is_directed():
+            neighbours = set(graph.successors(node)) | set(graph.predecessors(node))
+        else:
+            neighbours = set(graph.neighbors(node))
+        neighbours.discard(node)
+        stop["degree"] = len(neighbours)
+        assigned += 1
+    return assigned
+
+
+_DRIVE_GRAPH_CACHE: Dict[str, Any] = {}
+
+
+def find_drive_graph(reference_path: Any) -> Any:
+    """
+    Load the drive graph (``G_drive``) from ``<location>/pickle/*.network.class.pkl``
+    found from any path inside the location folder, or None.
+
+    Used when no graph is passed in (e.g. backfill_features.py); cached per
+    pickle because the network pickle is large.
+    """
+    start = Path(str(reference_path)).resolve()
+    for parent in ([start] if start.is_dir() else []) + list(start.parents):
+        matches = sorted((parent / "pickle").glob("*.network.class.pkl")) if (parent / "pickle").is_dir() else []
+        if not matches:
+            continue
+        key = str(matches[0])
+        if key not in _DRIVE_GRAPH_CACHE:
+            try:
+                import pickle
+
+                with open(key, "rb") as handle:
+                    _DRIVE_GRAPH_CACHE[key] = getattr(pickle.load(handle), "G_drive", None)
+            except Exception as exc:
+                LOGGER.warning("network pickle unreadable (%s): %s", key, exc)
+                _DRIVE_GRAPH_CACHE[key] = None
+        return _DRIVE_GRAPH_CACHE[key]
+    return None
+
+
 def service_area_km2_from_graph(graph: Any) -> float:
     """
     Area in km2 covered by a drive graph's nodes (``inst.network.G_drive``).
@@ -379,6 +435,7 @@ def load_reqreate_instance(
     vehicles: Optional[List[Dict[str, Any]]] = None,
     service_area_km2: Optional[float] = None,
     walk_speed: Optional[float] = None,
+    network_graph: Any = None,
 ) -> Dict[str, Any]:
     """
     Load a generated REQreate instance JSON as a feature-ready instance dict.
@@ -386,6 +443,9 @@ def load_reqreate_instance(
     ``stations_csv_path`` is auto-discovered from the JSON location when not
     given.  A missing or unreadable stations file is not fatal: the spatial
     features fall back to NaN rather than blocking the export.
+
+    ``network_graph`` (the drive graph) gives each stop its road degree; when
+    omitted it is loaded from the location's network pickle if present.
     """
     path = Path(str(json_path))
     with path.open("rb") as handle:
@@ -402,6 +462,12 @@ def load_reqreate_instance(
             LOGGER.warning("stations.csv unreadable (%s): %s", stations_csv_path, exc)
     else:
         LOGGER.info("no stations.csv found near %s; spatial features will be NaN", path)
+
+    if stops:
+        if network_graph is None:
+            network_graph = find_drive_graph(path)
+        if not add_stop_road_degrees(stops, network_graph):
+            LOGGER.info("no drive graph for %s; avg_station_degree will be NaN", path)
 
     if service_area_km2 is None and stops:
         service_area_km2 = service_area_km2_from_points(

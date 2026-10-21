@@ -88,6 +88,7 @@ def export_generated_instance_features(
         instance = load_reqreate_instance(
             json_path,
             service_area_km2=service_area_km2,
+            network_graph=network_graph,
         )
 
         if vehicles is None:
