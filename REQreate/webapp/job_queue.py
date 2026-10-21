@@ -21,6 +21,16 @@ _queues = {}
 _queues_lock = threading.Lock()
 
 
+def _child_env():
+    """Environment for job processes, importing the same REQreate as this app.
+
+    The job runs in the user's working directory, so without this a checkout
+    run would pick up whichever REQreate happens to be installed instead."""
+    package_root = str(Path(__file__).resolve().parents[2])
+    paths = [package_root] + [p for p in os.environ.get("PYTHONPATH", "").split(os.pathsep) if p]
+    return {**os.environ, "PYTHONPATH": os.pathsep.join(paths), "_REQREATE_QUEUE_GATE": "1"}
+
+
 def get_job_queue(working_directory):
     """Keep one owner even if Streamlit's resource cache is cleared."""
     directory = str(Path(working_directory).resolve())
@@ -234,7 +244,7 @@ class JobQueue:
                         self._process = subprocess.Popen(
                             self._command(job), cwd=self.working_directory,
                             stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT,
-                            env={**os.environ, "_REQREATE_QUEUE_GATE": "1"}, **options,
+                            env=_child_env(), **options,
                         )
                         try:
                             self._process_created = psutil.Process(self._process.pid).create_time()

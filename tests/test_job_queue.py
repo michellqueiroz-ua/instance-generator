@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 import psutil
 
-from REQreate.webapp.job_queue import JobQueue
+from REQreate.webapp.job_queue import JobQueue, _child_env
 
 
 class JobQueueTests(unittest.TestCase):
@@ -204,7 +204,9 @@ class JobQueueTests(unittest.TestCase):
             "while not queue.jobs()[0].get('pid'): time.sleep(0.02)\n"
             "os._exit(0)\n"
         )
-        subprocess.run([sys.executable, "-c", script], cwd=self.directory, check=True, timeout=10)
+        subprocess.run(
+            [sys.executable, "-c", script], cwd=self.directory, env=_child_env(), check=True, timeout=10,
+        )
         record = json.loads(next((self.directory / "queue").glob("*.json")).read_text())
         orphan = psutil.Process(record["pid"])
 
@@ -226,6 +228,12 @@ class JobQueueTests(unittest.TestCase):
             except psutil.NoSuchProcess:
                 pass
 
+    def test_jobs_import_the_same_reqreate_as_the_app(self):
+        with patch.dict(os.environ, {"PYTHONPATH": "elsewhere"}):
+            paths = _child_env()["PYTHONPATH"].split(os.pathsep)
+        self.assertEqual(Path(paths[0]), Path(__file__).resolve().parents[1])
+        self.assertEqual(paths[1:], ["elsewhere"])
+
     def test_crash_before_identity_is_saved_does_not_execute_cli_job(self):
         self.queue.close()
         script = (
@@ -244,7 +252,9 @@ class JobQueueTests(unittest.TestCase):
             "queue.submit_network('uncommitted')\n"
             "while True: time.sleep(0.02)\n"
         )
-        subprocess.run([sys.executable, "-c", script], cwd=self.directory, check=True, timeout=10)
+        subprocess.run(
+            [sys.executable, "-c", script], cwd=self.directory, env=_child_env(), check=True, timeout=10,
+        )
         pid = int((self.directory / "uncommitted_pid").read_text())
 
         def exited():
