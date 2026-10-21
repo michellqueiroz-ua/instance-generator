@@ -22,8 +22,11 @@ from pathlib import Path
 from typing import List, Optional, Sequence
 
 _THIS_DIR = Path(__file__).resolve().parent
-if str(_THIS_DIR) not in sys.path:
-    sys.path.insert(0, str(_THIS_DIR))
+# The checkout root goes first so network pickles unpickle with this
+# checkout's REQreate rather than an older installed one.
+for _path in (_THIS_DIR.parent, _THIS_DIR):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
 from compute_features_scaffold import compute_features
 from csv_table import instance_stem, repo_root
