@@ -62,3 +62,6 @@ Thumbs.db
 
 # Streamlit cache (but keep config)
 .streamlit/secrets.toml
+
+# ISA pilot outputs
+isa-features-plan-implementation/pilot/work/
