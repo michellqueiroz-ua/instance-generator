@@ -17,7 +17,7 @@ Design (2 x 3 x 2 x 2 = 24 instances):
 
 Everything is written under pilot/work/ (git-ignored):
     work/configs/                 one JSON per instance
-    work/Copenhagen, Denmark/     network + generated instances (csv_format/)
+    work/Copenhagen Municipality, Denmark/  network + generated instances (csv_format/)
     work/results/features.csv     one feature row per instance
 
 The generator runs as a subprocess with this checkout first on PYTHONPATH, so
@@ -39,7 +39,7 @@ WORK_DIR = PILOT_DIR / "work"
 CONFIG_DIR = WORK_DIR / "configs"
 FEATURES_CSV = WORK_DIR / "results" / "features.csv"
 
-NETWORK = "Copenhagen, Denmark"
+NETWORK = "Copenhagen Municipality, Denmark"  # "Copenhagen, Denmark" geocodes to a village in New York
 REQUESTS = [200, 500, 1000]
 PEAK_SD_MIN = [15, 30]
 TIME_WINDOWS = {
