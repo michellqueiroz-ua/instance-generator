@@ -522,7 +522,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
 
                             else:
                                 norm.random_state = np.random.RandomState(seed=rseed)
-                                attributes[att] = norm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                                attributes[att] = norm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
                                 
                                 if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                     attributes[att] = int(attributes[att])
@@ -554,7 +554,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'cauchy':
 
                             cauchy.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = cauchy.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = cauchy.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -562,7 +562,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'expon':
 
                             expon.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = expon.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = expon.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -572,7 +572,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                             gamma.random_state = np.random.RandomState(seed=rseed)
                             mux = (GA.nodes[att]['pdf'][0]['loc'] + GA.nodes[att]['pdf'][0]['scale']) / 2
                             a_scale = mux / GA.nodes[att]['pdf'][0]['aux']
-                            attributes[att] = gamma.rvs(a=GA.nodes[att]['pdf'][0]['aux'], scale=a_scale, size=1)
+                            attributes[att] = gamma.rvs(a=GA.nodes[att]['pdf'][0]['aux'], scale=a_scale, size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -580,7 +580,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'gilbrat':
 
                             gilbrat.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = gilbrat.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = gilbrat.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -588,7 +588,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'lognorm':
 
                             lognorm.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = lognorm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = lognorm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -596,7 +596,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'powerlaw':
 
                             powerlaw.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = powerlaw.rvs(a=GA.nodes[att]['pdf'][0]['aux'], loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = powerlaw.rvs(a=GA.nodes[att]['pdf'][0]['aux'], loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -604,7 +604,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'wald':
 
                             wald.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = wald.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = wald.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -612,7 +612,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'poisson':
 
                             poisson.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = poisson.rvs(mu=GA.nodes[att]['pdf'][0]['a'], size=1)
+                            attributes[att] = poisson.rvs(mu=GA.nodes[att]['pdf'][0]['a'], size=1)[0]
                             
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -1070,7 +1070,7 @@ def _generate_requests(
                     # Removed debug print
                     if not ((dynamismlvl >= inst.GA.nodes['time_stamp']['dynamism'] - 1) and (dynamismlvl <= inst.GA.nodes['time_stamp']['dynamism'])):
                         #time_stamps[ts] = int(np.random.randint(low=inst.GA.nodes['time_stamp']['pdf'][0]['loc'], high=(inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc']), size=1))
-                        time_stamps[ts] = int(uniform.rvs(loc=inst.GA.nodes['time_stamp']['pdf'][0]['loc'], scale=inst.GA.nodes['time_stamp']['pdf'][0]['scale'], size=1))
+                        time_stamps[ts] = int(uniform.rvs(loc=inst.GA.nodes['time_stamp']['pdf'][0]['loc'], scale=inst.GA.nodes['time_stamp']['pdf'][0]['scale'], size=1)[0])
                     else:
                         not_reached_dynamism = False
                         break
@@ -1090,10 +1090,10 @@ def _generate_requests(
             reaction_times[r] = int(reaction_times[r])
             while (reaction_times[r] < 0):
                 if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'normal':
-                    reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1))
+                    reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
 
                 if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'uniform':
-                    reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1))
+                    reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
         
         
         not_reached_urgency = True
@@ -1114,10 +1114,10 @@ def _generate_requests(
                     while(True):
                         if (reaction_times[r] > inst.GA.nodes['reaction_time']['pdf'][0]['loc']) or (reaction_times[r] < 0):
                             if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'normal':
-                                reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1))
+                                reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
 
                             if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'uniform':
-                                reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1))
+                                reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
                         
                         if (reaction_times[r] >= 0) and (reaction_times[r] <= inst.GA.nodes['reaction_time']['pdf'][0]['loc']):    
                             break
