@@ -4,31 +4,40 @@ run_pilot.py - T14 pilot (ISA-HODBRP)
 Generate a small Copenhagen ODBRP instance set with a 7-8 am peak, so the
 feature spread can be checked before the full experiment is sized.
 
-    python isa-features-plan-implementation/pilot/run_pilot.py            # write configs + generate
+    python isa-features-plan-implementation/pilot/run_pilot.py                  # configs + generate + features
     python isa-features-plan-implementation/pilot/run_pilot.py --configs-only
+    python isa-features-plan-implementation/pilot/run_pilot.py --features-only  # recompute features.csv
 
-Design (2 x 3 x 2 x 2 = 24 instances):
+Design: 12 configs x 2 replicas = 24 generated instances, each paired with
+3 fleets = 72 ISA instances.
     requests        200, 500, 1000
-    peak spread     sd 15 min (about 95% of requests between 7:00 and 8:00)
+    peak spread     time_stamp ~ normal(7:30, sd), kept within 6:30-8:30
+                    sd 15 min (about 95% of requests between 7:00 and 8:00)
                     sd 30 min (about 68% between 7:00 and 8:00)
     time windows    tight: ~10 min reaction, 15 min arrival slack
                     loose: ~30 min reaction, 45 min arrival slack
-    seeds           1, 2
+    replicas        2 (the config 'seed' does not change locations or times;
+                    the replica number does)
+    fleet           10%, 20%, 30% of requests, 60% 4-seat / 40% 8-seat
+
+No 'dynamism' on time_stamp: it replaces the pdf with evenly spaced times
+between loc and loc + scale, which flattened the peak in the first pilot.
 
 Everything is written under pilot/work/ (git-ignored):
-    work/configs/                 one JSON per instance
+    work/configs/                 one JSON per config
     work/Copenhagen Municipality, Denmark/  network + generated instances (csv_format/)
-    work/results/features.csv     one feature row per instance
+    work/results/features.csv     one row per (instance, fleet), key <instance>_fleet<pct>
+    work/results/fleets.json      the fleet behind each key, for the solver runs
 
 The generator runs as a subprocess with this checkout first on PYTHONPATH, so
 an older REQreate installed in the environment is never picked up.
 """
 
 import argparse
-import copy
 import itertools
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -37,7 +46,12 @@ PILOT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = PILOT_DIR.parents[1]
 WORK_DIR = PILOT_DIR / "work"
 CONFIG_DIR = WORK_DIR / "configs"
-FEATURES_CSV = WORK_DIR / "results" / "features.csv"
+RESULTS_DIR = WORK_DIR / "results"
+FEATURES_CSV = RESULTS_DIR / "features.csv"
+FLEETS_JSON = RESULTS_DIR / "fleets.json"
+# Rows the generation hook writes (default fleet only); features.csv is rebuilt from the instances.
+GENERATION_FEATURES_CSV = RESULTS_DIR / "generation_features.csv"
+ISA_DIR = PILOT_DIR.parent
 
 NETWORK = "Copenhagen Municipality, Denmark"  # "Copenhagen, Denmark" geocodes to a village in New York
 REQUESTS = [200, 500, 1000]
@@ -47,21 +61,23 @@ TIME_WINDOWS = {
     "tight": {"reaction_mean": 600, "reaction_sd": 120, "arrival_slack": 900},
     "loose": {"reaction_mean": 1800, "reaction_sd": 300, "arrival_slack": 2700},
 }
-SEEDS = [1, 2]
+REPLICAS = 2
+FLEET_PERCENTS = [10, 20, 30]
+FLEET_COMPOSITION = [{"capacity": 4, "percent": 60}, {"capacity": 8, "percent": 40}]
 
 PEAK_CENTRE_S = 7.5 * 3600  # 7:30
 WINDOW_START_H = 6.5        # requests are kept between 6:30 and 8:30
 WINDOW_END_H = 8.5
 
 
-def make_config(requests, peak_sd_min, tw_name, seed):
+def make_config(requests, peak_sd_min, tw_name):
     tw = TIME_WINDOWS[tw_name]
     return {
-        "seed": seed,
+        "seed": 1,
         "network": NETWORK,
         "problem": "ODBRP",
         "set_fixed_speed": {"vehicle_speed_data": 20, "vehicle_speed_data_unit": "kmh"},
-        "replicas": 1,
+        "replicas": REPLICAS,
         "requests": requests,
         "instance_filename": ["network", "problem", "requests"],
         "parameters": [
@@ -80,7 +96,6 @@ def make_config(requests, peak_sd_min, tw_name, seed):
                     "time_stamp >= min_early_departure",
                     "time_stamp <= max_early_departure",
                 ],
-                "dynamism": 100,
             },
             {
                 "name": "reaction_time", "type": "integer", "time_unit": "s",
@@ -132,27 +147,29 @@ def make_config(requests, peak_sd_min, tw_name, seed):
     }
 
 
-def config_name(requests, peak_sd_min, tw_name, seed):
-    return f"Copenhagen_ODBRP_{requests:04d}req_peak{peak_sd_min}_{tw_name}_s{seed}.json"
+def config_name(requests, peak_sd_min, tw_name):
+    return f"Copenhagen_ODBRP_{requests:04d}req_peak{peak_sd_min}_{tw_name}.json"
 
 
 def write_configs():
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    for stale in CONFIG_DIR.glob("*.json"):  # configs from an earlier design
+        stale.unlink()
     names = []
-    for requests, peak, tw_name, seed in itertools.product(REQUESTS, PEAK_SD_MIN, TIME_WINDOWS, SEEDS):
-        name = config_name(requests, peak, tw_name, seed)
+    for requests, peak, tw_name in itertools.product(REQUESTS, PEAK_SD_MIN, TIME_WINDOWS):
+        name = config_name(requests, peak, tw_name)
         (CONFIG_DIR / name).write_text(
-            json.dumps(make_config(requests, peak, tw_name, seed), indent=2), encoding="utf-8"
+            json.dumps(make_config(requests, peak, tw_name), indent=2), encoding="utf-8"
         )
         names.append(name)
     return names
 
 
 def generate():
-    FEATURES_CSV.parent.mkdir(parents=True, exist_ok=True)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(REPO_ROOT)] + [p for p in env.get("PYTHONPATH", "").split(os.pathsep) if p])
-    env["ISA_FEATURES_CSV"] = str(FEATURES_CSV)
+    env["ISA_FEATURES_CSV"] = str(GENERATION_FEATURES_CSV)
     command = [
         sys.executable, "-u", "-m", "REQreate.cli", "generate", str(CONFIG_DIR),
         "--skip-existing", "--continue-on-error",
@@ -160,18 +177,58 @@ def generate():
     return subprocess.call(command, cwd=WORK_DIR, env=env)
 
 
+def instance_jsons(config_names):
+    """Generated instance JSONs (all replicas) for the current configs."""
+    stems = {name[: -len(".json")] for name in config_names}
+    found = sorted((WORK_DIR / NETWORK / "json_format").rglob("*.json"))
+    return [path for path in found if re.sub(r"_\d+$", "", path.stem) in stems]
+
+
+def write_features(config_names):
+    """One features.csv row per (instance, fleet) and the matching fleets.json."""
+    for path in (REPO_ROOT, ISA_DIR):
+        if str(path) not in sys.path:
+            sys.path.insert(0, str(path))
+    from compute_features_scaffold import compute_features
+    from features_export import write_features_csv, normalize_feature_row
+    from fleet_config import vehicles_from_spec
+    from reqreate_adapter import load_reqreate_instance
+
+    rows, fleets = [], {}
+    paths = instance_jsons(config_names)
+    for path in paths:
+        instance = load_reqreate_instance(path)
+        n_requests = len(instance.get("requests", []))
+        for percent in FLEET_PERCENTS:
+            spec = {"fleet_percent_of_requests": percent, "composition": FLEET_COMPOSITION}
+            instance["vehicles"] = vehicles_from_spec(spec, n_requests=n_requests)
+            key = f"{path.stem}_fleet{percent}"
+            rows.append(normalize_feature_row(key, compute_features(instance)))
+            fleets[key] = {"instance": path.stem, "n_vehicles": len(instance["vehicles"]), **spec}
+        print(f"  {path.stem}: {n_requests} requests")
+
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    write_features_csv(rows, FEATURES_CSV)
+    FLEETS_JSON.write_text(json.dumps(fleets, indent=2), encoding="utf-8")
+    print(f"Wrote {len(rows)} rows ({len(paths)} instances x {len(FLEET_PERCENTS)} fleets) to {FEATURES_CSV}")
+    return 0 if rows else 1
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
     parser.add_argument("--configs-only", action="store_true", help="write the configs and stop")
+    parser.add_argument("--features-only", action="store_true", help="only rebuild features.csv")
     args = parser.parse_args(argv)
 
     names = write_configs()
-    print(f"Wrote {len(names)} configs to {CONFIG_DIR}")
+    print(f"Wrote {len(names)} configs ({REPLICAS} replicas each) to {CONFIG_DIR}")
     if args.configs_only:
         return 0
-    status = generate()
-    print(f"Features: {FEATURES_CSV}")
-    return status
+    if not args.features_only:
+        status = generate()
+        if status:
+            print("Some configs failed; features are computed for the ones that succeeded.")
+    return write_features(names)
 
 
 if __name__ == "__main__":
