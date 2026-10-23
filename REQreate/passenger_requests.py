@@ -350,7 +350,6 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                                         else:
                                             raise ValueError('Parameter max_dtt must be specified for Geographic dispersion')
 
-                                        print(loc1, scale1)
                                         radius = uniform.rvs(loc=loc1, scale=scale1, size=1)
 
                                     else:
@@ -1236,7 +1235,6 @@ def _generate_requests(
 
                         node_list.append(d)
                         node_list_seq.append(lvid)
-                        print(lvid)
                         inst.parameters[location]['list_seq_id'+str(replicate_num)].append(lvid)
                         lvid += 1
 
@@ -1247,7 +1245,6 @@ def _generate_requests(
                         node_list.append(instance_data[d][location+'node_drive'])
                         instance_data[d][location+'id'] = lvid
                         node_list_seq.append(lvid)
-                        print(lvid)
                         lvid += 1
 
             if replicate_num == 0:
