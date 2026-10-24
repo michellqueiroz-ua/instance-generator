@@ -131,6 +131,8 @@ def main():
 # Submit one DTU LSF job per row of jobs.csv. Run from this folder on a login node.
 # Usage: bash submit.sh            submit all rows
 #        bash submit.sh 5          submit only the first 5 rows (a test)
+# The solver reserves ~6 GB of fixed-size arrays at start; a lower memory limit
+# makes it segfault before printing anything. One OpenMP thread is enough.
 cd "$(dirname "${{BASH_SOURCE[0]}}")"
 mkdir -p results logs
 limit=${{1:-0}}
@@ -142,9 +144,9 @@ tail -n +2 jobs.csv | while IFS=';' read -r key instance algo seed total n1 n2; 
     greedy=""; [ "$algo" = "GR" ] && greedy="--greedy_only"
     name="${{key}}_${{algo}}_s${{seed}}"
     [ -s "results/$name.txt" ] && continue   # already done
-    bsub -J "isa_$name" -q hpc -n 1 -R "span[hosts=1]" -R "rusage[mem=8GB]" -M 9GB -W 24:00 \
+    bsub -J "isa_$name" -q hpc -n 1 -R "span[hosts=1]" -R "rusage[mem=16GB]" -M 16GB -W 24:00 \
          -o "logs/$name.out" -e "logs/$name.err" \
-         "./a.out --filename_requests 3 instances/$instance --seed $seed \
+         "OMP_NUM_THREADS=1 ./a.out --filename_requests 3 instances/$instance --seed $seed \
           --filename_travel_time travel_time.csv --output_file results/$name.txt \
           {solver_args} --number_vehicles1 $n1 --number_vehicles2 $n2 --number_vehicles3 0 \
           --total_requests $total $greedy"
