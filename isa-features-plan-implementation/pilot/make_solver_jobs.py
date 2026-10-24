@@ -12,9 +12,9 @@ Reads   work/results/fleets.json           (written by run_pilot.py)
 Writes  work/hpc_bundle/
             instances/*.csv                one per generated instance
             travel_time.csv                station x station, seconds
-            jobs.csv                       one row per solver run (atools data file)
-            run_solver.slurm               runs one row of jobs.csv
-            submit.sh                      submits the whole array
+            jobs.csv                       one row per solver run
+            submit.sh                      submits one DTU LSF (bsub) job per row
+            odbrp-parallel.cpp, Makefile   solver source (with --greedy_only)
             README.txt                     how to build the solver and submit
 
 Solver runs per (instance, fleet) key in fleets.json:
@@ -29,6 +29,7 @@ and rounds up (ceil of a float), so each type count is encoded as
 """
 
 import json
+import os
 import math
 import shutil
 import sys
@@ -43,6 +44,8 @@ from run_pilot import FLEETS_JSON, NETWORK  # noqa: E402
 
 NETWORK_DIR = WORK_DIR / NETWORK
 BUNDLE = WORK_DIR / "hpc_bundle"
+# MDHODBRP-P solver source (odbrp-parallel.cpp + Makefile); override with ODBRP_SOLVER_DIR.
+SOLVER_DIR = Path(os.environ.get("ODBRP_SOLVER_DIR", r"C:\Users\micqu\Desktop\ODBRP_P\MDHODBRP-P"))
 
 SA_SEEDS = 3
 # Same SA settings as the published MDHODBRP runs. They passed "--lamba"
@@ -93,6 +96,11 @@ def main():
 
     matrix = sorted((NETWORK_DIR / "travel_time_matrix").glob("*.csv"))[0]
     shutil.copyfile(matrix, BUNDLE / "travel_time.csv")
+    source_cpp = (SOLVER_DIR / "odbrp-parallel.cpp").read_text(encoding="utf-8")
+    if "--greedy_only" not in source_cpp:
+        raise SystemExit(f"{SOLVER_DIR / 'odbrp-parallel.cpp'} has no --greedy_only flag; GR runs would run SA")
+    for name in ("odbrp-parallel.cpp", "Makefile"):
+        shutil.copyfile(SOLVER_DIR / name, BUNDLE / name)
     depot = central_station()
 
     rows = ["key; instance; algo; seed; total_requests; n1; n2"]
@@ -111,45 +119,44 @@ def main():
                 rows.append(f"{key}; {source.name}; {algo}; {seed}; {n_requests}; {n1}; {n2}")
     (BUNDLE / "jobs.csv").write_text("\n".join(rows) + "\n", encoding="utf-8", newline="\n")
 
-    slurm = f"""#!/bin/bash
-#SBATCH --job-name=isa-pilot
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --time=24:00:00
-#SBATCH --partition=skylake
-
-module load atools
-module load calcua/2024a GCCcore/13.3.0
-
-source <(aenv --data $1)
-mkdir -p results
-greedy=""
-[ "$algo" = "GR" ] && greedy="--greedy_only"
-srun -n 1 -c ${{SLURM_CPUS_PER_TASK}} ./a.out --filename_requests 3 "instances/$instance" \\
-    --seed $seed --filename_travel_time travel_time.csv \\
-    --output_file "results/${{key}}_${{algo}}_s${{seed}}.txt" \\
-    --number_depots 1 --depot {depot} \\
-    --type_vehicles 2 --number_vehicles1 $n1 --number_vehicles2 $n2 --number_vehicles3 0 \\
-    --capacity_vehicles {' '.join(map(str, CAPACITIES))} \\
-    {' '.join(SA_ARGS)} --total_requests $total_requests $greedy
-"""
-    (BUNDLE / "run_solver.slurm").write_text(slurm, encoding="utf-8", newline="\n")
-    (BUNDLE / "submit.sh").write_text(
-        "#!/bin/bash\nmodule load atools\n"
-        "sbatch --array $(arange --data jobs.csv) run_solver.slurm jobs.csv\n",
-        encoding="utf-8", newline="\n",
+    solver_args = (
+        f"--number_depots 1 --depot {depot} --type_vehicles 2 "
+        f"--capacity_vehicles {' '.join(map(str, CAPACITIES))} {' '.join(SA_ARGS)}"
     )
+    submit = f"""#!/bin/bash
+# Submit one DTU LSF job per row of jobs.csv. Run from this folder on a login node.
+# Usage: bash submit.sh            submit all rows
+#        bash submit.sh 5          submit only the first 5 rows (a test)
+cd "$(dirname "${{BASH_SOURCE[0]}}")"
+mkdir -p results logs
+limit=${{1:-0}}
+n=0
+tail -n +2 jobs.csv | while IFS=';' read -r key instance algo seed total n1 n2; do
+    key=$(echo $key); instance=$(echo $instance); algo=$(echo $algo); seed=$(echo $seed)
+    total=$(echo $total); n1=$(echo $n1); n2=$(echo $n2)
+    n=$((n+1)); [ "$limit" -gt 0 ] && [ "$n" -gt "$limit" ] && break
+    greedy=""; [ "$algo" = "GR" ] && greedy="--greedy_only"
+    name="${{key}}_${{algo}}_s${{seed}}"
+    [ -s "results/$name.txt" ] && continue   # already done
+    bsub -J "isa_$name" -q hpc -n 1 -R "span[hosts=1]" -R "rusage[mem=8GB]" -M 9GB -W 24:00 \
+         -o "logs/$name.out" -e "logs/$name.err" \
+         "./a.out --filename_requests 3 instances/$instance --seed $seed \
+          --filename_travel_time travel_time.csv --output_file results/$name.txt \
+          {solver_args} --number_vehicles1 $n1 --number_vehicles2 $n2 --number_vehicles3 0 \
+          --total_requests $total $greedy"
+done
+"""
+    (BUNDLE / "submit.sh").write_text(submit, encoding="utf-8", newline="\n")
     (BUNDLE / "README.txt").write_text(
-        f"""ISA pilot solver bundle: {len(rows) - 1} runs, {len(fleets)} (instance, fleet) keys,
-{len(copied)} instances, depot = station {depot} (closest to the mean station position).
+        f"""ISA pilot solver bundle (DTU HPC, LSF): {len(rows) - 1} runs, {len(fleets)} (instance, fleet)
+keys, {len(copied)} instances, depot = station {depot} (closest to the mean station position).
 
 1. Copy this folder to the HPC.
-2. Build the solver here (needs the --greedy_only flag for the GR runs):
-       cp /path/to/MDHODBRP-P/odbrp-parallel.cpp /path/to/MDHODBRP-P/Makefile .
-       module load calcua/2024a GCCcore/13.3.0 && make
-3. bash submit.sh
-4. Copy results/ back to work/hpc_bundle/results/ for the performance matrix.
+2. Build the solver in this folder (source copied from {SOLVER_DIR}, with --greedy_only):
+       make
+3. Test with a few jobs first:  bash submit.sh 4     (then check logs/ and results/)
+4. Submit the rest:             bash submit.sh       (finished runs are skipped)
+5. Copy results/ back to work/hpc_bundle/results/ for the performance matrix.
 """,
         encoding="utf-8", newline="\n",
     )
