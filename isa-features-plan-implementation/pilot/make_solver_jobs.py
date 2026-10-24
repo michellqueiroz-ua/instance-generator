@@ -90,9 +90,11 @@ def central_station():
 
 def main():
     fleets = json.loads(FLEETS_JSON.read_text(encoding="utf-8"))
-    if BUNDLE.exists():
-        shutil.rmtree(BUNDLE)
-    (BUNDLE / "instances").mkdir(parents=True)
+    # Empty the bundle but keep the folder (a shell may have it open on Windows).
+    BUNDLE.mkdir(parents=True, exist_ok=True)
+    for entry in BUNDLE.iterdir():
+        shutil.rmtree(entry) if entry.is_dir() else entry.unlink()
+    (BUNDLE / "instances").mkdir()
 
     matrix = sorted((NETWORK_DIR / "travel_time_matrix").glob("*.csv"))[0]
     shutil.copyfile(matrix, BUNDLE / "travel_time.csv")
@@ -100,7 +102,9 @@ def main():
     if "--greedy_only" not in source_cpp:
         raise SystemExit(f"{SOLVER_DIR / 'odbrp-parallel.cpp'} has no --greedy_only flag; GR runs would run SA")
     for name in ("odbrp-parallel.cpp", "Makefile"):
-        shutil.copyfile(SOLVER_DIR / name, BUNDLE / name)
+        # LF endings: with CRLF, make on Linux names the binary "a.out\r".
+        text = (SOLVER_DIR / name).read_text(encoding="utf-8").replace("\r\n", "\n")
+        (BUNDLE / name).write_text(text, encoding="utf-8", newline="\n")
     depot = central_station()
 
     rows = ["key; instance; algo; seed; total_requests; n1; n2"]
