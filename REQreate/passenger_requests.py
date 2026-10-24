@@ -71,9 +71,7 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
     fig, ax = ox.plot_graph(network.G_drive, show=False, close=False, node_color='#000000', node_size=6, bgcolor="#ffffff", edge_color="#999999")
 
     requests_folder = os.path.join(save_dir_images, 'requests')
-
-    if not os.path.isdir(requests_folder):
-        os.mkdir(requests_folder)
+    os.makedirs(requests_folder, exist_ok=True)
 
     #plot origin locations
     for origin in origin_points:
@@ -95,13 +93,37 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
 
 def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid, method_poi, distancex, pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv):
     
+    import time as time_module
+    start_time = time_module.time()
+    
     attributes = {}
     feasible_data = False
     first_time = True
     # Removed debug print: print(reqid)
     loc_attempts = 0
     att_attempts = 0
+    feasibility_attempts = 0
+    MAX_FEASIBILITY_ATTEMPTS = 100  # Reduced for large networks - prevent excessive waiting
+    
+    if reqid % 5 == 0 or reqid == 0:  # Log timing for every 5th request
+        print(f"Starting request {reqid} generation...")
+    
     while not feasible_data:
+        feasibility_attempts += 1
+        
+        # Progress indicator for long-running requests
+        if feasibility_attempts % 50 == 0:  # More frequent logging (was 100)
+            elapsed = time_module.time() - start_time
+            print(f"  ⚠️ Request {reqid}: attempt {feasibility_attempts} after {elapsed:.1f}s (loc_attempts={loc_attempts}, att_attempts={att_attempts})")
+        
+        # Safety check to prevent infinite loops - reduce limit for large networks
+        if feasibility_attempts > MAX_FEASIBILITY_ATTEMPTS:
+            elapsed = time_module.time() - start_time
+            print(f"❌ WARNING: Request {reqid} failed after {MAX_FEASIBILITY_ATTEMPTS} attempts ({elapsed:.1f}s)")
+            print(f"  - Location attempts: {loc_attempts}")
+            print(f"  - Attribute attempts: {att_attempts}")
+            print(f"  - This suggests constraints are too tight or network is problematic")
+            break
         
         attributes = {}
         feasible_data = True
@@ -118,6 +140,13 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
 
         
         for att in sorted_attributes:
+            
+            # Skip attributes that don't have a 'type' field (constraints like max_walking)
+            # Check BEFORE entering the while loop to avoid spam
+            if 'type' not in GA.nodes[att]:
+                if reqid == 0:  # Only log once for the first request
+                    print(f"Info: Skipping non-attribute node '{att}' (likely a constraint/parameter)")
+                continue  # Skip to next attribute in sorted_attributes
 
             not_feasible_attribute = True
             exhaustion_iterations = 0
@@ -126,6 +155,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
 
                 seed_attribute = ((reqid+1)*111*(replicate_num+1))+att_attempts+num_requests
                 att_attempts += 1
+                    
                 if GA.nodes[att]['type'] == 'location':
 
                     seed_location = ((reqid+1)*1111*(replicate_num+1))+loc_attempts+num_requests
@@ -320,7 +350,6 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                                         else:
                                             raise ValueError('Parameter max_dtt must be specified for Geographic dispersion')
 
-                                        print(loc1, scale1)
                                         radius = uniform.rvs(loc=loc1, scale=scale1, size=1)
 
                                     else:
@@ -492,7 +521,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
 
                             else:
                                 norm.random_state = np.random.RandomState(seed=rseed)
-                                attributes[att] = norm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                                attributes[att] = norm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
                                 
                                 if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                     attributes[att] = int(attributes[att])
@@ -524,7 +553,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'cauchy':
 
                             cauchy.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = cauchy.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = cauchy.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -532,7 +561,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'expon':
 
                             expon.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = expon.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = expon.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -542,7 +571,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                             gamma.random_state = np.random.RandomState(seed=rseed)
                             mux = (GA.nodes[att]['pdf'][0]['loc'] + GA.nodes[att]['pdf'][0]['scale']) / 2
                             a_scale = mux / GA.nodes[att]['pdf'][0]['aux']
-                            attributes[att] = gamma.rvs(a=GA.nodes[att]['pdf'][0]['aux'], scale=a_scale, size=1)
+                            attributes[att] = gamma.rvs(a=GA.nodes[att]['pdf'][0]['aux'], scale=a_scale, size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -550,7 +579,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'gilbrat':
 
                             gilbrat.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = gilbrat.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = gilbrat.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -558,7 +587,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'lognorm':
 
                             lognorm.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = lognorm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = lognorm.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -566,7 +595,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'powerlaw':
 
                             powerlaw.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = powerlaw.rvs(a=GA.nodes[att]['pdf'][0]['aux'], loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = powerlaw.rvs(a=GA.nodes[att]['pdf'][0]['aux'], loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -574,7 +603,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'wald':
 
                             wald.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = wald.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)
+                            attributes[att] = wald.rvs(loc=GA.nodes[att]['pdf'][0]['loc'], scale=GA.nodes[att]['pdf'][0]['scale'], size=1)[0]
 
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -582,7 +611,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                         if GA.nodes[att]['pdf'][0]['type'] == 'poisson':
 
                             poisson.random_state = np.random.RandomState(seed=rseed)
-                            attributes[att] = poisson.rvs(mu=GA.nodes[att]['pdf'][0]['a'], size=1)
+                            attributes[att] = poisson.rvs(mu=GA.nodes[att]['pdf'][0]['a'], size=1)[0]
                             
                             if (GA.nodes[att]['type'] == 'time') or (GA.nodes[att]['type'] == 'integer'):
                                 attributes[att] = int(attributes[att])
@@ -762,11 +791,41 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
             
 
         if feasible_data:
+            # VALIDATION: Remove overlapping stops between origin and destination
+            if 'stops_orgn' in attributes and 'stops_dest' in attributes:
+                common_stops = set(attributes['stops_orgn']) & set(attributes['stops_dest'])
+                if common_stops:
+                    # Remove common stops from destination (keep origin intact)
+                    filtered_dest = [s for s in attributes['stops_dest'] if s not in common_stops]
+                    filtered_dest_walk = [w for s, w in zip(attributes['stops_dest'], attributes.get('stops_dest_walking_distance', [])) if s not in common_stops]
+                    
+                    if len(filtered_dest) > 0:
+                        attributes['stops_dest'] = filtered_dest
+                        if 'stops_dest_walking_distance' in attributes:
+                            attributes['stops_dest_walking_distance'] = filtered_dest_walk
+                    else:
+                        # All destination stops overlap with origin - regenerate
+                        feasible_data = False
+            
+            # VALIDATION: Check that stops arrays are not empty
+            if feasible_data and 'stops_orgn' in attributes and len(attributes['stops_orgn']) == 0:
+                feasible_data = False
+            
+            if feasible_data and 'stops_dest' in attributes and len(attributes['stops_dest']) == 0:
+                feasible_data = False
+        
+        if feasible_data:
             try:
                 attributes['seed_location'] = seed_location
             except Exception as e:
                 attributes['seed_location'] = -1
             attributes['reqid'] = reqid
+            
+            # Log completion time for slow requests
+            if reqid % 5 == 0 or reqid == 0:
+                elapsed = time_module.time() - start_time
+                print(f"✓ Request {reqid} completed in {elapsed:.2f}s (attempts: {feasibility_attempts})")
+            
             return attributes
 
     
@@ -1010,7 +1069,7 @@ def _generate_requests(
                     # Removed debug print
                     if not ((dynamismlvl >= inst.GA.nodes['time_stamp']['dynamism'] - 1) and (dynamismlvl <= inst.GA.nodes['time_stamp']['dynamism'])):
                         #time_stamps[ts] = int(np.random.randint(low=inst.GA.nodes['time_stamp']['pdf'][0]['loc'], high=(inst.GA.nodes['time_stamp']['pdf'][0]['scale'] + inst.GA.nodes['time_stamp']['pdf'][0]['loc']), size=1))
-                        time_stamps[ts] = int(uniform.rvs(loc=inst.GA.nodes['time_stamp']['pdf'][0]['loc'], scale=inst.GA.nodes['time_stamp']['pdf'][0]['scale'], size=1))
+                        time_stamps[ts] = int(uniform.rvs(loc=inst.GA.nodes['time_stamp']['pdf'][0]['loc'], scale=inst.GA.nodes['time_stamp']['pdf'][0]['scale'], size=1)[0])
                     else:
                         not_reached_dynamism = False
                         break
@@ -1030,10 +1089,10 @@ def _generate_requests(
             reaction_times[r] = int(reaction_times[r])
             while (reaction_times[r] < 0):
                 if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'normal':
-                    reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1))
+                    reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
 
                 if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'uniform':
-                    reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1))
+                    reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
         
         
         not_reached_urgency = True
@@ -1054,10 +1113,10 @@ def _generate_requests(
                     while(True):
                         if (reaction_times[r] > inst.GA.nodes['reaction_time']['pdf'][0]['loc']) or (reaction_times[r] < 0):
                             if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'normal':
-                                reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1))
+                                reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
 
                             if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'uniform':
-                                reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1))
+                                reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
                         
                         if (reaction_times[r] >= 0) and (reaction_times[r] <= inst.GA.nodes['reaction_time']['pdf'][0]['loc']):    
                             break
@@ -1089,11 +1148,11 @@ def _generate_requests(
         # Sequential processing
         all_reqs = []
         for i in range(num_requests):
-            if (i + 1) % 10 == 0 or i == 0:  # Progress every 10 requests
+            if (i + 1) % 5 == 0 or i == 0:  # Progress every 5 requests (more frequent)
                 if logger:
                     logger.progress(f"Generated {i + 1}/{num_requests} requests")
                 else:
-                    print(f"Generated {i + 1}/{num_requests} requests")
+                    print(f"  → Generated {i + 1}/{num_requests} requests")
             req = _generate_single_data_impl(inst.GA, inst.network, inst.sorted_attributes, inst.parameters, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv)
             all_reqs.append(req)
 
@@ -1176,7 +1235,6 @@ def _generate_requests(
 
                         node_list.append(d)
                         node_list_seq.append(lvid)
-                        print(lvid)
                         inst.parameters[location]['list_seq_id'+str(replicate_num)].append(lvid)
                         lvid += 1
 
@@ -1187,12 +1245,12 @@ def _generate_requests(
                         node_list.append(instance_data[d][location+'node_drive'])
                         instance_data[d][location+'id'] = lvid
                         node_list_seq.append(lvid)
-                        print(lvid)
                         lvid += 1
 
             if replicate_num == 0:
                 
                 output_file_ttm_csv = os.path.join(inst.save_dir_ttm, 'travel_time_matrix_' + final_filename + '_' + str(replicate_num) + '.csv')
+                os.makedirs(inst.save_dir_ttm, exist_ok=True)
 
                 if not os.path.exists(output_file_ttm_csv):
                     

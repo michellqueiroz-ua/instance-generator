@@ -37,6 +37,10 @@ Maastricht*/
 cache/
 *.pkl
 
+
+# User session data (generated instances, auto-cleanup)
+_user_data/
+
 # User-generated configurations
 examples/webapp_instances/*.json
 queue/
@@ -58,3 +62,6 @@ Thumbs.db
 
 # Streamlit cache (but keep config)
 .streamlit/secrets.toml
+
+# ISA pilot outputs
+isa-features-plan-implementation/pilot/work/
