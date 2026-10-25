@@ -78,14 +78,38 @@ def percent_for(count, n_requests):
     return text
 
 
-def central_station():
-    """Index of the station closest to the mean station position (the depot)."""
+def used_stations(instance_csvs):
+    """Stations that appear in any request's stops_orgn or stops_dest."""
+    import ast
+    import pandas as pd
+
+    used = set()
+    for path in instance_csvs:
+        requests = pd.read_csv(path, usecols=["stops_orgn", "stops_dest"])
+        for column in ("stops_orgn", "stops_dest"):
+            for stops in requests[column]:
+                used.update(ast.literal_eval(stops))
+    return used
+
+
+def central_station(excluded):
+    """
+    Depot: the station closest to the mean station position that no request
+    uses as a stop.
+
+    The solver crashes when a passenger's stop equals the depot: in
+    cheapest_destination2 (and three similar places) a drop-off at the
+    route's final stop, the depot, reads stops[v][i+2], one past the route.
+    """
     import pandas as pd
 
     stations = pd.read_csv(next((NETWORK_DIR / "csv").glob("*.stations.csv")))
     lat, lon = stations["lat"].mean(), stations["lon"].mean()
     distance = (stations["lat"] - lat) ** 2 + ((stations["lon"] - lon) * math.cos(math.radians(lat))) ** 2
-    return int(distance.idxmin())
+    candidates = distance.drop(index=[s for s in excluded if s in distance.index])
+    if candidates.empty:
+        raise SystemExit("every station is a stop of some request; no safe depot")
+    return int(candidates.idxmin())
 
 
 def main():
@@ -105,7 +129,8 @@ def main():
         # LF endings: with CRLF, make on Linux names the binary "a.out\r".
         text = (SOLVER_DIR / name).read_text(encoding="utf-8").replace("\r\n", "\n")
         (BUNDLE / name).write_text(text, encoding="utf-8", newline="\n")
-    depot = central_station()
+    instances = sorted({NETWORK_DIR / "csv_format" / f"{f['instance']}.csv" for f in fleets.values()})
+    depot = central_station(used_stations(instances))
 
     rows = ["key; instance; algo; seed; total_requests; n1; n2"]
     copied = set()
@@ -155,7 +180,7 @@ done
     (BUNDLE / "submit.sh").write_text(submit, encoding="utf-8", newline="\n")
     (BUNDLE / "README.txt").write_text(
         f"""ISA pilot solver bundle (DTU HPC, LSF): {len(rows) - 1} runs, {len(fleets)} (instance, fleet)
-keys, {len(copied)} instances, depot = station {depot} (closest to the mean station position).
+keys, {len(copied)} instances, depot = station {depot} (closest to the mean station position among stations no request uses).
 
 1. Copy this folder to the HPC.
 2. Build the solver in this folder (source copied from {SOLVER_DIR}, with --greedy_only):
