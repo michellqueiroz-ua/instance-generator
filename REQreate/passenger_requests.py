@@ -91,9 +91,12 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
     plt.close(fig)
 
 
-def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid, method_poi, distancex, pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv):
+def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid, method_poi, distancex, pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv, base_seed=1):
     
     import time as time_module
+    # Shift every per-request seed by the instance seed, so configs with different
+    # 'seed' values get different locations and attributes. seed 1 keeps the old output.
+    seed_offset = (int(base_seed) - 1) * 1000003
     start_time = time_module.time()
     
     attributes = {}
@@ -153,12 +156,12 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
 
             while (not_feasible_attribute) and (exhaustion_iterations < 100):
 
-                seed_attribute = ((reqid+1)*111*(replicate_num+1))+att_attempts+num_requests
+                seed_attribute = (((reqid+1)*111*(replicate_num+1))+att_attempts+num_requests+seed_offset) % 2**32
                 att_attempts += 1
                     
                 if GA.nodes[att]['type'] == 'location':
 
-                    seed_location = ((reqid+1)*1111*(replicate_num+1))+loc_attempts+num_requests
+                    seed_location = (((reqid+1)*1111*(replicate_num+1))+loc_attempts+num_requests+seed_offset) % 2**32
                     random_zone_id = -1
 
                     if 'subset_zones' in GA.nodes[att]:
@@ -1141,7 +1144,7 @@ def _generate_requests(
         sorted_attributes_id = ray.put(inst.sorted_attributes)
         parameters_id = ray.put(inst.parameters)
         
-        all_reqs = ray.get([_generate_single_data.remote(GA_id, network_id, sorted_attributes_id, parameters_id, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsvid) for i in range(num_requests)]) 
+        all_reqs = ray.get([_generate_single_data.remote(GA_id, network_id, sorted_attributes_id, parameters_id, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsvid, inst.seed) for i in range(num_requests)]) 
         
         ray.shutdown()
     else:
@@ -1153,7 +1156,7 @@ def _generate_requests(
                     logger.progress(f"Generated {i + 1}/{num_requests} requests")
                 else:
                     print(f"  → Generated {i + 1}/{num_requests} requests")
-            req = _generate_single_data_impl(inst.GA, inst.network, inst.sorted_attributes, inst.parameters, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv)
+            req = _generate_single_data_impl(inst.GA, inst.network, inst.sorted_attributes, inst.parameters, i, method_poi, distances[i], pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv, inst.seed)
             all_reqs.append(req)
 
     

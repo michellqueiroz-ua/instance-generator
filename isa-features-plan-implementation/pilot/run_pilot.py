@@ -16,8 +16,9 @@ Design: 12 configs x 2 replicas = 24 generated instances, each paired with
                     sd 30 min (about 68% between 7:00 and 8:00)
     time windows    tight: ~10 min reaction, 15 min arrival slack
                     loose: ~30 min reaction, 45 min arrival slack
-    replicas        2 (the config 'seed' does not change locations or times;
-                    the replica number does)
+    replicas        2
+    seed            one per config (1..12), so every config draws its own
+                    locations and times
     fleet           10%, 20%, 30% of requests, 60% 4-seat / 40% 8-seat
 
 No 'dynamism' on time_stamp: it replaces the pdf with evenly spaced times
@@ -70,10 +71,10 @@ WINDOW_START_H = 6.5        # requests are kept between 6:30 and 8:30
 WINDOW_END_H = 8.5
 
 
-def make_config(requests, peak_sd_min, tw_name):
+def make_config(requests, peak_sd_min, tw_name, seed):
     tw = TIME_WINDOWS[tw_name]
     return {
-        "seed": 1,
+        "seed": seed,
         "network": NETWORK,
         "problem": "ODBRP",
         "set_fixed_speed": {"vehicle_speed_data": 20, "vehicle_speed_data_unit": "kmh"},
@@ -156,10 +157,11 @@ def write_configs():
     for stale in CONFIG_DIR.glob("*.json"):  # configs from an earlier design
         stale.unlink()
     names = []
-    for requests, peak, tw_name in itertools.product(REQUESTS, PEAK_SD_MIN, TIME_WINDOWS):
+    designs = itertools.product(REQUESTS, PEAK_SD_MIN, TIME_WINDOWS)
+    for seed, (requests, peak, tw_name) in enumerate(designs, start=1):
         name = config_name(requests, peak, tw_name)
         (CONFIG_DIR / name).write_text(
-            json.dumps(make_config(requests, peak, tw_name), indent=2), encoding="utf-8"
+            json.dumps(make_config(requests, peak, tw_name, seed), indent=2), encoding="utf-8"
         )
         names.append(name)
     return names
