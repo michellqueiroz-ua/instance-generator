@@ -85,7 +85,14 @@ from features_export import (
 LOGGER = logging.getLogger(__name__)
 
 INSTANCE_COLUMN = "instance"
-ALGORITHM_COLUMNS: Tuple[str, ...] = ("SA", "IP", "GR")
+# ISA_ALGORITHMS (e.g. "SA,GR") runs the pipeline on a subset, such as a pilot
+# before the IP results exist. Read once at import, so set it before importing.
+ENV_ALGORITHMS = "ISA_ALGORITHMS"
+ALGORITHM_COLUMNS: Tuple[str, ...] = tuple(
+    name.strip()
+    for name in os.environ.get(ENV_ALGORITHMS, "SA,IP,GR").split(",")
+    if name.strip()
+)
 PERF_SCHEMA = TableSchema(key_column=INSTANCE_COLUMN, value_columns=ALGORITHM_COLUMNS)
 PERF_CSV_COLUMNS: List[str] = PERF_SCHEMA.columns
 
