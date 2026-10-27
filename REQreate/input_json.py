@@ -221,6 +221,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 max_speed_factor=max_speed_factor,
                 vehicle_speed_data=vehicle_speed_data,
                 vehicle_speed=vehicle_speed,
+                exclude_places=data.get('exclude_places'),
             )
 
             inst = Instance(folder_to_network=place_name)

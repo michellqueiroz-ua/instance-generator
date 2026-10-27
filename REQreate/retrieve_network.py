@@ -96,6 +96,17 @@ def _safe_network_path(place_name, *parts):
     return candidate
 
 
+def exclude_from_polygon(polygon, exclude_places):
+    """Cut the areas of exclude_places (OSM place names) out of polygon, e.g. an island of a region."""
+    if not exclude_places:
+        return polygon
+    excluded = ox.geocoder.geocode_to_gdf(list(exclude_places))["geometry"].unary_union
+    remaining = polygon.difference(excluded)
+    if remaining.is_empty:
+        raise ValueError(f"exclude_places {list(exclude_places)} cover the whole network area")
+    return remaining
+
+
 def build_network(
     place_name,
     *,
@@ -105,6 +116,7 @@ def build_network(
     max_speed_factor=0.5,
     vehicle_speed_data="max",
     vehicle_speed=None,
+    exclude_places=None,
 ):
     """Download, build, and save a network without generating an instance."""
     place_name = _validate_network_name(place_name)
@@ -120,6 +132,7 @@ def build_network(
         lon=lon,
         lat=lat,
         dist=dist if graph_from_point else -1,
+        exclude_places=exclude_places,
     )
 
     if get_fixed_lines is not None:
@@ -144,7 +157,8 @@ def download_network_information(
     graph_from_point=False,
     lon=None,
     lat=None,
-    dist=0
+    dist=0,
+    exclude_places=None,
 ):
 
     place_name = _validate_network_name(place_name)
@@ -227,7 +241,9 @@ def download_network_information(
             raise TypeError("query must be dict, string, or list of strings")
 
         # extract the geometry from the GeoDataFrame to use in API query
-        polygon = gdf_place["geometry"].unary_union 
+        polygon = gdf_place["geometry"].unary_union
+
+    polygon = exclude_from_polygon(polygon, exclude_places)
 
     
     G_walk = ox.graph_from_polygon(
