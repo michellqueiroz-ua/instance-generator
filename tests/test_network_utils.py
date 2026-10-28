@@ -7,6 +7,7 @@ from unittest.mock import patch
 import geopandas as gpd
 from shapely.geometry import MultiPolygon, box
 
+from REQreate.osm_features import features_in_area
 from REQreate.retrieve_network import build_network, exclude_from_polygon
 from REQreate.webapp.network_utils import list_networks
 
@@ -90,6 +91,23 @@ class BuildNetworkTests(unittest.TestCase):
             dist=1200,
             exclude_places=None,
         )
+
+
+class FeaturesInAreaTests(unittest.TestCase):
+    def test_polygon_limits_the_query_to_the_network_area(self):
+        area = box(0, 0, 10, 10)
+        with patch("REQreate.osm_features.ox.features_from_polygon", return_value="in area") as by_polygon, \
+                patch("REQreate.osm_features.ox.features_from_place") as by_place:
+            result = features_in_area("Region", {"highway": "bus_stop"}, area)
+        self.assertEqual(result, "in area")
+        by_polygon.assert_called_once_with(area, tags={"highway": "bus_stop"})
+        by_place.assert_not_called()
+
+    def test_without_polygon_the_place_is_queried(self):
+        with patch("REQreate.osm_features.ox.features_from_place", return_value="in place") as by_place:
+            result = features_in_area("City", {"amenity": "school"})
+        self.assertEqual(result, "in place")
+        by_place.assert_called_once_with("City", tags={"amenity": "school"})
 
 
 class ExcludeFromPolygonTests(unittest.TestCase):

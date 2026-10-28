@@ -279,7 +279,7 @@ def download_network_information(
     
     if logger:
         logger.subsection('Bus Stations')
-    bus_stations = get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base)
+    bus_stations = get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base, polygon)
     if logger:
         logger.success(f"Retrieved {len(bus_stations)} bus stations")
     else:
@@ -342,13 +342,13 @@ def download_network_information(
     if logger:
         logger.success(f"Created {len(zones)} zones")
 
-    schools = retrieve_schools(network.G_walk, network.G_drive, place_name, save_dir, output_folder_base)
+    schools = retrieve_schools(network.G_walk, network.G_drive, place_name, save_dir, output_folder_base, network.polygon)
     schools = schools.reset_index(drop=True)
               
     if logger:
         logger.success(f"Retrieved {len(schools)} schools")
     
-    hospitals = retrieve_hospitals(network.G_walk, network.G_drive, place_name, save_dir, output_folder_base)
+    hospitals = retrieve_hospitals(network.G_walk, network.G_drive, place_name, save_dir, output_folder_base, network.polygon)
     hospitals = hospitals.reset_index(drop=True)
     
     if logger:
