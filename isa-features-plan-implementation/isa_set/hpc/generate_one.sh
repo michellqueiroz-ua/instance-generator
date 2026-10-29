@@ -14,6 +14,7 @@ source "$HOME/venvs/reqreate/bin/activate" || exit 4
 cd "$WORK" || exit 5
 name=$(basename "$CFG" .json)
 mkdir -p generation_features
+export PYTHONUNBUFFERED=1   # progress lines reach the job log while it runs, not in blocks at the end
 echo "generating $name from $CFG"
 # The generation hook writes the feature row of the instance; one file per instance.
 ISA_FEATURES_CSV="$WORK/generation_features/$name.csv" python -m REQreate.cli generate "$CFG" --skip-existing
