@@ -7,7 +7,8 @@ Marked in order of what blocks the next step.
 | ID | Item | State |
 |---|---|---|
 | OPEN-G1 | Result of test job 29846018 (ISA_b00_i001, with station matrix). It reached the 6 h limit with no output files; expected to be killed at about 12:33 on 2026-10-29. | Waiting. If killed, nothing is saved. |
-| OPEN-G2 | Rerun of the 6-request profile after the nearest-node fix. Expected about 1 s per request instead of about 20 s. | Commit `f67f8723` pushed? Rerun not done. |
+| OPEN-G2 | Rerun of the 6-request profile after the nearest-node fix. | **Done 2026-10-29**: 0.5-1.6 s per request instead of 16-18 s (see 02, T7). |
+| OPEN-G6 | The rerun log reports Max Memory 67 MB and an empty Run time line, against 1593 MB before. Probably an LSF reporting artefact; confirm with the full summary before sizing memory from it. | Open |
 | OPEN-G3 | (Decision D14b: the station matrix gets its own job.) Where the other ~4 h of the test job went. Requests explain about 1.2 h of 5.3 h. Suspected: the station matrix (3515 searches on the full drive graph; the row cache grows, memory 7.1 GB of 8 GB). | Not measured. Code written: `isa_set/station_matrix.py` (commit `f7c45f26`). Run it and record time and memory. |
 | OPEN-G4 | Feature step for the batches that attaches the shared station matrix (see 05). | Not written. |
 | OPEN-G5 | Size `MEM_GB` and `WALL_H` for batch 1 from the measured full instance. | After G2/G3. |

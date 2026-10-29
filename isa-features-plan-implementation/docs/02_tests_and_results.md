@@ -107,8 +107,19 @@ Hypothesis by the author that was tested and **rejected**: stops too close to ea
 
 Consequence: a cached nearest-node index was added (D18, `REQreate/nearest.py`). Unit test
 `tests/test_nearest.py` checks it returns the same node as osmnx on 30 random points.
-**OPEN**: rerun of the profile after the fix, to measure the speed-up (expected from about 20 s to
-about 1 s per request).
+Rerun after the fix (same config, 6 requests, no station matrix; log `logs/profile2.out`):
+
+| Item | Before | After |
+|---|---|---|
+| Request 0 | 16.23 s (2 attempts) | 1.61 s (2 attempts) |
+| Request 5 | 18.06 s (3 attempts) | 0.54 s (3 attempts) |
+| CPU time of the whole run | 192 s | 72 s |
+| Max memory reported by LSF | 1593 MB | 67 MB (**suspicious**, see 06 OPEN-G6) |
+
+Speed-up per request: about 10x for the first request (which builds the index) and about 33x
+for later ones. Request time is no longer a bottleneck: 1000 requests take roughly 10 minutes
+at 0.5 s each. The attempts per request are unchanged, so the fix does not change which
+requests are drawn.
 
 Reading the code (`passenger_requests.py` from line 1217, `network_class.py:160`) gives a likely
 cause of the heavy test job, not yet confirmed by a measurement. After the requests, REQreate
