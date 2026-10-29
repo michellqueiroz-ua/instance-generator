@@ -35,6 +35,7 @@ from scipy.stats import wald
 from multiprocessing import cpu_count
 import gc
 from datetime import datetime
+from .nearest import nearest_node
 from .dynamism import dynamism
 from .logger_utils import get_logger
 
@@ -473,8 +474,8 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                     if point[1] != -1:
                         not_feasible_attribute = False
                         
-                        node_drive = ox.nearest_nodes(network.G_drive, point[1], point[0])
-                        node_walk = ox.nearest_nodes(network.G_walk, point[1], point[0])
+                        node_drive = nearest_node(network.G_drive, point[1], point[0])
+                        node_walk = nearest_node(network.G_walk, point[1], point[0])
 
                         attributes[att+'node_drive'] = int(node_drive)
                         attributes[att+'node_walk'] = int(node_walk)

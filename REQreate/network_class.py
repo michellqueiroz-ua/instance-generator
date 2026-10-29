@@ -9,6 +9,7 @@ import random
 from shapely.geometry import Point
 from shapely.geometry import Polygon
 from geopy.distance import geodesic
+from .nearest import nearest_node
 import geopy.distance
 
 import pyproj
@@ -211,7 +212,7 @@ class Network:
         while counter < number:
             pnt = Point(np.random.uniform(minx, maxx), np.random.uniform(miny, maxy))
             pnt2 = (pnt.y, pnt.x)
-            osmid_drive = ox.nearest_nodes(self.G_drive, pnt.x, pnt.y)
+            osmid_drive = nearest_node(self.G_drive, pnt.x, pnt.y)
             pnt_osmid = Point(self.G_drive.nodes[osmid_drive]['x'], self.G_drive.nodes[osmid_drive]['y'])
             pnt_osmid2 = (pnt_osmid.y, pnt_osmid.x)
             
