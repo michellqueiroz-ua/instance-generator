@@ -9,7 +9,7 @@ Format: decision, reason, source. Dates are 2026. "Author" is the researcher (Mi
 |---|---|---|---|
 | D1 | Performance measure = total passenger ride time, plus 4 x direct travel time for every request served by a third party. Operator cost (driving time, vehicles used) is **not** optimised. | Keeps the three algorithms comparable. Operator cost may be added after the fact as extra performance measures in the ISA. | Author, 10-26 |
 | D2 | Algorithms in the performance matrix: SA and GR. The exact Gurobi model is used only to validate SA/GR on 5-15 requests. | The exact model only solves about 5 requests to optimality and reaches a 25% gap at 10 (see 02). It cannot be a third ISA algorithm. | Agreed, 10-26 |
-| D3 | A third ISA algorithm is still wanted. | Two algorithms give a single ratio axis; a third gives a richer instance-space analysis. Candidates: the MIP-based LNS (matheuristic) or another heuristic. **OPEN**, see 06. | Open |
+| D3 | A third ISA algorithm is wanted: different versions of the SA (other neighbourhood configurations, and so on) or a max-ALNS variant. The exact model and the matheuristic are not candidates. | Two algorithms give a single ratio axis; a third gives a richer instance-space analysis. Which variant exactly is **OPEN**, see 06. | Author, 10-29 |
 | D4 | The matheuristic (MIP-based LNS) exists mainly to show **where SA is weak**, not to be an ISA algorithm. | It re-solves parts of SA solutions with the exact model; a part can never get worse. | Author, 10-26 |
 
 ## Instance set
@@ -25,6 +25,8 @@ Format: decision, reason, source. Dates are 2026. "Author" is the researcher (Mi
 | D11 | Each generated instance gets **3 fleets** drawn with a second Latin hypercube (5-40% of requests as vehicles, 0-100% share of 8-seat vehicles). Fleets cost nothing to generate. | Fleet is a solver input, not part of the instance; it adds features 11-14 without regenerating requests. | Agreed, 10-27 |
 | D12 | Walking time limit 550-600 s, walk speed 1.38889 m/s, vehicle speed 20 km/h, direct trip time between 300 s and 3600 s. | Taken from the author's earlier papers (see `pilot/settings_from_papers.md`). The upper trip limit is 3600 s because suburban trips are longer than in Copenhagen Municipality. | Agreed, 10-27 |
 | D13 | The station-to-station travel-time matrix is written **once** for the network, not per instance. | It is identical for every instance (same stations, same speed). | Agreed, 10-28 |
+| D14a | Request range stays 50-500 per hour for now (papers go to 3000 per hour). | Fine for now; may be raised later. | Author, 10-29 |
+| D14b | The station travel-time matrix is computed in its own HPC job, once, not inside an instance's generation. | It is the same for all instances and may be the slow part of generation. | Author, 10-29 |
 | D14 | The settings may still change. The author will make the final decisions. | Ranges are in one file (`isa_set/design.json`) and each batch reads it. | Author |
 
 ## Generator and solver

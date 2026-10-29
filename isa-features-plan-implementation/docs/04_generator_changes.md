@@ -53,7 +53,8 @@ The on-demand distance matrix matters for this study: request generation runs on
 search per drawn origin, never the full matrix. The **station-to-station** matrix is a separate
 output (`travel_time_matrix` in the config) needed by the solver.
 
-## E. Not documented by the assistant (check)
+## E. Another ISA feature (not examined here)
 
-`REQreate/rank_model.py` (new, 90 lines) is in the branch diff and was not examined in this
-work. **OPEN**: author to confirm what it is for and whether it belongs in this section.
+`REQreate/rank_model.py` (new, 90 lines) is part of the ISA work: the author confirmed it is
+another feature. It was written outside this working session and is not described here.
+**OPEN**: add one line on what it computes.

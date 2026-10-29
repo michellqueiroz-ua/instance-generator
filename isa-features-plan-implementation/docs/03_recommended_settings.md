@@ -45,12 +45,12 @@ choice: the author decides. Comparison with the two earlier papers is in
 
 1. Use SA and GR as the performance matrix now (D2).
 2. Use the exact model v2 only to validate SA and GR on 5-10 requests. Report SA's gap (4.6% above the optimum on 5 requests; at least 20% on 10 requests, where v2 is not proven).
-3. Choose a third algorithm after the wide set exists (see 06, OPEN-A1). The matheuristic is the natural candidate if its gain over SA varies across the instance space.
+3. Third algorithm: a variant of the SA (other neighbourhood configuration) or a max-ALNS variant (D3). The exact variant is OPEN-A1. The matheuristic is used to show where SA is weak, not as an ISA algorithm.
 
 ## Open settings questions
 
-- **OPEN-S1** Is 500 requests per hour enough? The papers go to 3000 per hour. Generation and
-  SA cost grow with size; after the generation fix (D18) larger sizes are affordable.
+- **S1 (decided for now, D14a)** 50-500 requests per hour. The papers go to 3000 per hour; the
+  upper end can be raised later, now that generation is cheaper (D18).
 - **OPEN-S2** Should walking time vary (the number of candidate stops changes the problem)?
 - **OPEN-S3** Do several depots matter for the performance differences?
 - **OPEN-S4** Number of instances: batches of 100 until the space stops growing; the cap is not set.
