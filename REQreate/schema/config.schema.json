@@ -97,6 +97,13 @@
       "type": "number",
       "minimum": 0
     },
+    "exclude_places": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "zone_probabilities": {
       "type": "boolean",
       "description": "Compute zone ranks and travel probabilities between grid zones (downloads POIs from OpenStreetMap). Written to <network>/csv/<network>.zone_probabilities.csv."
