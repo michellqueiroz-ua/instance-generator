@@ -110,6 +110,16 @@ Consequence: a cached nearest-node index was added (D18, `REQreate/nearest.py`).
 **OPEN**: rerun of the profile after the fix, to measure the speed-up (expected from about 20 s to
 about 1 s per request).
 
+Reading the code (`passenger_requests.py` from line 1217, `network_class.py:160`) gives a likely
+cause of the heavy test job, not yet confirmed by a measurement. After the requests, REQreate
+builds the station matrix with a Python double loop over all 3515 x 3515 pairs. Each new origin
+runs one shortest-path search over the whole drive graph, and the on-demand matrix keeps every
+row (one value per graph node, up to 5000 rows), so memory grows with each station (the job
+reached 7.1 GB of 8 GB). The matrix is then converted to nested lists, written into the instance
+JSON with `indent=4`, and written again as CSV. Unreachable pairs would stay uninitialised
+(`np.ndarray` without a fill value); the drive graph is a strongly connected component, so none
+are expected.
+
 **OPEN**: the ~4 h of the test job that the requests do not explain (218 requests x 20 s is
 about 1.2 h). Suspected: the station travel-time matrix (3515 x 3515 = 12.4 million pairs, 3515
 single-source searches on the full drive graph, with the row cache growing). Not measured yet.

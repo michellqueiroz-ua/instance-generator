@@ -18,6 +18,8 @@ releases (0.3.0 to 0.4.1); those are listed separately so the ISA-specific work 
 | Debug prints removed from request generation | commit `2e05d236` | Noise | |
 | Pilot v2: real 7:30 peak, replicas, three fleet sizes | `pilot/run_pilot.py` | The first pilot flattened the peak ("dynamism" replaced the pdf) | |
 
+| `travel_times_between()` for the station matrix: chunked searches that keep only the station columns | `REQreate/compute_distance_matrix.py`, `isa_set/station_matrix.py`, `isa_set/hpc/station_matrix.sh` | The in-generation matrix caches one full-graph row per station (memory) and loops in Python (time). Same whole-second values as the on-demand matrix (unit test `tests/test_station_matrix.py`). | Station matrix is computed once in its own job (D14b); **not yet run on the HPC** |
+
 ## B. Tooling added for the full set
 
 | File | Purpose |
