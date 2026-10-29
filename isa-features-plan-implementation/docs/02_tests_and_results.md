@@ -114,6 +114,7 @@ Rerun after the fix (same config, 6 requests, no station matrix; log `logs/profi
 | Request 0 | 16.23 s (2 attempts) | 1.61 s (2 attempts) |
 | Request 5 | 18.06 s (3 attempts) | 0.54 s (3 attempts) |
 | CPU time of the whole run | 192 s | 72 s |
+| Run time of the whole run | 250 s | 115 s (CPU use 63%) |
 | Max memory reported by LSF | 1593 MB | 67 MB (**suspicious**, see 06 OPEN-G6) |
 
 Speed-up per request: about 10x for the first request (which builds the index) and about 33x
