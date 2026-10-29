@@ -225,6 +225,34 @@ class LazyDistanceMatrix:
         raise AttributeError(name)
 
 
+def travel_times_between(G, nodes, weight="travel_time", chunk=64, progress=None):
+    """Whole-second shortest-path times between ``nodes`` (one row and column per entry).
+
+    Same values as ``LazyDistanceMatrix(G, weight, int).get``: edge weights are summed in
+    float64 and truncated to whole seconds. Instead of caching one full-graph row per origin
+    (about 4 MB per origin on a 1M-node graph, so 3500 stations need ~14 GB), the searches run
+    ``chunk`` origins at a time and only the columns of ``nodes`` are kept.
+
+    Returns an int32 array; unreachable pairs are -1.
+    """
+    lazy = LazyDistanceMatrix(G, weight, int)
+    unique = list(dict.fromkeys(_node_key(n) for n in nodes))
+    position = {node: i for i, node in enumerate(unique)}
+    columns = np.array([lazy.node_to_index[node] for node in unique])
+    small = np.full((len(unique), len(unique)), _UNREACHABLE_INT, dtype=np.int32)
+    for start in range(0, len(unique), chunk):
+        indices = columns[start:start + chunk]
+        rows = dijkstra(lazy.graph, directed=lazy.directed, indices=indices)[:, columns]
+        reachable = np.isfinite(rows)
+        block = np.full(rows.shape, _UNREACHABLE_INT, dtype=np.int32)
+        block[reachable] = np.trunc(rows[reachable]).astype(np.int32)
+        small[start:start + len(indices)] = block
+        if progress:
+            progress(min(start + chunk, len(unique)), len(unique))
+    order = np.array([position[_node_key(n)] for n in nodes])
+    return small[np.ix_(order, order)]
+
+
 def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_base):
     # The lazy matrix answers any origin, so extra stops need no update.
     return LazyDistanceMatrix(G_walk, "length")
