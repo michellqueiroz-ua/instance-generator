@@ -53,4 +53,4 @@ Profile a small generation run:
 
 Step 5 must use the shared station matrix when computing the time-window features: with no
 matrix in the instance, `tw_tightness` falls back to each request's direct travel time, which
-is a different definition. **OPEN**: the feature step that attaches the shared matrix is not written.
+is a different definition. `load_reqreate_instance` now attaches `station_travel_time_matrix.npy` automatically (memory-mapped), so `backfill_features.py` uses it for instances inside the network folder; check the log line "no station matrix found" is absent.

@@ -64,3 +64,7 @@ another feature. It was written outside this working session and is not describe
 ## Change 9. Distance row cache capped by bytes (also for old pickles)
 
 `LazyDistanceMatrix` kept up to 5000 cached rows, one number per graph node. On the Capital Region walk graph a row is about 4 MB, and a request adds about two rows, so memory grew 8 MB per request (7.2 GB at 680 requests). The cache is now also capped at 400 MB per matrix (`MAX_CACHE_BYTES`); evicted rows are recomputed (one search, tens of milliseconds). The pickled network stores `max_rows`, so `__setstate__` applies the cap again on load (commit 5434c45d); no network rebuild is needed. The request log now prints the process peak memory.
+
+## Change 10. Feature step uses the shared station matrix
+
+`reqreate_adapter.load_reqreate_instance` looks for `<network>/travel_time_matrix/station_travel_time_matrix.npy` (written by `isa_set/station_matrix.py`) and attaches it, memory-mapped, as `travel_time_matrix_sec`; instances that carry their own matrix keep it. A matrix whose size differs from the number of stations is rejected. `compute_features_scaffold` looks up numpy matrices by station index. `tw_tightness` then uses the driving time between the two stations instead of each request's direct travel time. Tests: `test_t15_station_matrix_feature.py`.

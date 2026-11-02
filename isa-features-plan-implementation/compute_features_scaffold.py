@@ -4,6 +4,8 @@ import heapq
 import ast
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import numpy as np
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -594,7 +596,7 @@ def _resolve_drive_travel_time_matrix(instance: Dict[str, Any]) -> Tuple[Any, Op
 
     for key, unit in matrix_specs:
         value = instance.get(key)
-        if isinstance(value, (dict, list)):
+        if isinstance(value, (dict, list, np.ndarray)):
             return value, unit
 
     road_network = instance.get("road_network")
@@ -607,7 +609,16 @@ def _resolve_drive_travel_time_matrix(instance: Dict[str, Any]) -> Tuple[Any, Op
 
 
 def _lookup_travel_time_in_matrix(matrix: Any, origin_key: Any, destination_key: Any) -> float:
-    """Lookup raw travel-time value in a matrix represented as dict/list."""
+    """Lookup raw travel-time value in a matrix represented as dict/list/ndarray."""
+    if isinstance(matrix, np.ndarray):
+        oi = _to_lookup_key(origin_key)
+        di = _to_lookup_key(destination_key)
+        if not isinstance(oi, int) or not isinstance(di, int) or matrix.ndim != 2:
+            return float("nan")
+        if oi < 0 or di < 0 or oi >= matrix.shape[0] or di >= matrix.shape[1]:
+            return float("nan")
+        return to_float_or_nan(matrix[oi, di])
+
     if isinstance(matrix, list):
         oi = _to_lookup_key(origin_key)
         di = _to_lookup_key(destination_key)

@@ -49,6 +49,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import numpy as np
+
 _THIS_DIR = Path(__file__).resolve().parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR))
@@ -91,6 +93,20 @@ def find_stations_csv(reference_path: Any) -> Optional[str]:
         if matches:
             return str(matches[0])
 
+    return None
+
+
+def find_station_matrix(reference_path: Any) -> Optional[str]:
+    """
+    Locate the shared ``<location>/travel_time_matrix/station_travel_time_matrix.npy``
+    (written once per network by isa_set/station_matrix.py) from any path inside
+    the location folder.  Returns None when it does not exist.
+    """
+    start = Path(str(reference_path)).resolve()
+    for parent in ([start] if start.is_dir() else []) + list(start.parents):
+        candidate = parent / "travel_time_matrix" / "station_travel_time_matrix.npy"
+        if candidate.is_file():
+            return str(candidate)
     return None
 
 
@@ -436,9 +452,15 @@ def load_reqreate_instance(
     service_area_km2: Optional[float] = None,
     walk_speed: Optional[float] = None,
     network_graph: Any = None,
+    station_matrix_path: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Load a generated REQreate instance JSON as a feature-ready instance dict.
+
+    Instances of the ISA set carry no travel-time matrix; the shared station
+    matrix (``station_matrix_path``, auto-discovered next to the network when
+    omitted) is attached instead, memory-mapped.  Without either, ``tw_tightness``
+    falls back to each request's direct travel time.
 
     ``stations_csv_path`` is auto-discovered from the JSON location when not
     given.  A missing or unreadable stations file is not fatal: the spatial
@@ -476,13 +498,31 @@ def load_reqreate_instance(
         if math.isnan(service_area_km2):
             service_area_km2 = None
 
-    return build_instance_dict(
+    instance = build_instance_dict(
         raw_json,
         stops=stops,
         vehicles=vehicles,
         service_area_km2=service_area_km2,
         walk_speed=walk_speed,
     )
+
+    if "travel_time_matrix_sec" not in instance:
+        if station_matrix_path is None:
+            station_matrix_path = find_station_matrix(path)
+        if station_matrix_path:
+            matrix = np.load(str(station_matrix_path), mmap_mode="r")  # whole seconds
+            if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+                raise ValueError(f"{station_matrix_path} is not a square matrix: shape {matrix.shape}")
+            if stops and matrix.shape[0] != len(stops):
+                raise ValueError(
+                    f"{station_matrix_path} has {matrix.shape[0]} rows but {len(stops)} stations are loaded; "
+                    "the matrix belongs to another network"
+                )
+            instance["travel_time_matrix_sec"] = matrix
+        else:
+            LOGGER.info("no station matrix found near %s; tw_tightness uses direct travel times", path)
+
+    return instance
 
 
 # ---------------------------------------------------------------------------
