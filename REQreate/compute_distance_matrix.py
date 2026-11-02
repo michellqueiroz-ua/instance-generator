@@ -110,6 +110,10 @@ MAX_CACHE_BYTES = 400 * 1024 * 1024
 _UNREACHABLE_INT = -1
 
 
+def _byte_capped_rows(node_count):
+    return max(32, MAX_CACHE_BYTES // (4 * max(1, node_count)))
+
+
 def _node_key(node):
     """Accept node ids as ints, numpy ints, or the old string column labels."""
     if isinstance(node, str):
@@ -151,7 +155,7 @@ class LazyDistanceMatrix:
         self.directed = G.is_directed()
         self.nodes = list(G.nodes)
         if max_rows is None:
-            max_rows = min(MAX_CACHED_ROWS, max(32, MAX_CACHE_BYTES // (4 * max(1, len(self.nodes)))))
+            max_rows = min(MAX_CACHED_ROWS, _byte_capped_rows(len(self.nodes)))
         self.max_rows = max_rows
         self.node_to_index = {node: index for index, node in enumerate(self.nodes)}
 
@@ -218,6 +222,8 @@ class LazyDistanceMatrix:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        # A network pickled before the byte cap carries max_rows=5000; apply the cap on load.
+        self.max_rows = min(self.max_rows, _byte_capped_rows(len(self.nodes)))
         self.loc = _Loc(self)
 
     def __getattr__(self, name):

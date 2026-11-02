@@ -57,6 +57,21 @@ class RowCacheTests(unittest.TestCase):
             lazy.get(origin, 0)
         self.assertEqual(len(lazy._rows), 40)
 
+    def test_cap_is_applied_to_an_old_pickle(self):
+        import pickle
+        import REQreate.compute_distance_matrix as module
+        lazy = LazyDistanceMatrix(road_graph(60), "travel_time", int)
+        state = lazy.__getstate__()
+        state["max_rows"] = 5000  # what a network pickled before the cap carries
+        old = module.MAX_CACHE_BYTES
+        module.MAX_CACHE_BYTES = 4 * 60 * 40
+        try:
+            restored = LazyDistanceMatrix.__new__(LazyDistanceMatrix)
+            restored.__setstate__(state)
+        finally:
+            module.MAX_CACHE_BYTES = old
+        self.assertEqual(restored.max_rows, 40)
+
     def test_default_cache_keeps_row_limit_on_small_graphs(self):
         self.assertEqual(LazyDistanceMatrix(road_graph(60), "length").max_rows, 5000)
 
