@@ -136,6 +136,20 @@ are expected.
 about 1.2 h). Suspected: the station travel-time matrix (3515 x 3515 = 12.4 million pairs, 3515
 single-source searches on the full drive graph, with the row cache growing). Not measured yet.
 
+## T7b. Station matrix as its own job (`station_matrix.py`, finished 2026-10-29)
+
+| Item | Value |
+|---|---|
+| Stations / drive graph | 3515 stations, 59115 nodes |
+| Job | 1 core, 4 GB, 4 h limit |
+| Measured | run time 97 s, CPU time 68 s (70% of one core), max memory 74 MB as reported by LSF (**suspicious**, as in OPEN-G6) |
+| Output | `station_travel_time_matrix.csv` (81 MB) and `.npy` (48 MB, int32) in `travel_time_matrix/` |
+
+The same matrix took more than 5 h inside the generation job (no output written, 7.1 GB). The
+drive graph is small (59115 nodes), so the shortest-path searches are cheap; the cost was the
+Python double loop and the conversion to nested lists and JSON. Resource waste of the first
+attempt: 4 h limit and 4 GB reserved for 97 s of work.
+
 ## T8. Test suites
 
 - New tests for `features_in_area`, `exclude_from_polygon`, the CLI `--exclude` option and

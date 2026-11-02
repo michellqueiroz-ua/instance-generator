@@ -1,0 +1,53 @@
+\section{What was implemented}
+
+\subsection{Generator changes}
+
+\begin{longtable}{@{}p{0.20\linewidth}p{0.19\linewidth}p{0.24\linewidth}p{0.22\linewidth}@{}}
+\caption{ISA-specific generator changes against the original REQreate.}\\
+\toprule
+Change & File(s) & Why & Effect\\
+\midrule
+\endfirsthead
+\toprule
+Change & File(s) & Why & Effect\\
+\midrule
+\endhead
+Config-dependent request seeds & \sourcepath{REQreate/passenger_requests.py} & All configs previously reused locations. & 24 distinct \texttt{od\_distance\_mean} values after the fix; pre-fix count is not reproduced by available CSVs.\\
+Place exclusions & \sourcepath{retrieve_network.py}, \sourcepath{input_json.py}, \sourcepath{schema/config.schema.json}, \sourcepath{cli.py} & Exclude the island of Bornholm from the region polygon. & The network build reported no Bornholm stations.\\
+Polygon-scoped points of interest & \sourcepath{osm_features.py}, station, school, and hospital retrieval & Place-name lookup had allowed an outside station to leak in. & 3515 stations; none on Bornholm.\\
+Cached nearest-node index & \sourcepath{REQreate/nearest.py}, \sourcepath{passenger_requests.py}, \sourcepath{network_class.py} & Nearest-node calls repeatedly converted the full graph. & Unit test matches OSMnx on 30 random points. Profile timings improved after the cache; memory measurement is suspect.\\
+ISA feature export & \sourcepath{REQreate/isa_features_hook.py} & Record one feature row per generated instance. & Feature errors are logged without stopping generation.\\
+Station-matrix chunked searches & \sourcepath{REQreate/compute_distance_matrix.py}, \sourcepath{isa_set/station_matrix.py} & Avoid a full graph row cache and Python all-pairs loop. & Same whole-second values in a unit test; separate HPC run remains \tagopen.\\
+Pilot v2 sampling & \sourcepath{pilot/run_pilot.py} & Use a real 7:30 peak, replicas, and three fleet sizes. & Replaces the earlier flattened demand peak.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Solver changes}
+
+\begin{itemize}
+\item The \sourcepath{--greedy_only} option runs GR from the SA binary, avoiding
+  a separate code base.
+\item The solver now reads travel-time matrices as directed (row = from,
+  column = to); it no longer symmetrises them.
+\item The type-3 request reader converts walking distance in metres to seconds
+  using the walking speed.
+\item The station limit was raised from 2000 to 4000 for the 3515-station
+  region. This ODBRP\_P change is uncommitted; the author must commit it
+  \tagopen[A4].
+\item The original IP model was replaced by
+  \sourcepath{model/MDHODBRP_model_v2.cpp}. Its checker,
+  \sourcepath{model/check_model.py}, tests hand-made routes without a Gurobi
+  dependency.
+\item A MIP-based LNS matheuristic re-solves parts of SA solutions using v2.
+  Its HPC run is \tagopen[A2].
+\end{itemize}
+
+\subsection{HPC tooling}
+
+The set tooling includes \sourcepath{isa_set/design.json} for ranges,
+\sourcepath{isa_set/make_batch.py} for Latin-hypercube batches,
+single-core-per-config generation scripts, and a profiling script. Pilot
+solver job generation and result collection are provided by
+\sourcepath{pilot/make_solver_jobs.py} and
+\sourcepath{pilot/collect_results.py}. The station-matrix implementation is
+written, but its HPC run and measured resource profile remain \tagopen[G3].

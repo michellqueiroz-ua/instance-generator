@@ -21,6 +21,7 @@ run time and max memory.
 | Network build (once) | 1 | 6 GB | 4.47 GB max (73%), 28% CPU (waits on Overpass), 3.4 h |
 | Generation profile, 6 requests | 1 | 8 GB | 1.6 GB (19%), 77% CPU, 250 s |
 | Generation of one instance, 218 requests with station matrix | 1 | 8 GB | **OPEN**, see 06 (7.1 GB and 19443 s CPU at 5.3 h, not finished) |
+| Station matrix (once) | 1 | 4 GB | 97 s run time, 68 s CPU (70%); LSF max memory 74 MB (unreliable) |
 | SA / GR solver job | 1 | 16 GB reserved in the pilot | about 6 GB used. **OPEN**: resize |
 | Exact model v2 | threads | not yet sized | |
 
