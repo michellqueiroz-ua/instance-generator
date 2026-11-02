@@ -156,3 +156,17 @@ attempt: 4 h limit and 4 GB reserved for 97 s of work.
   `nearest_node` pass.
 - 7 web-app / job-queue tests fail. They also fail on the commit before these changes: separate
   processes pick up the REQreate of the main checkout, plus some timeouts. Not caused by this work.
+
+## T9. Batch 1, first five instances (2026-11-02)
+
+Reserved 4 GB, 1 core each. i001 to i004 were killed (`TERM_MEMLIMIT`, exit 137, 4096 MB); i005 finished (CPU 128.5 s, run 163 s).
+
+Rerun of i002 and i003 at 8 GB with the row cache capped (commit 2ffbeae4) and peak memory in the log:
+
+| Instance | Requests | Peak at request 0 | Peak at end | Growth per request | CPU | Run time | CPU / run |
+|---|---|---|---|---|---|---|---|
+| ISA_b01_i002 | 435 | 1614 MB | 5256 MB | 8.5 MB | 293 s | 302 s | 97% |
+| ISA_b01_i003 | 685 | 1615 MB | 7199 MB | 8.2 MB | 490 s | 499 s | 98% |
+
+LSF `Max Memory` (5160 and 7280 MB) matched the logged peak, so it was reliable for these long jobs.
+The growth is linear in the number of requests, so the cap of 2ffbeae4 had no effect. Cause: the cap was not applied to matrices restored from the network pickle (see 04, change 9). Result of the fix: **OPEN**, HPC down on 2026-11-02.

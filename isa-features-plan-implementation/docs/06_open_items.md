@@ -11,7 +11,7 @@ Marked in order of what blocks the next step.
 | OPEN-G6 | The rerun log reports Max Memory 67 MB (run time 115 s, completed), against 1593 MB before. 67 MB cannot hold the Capital Region network, so it is probably an LSF sampling artefact; do not size memory from it. | Open |
 | OPEN-G3 | (Decision D14b: the station matrix gets its own job.) Where the other ~4 h of the test job went. Requests explain about 1.2 h of 5.3 h. Suspected: the station matrix (3515 searches on the full drive graph; the row cache grows, memory 7.1 GB of 8 GB). | **Done 2026-10-29**: the matrix job takes 97 s (02, T7b). The slow part of the old job was the in-generation loop and JSON, not the searches. |
 | OPEN-G4 | Feature step for the batches that attaches the shared station matrix (see 05). | Not written. |
-| OPEN-G5 | Size `MEM_GB` and `WALL_H` for batch 1 from the measured full instance. | After G2/G3. |
+| OPEN-G5 | Size `MEM_GB` and `WALL_H` for batch 1. Measured before the fix: 1.6 GB + 8.3 MB per request (02, T9). Rerun with commit 5434c45d is needed; the HPC was down on 2026-11-02. | Waiting for HPC |
 
 ## Algorithms
 
