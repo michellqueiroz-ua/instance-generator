@@ -4,6 +4,7 @@ import os
 import osmnx as ox
 import pandas as pd
 from .nearest import centroid_coordinates, nearest_edge_endpoints
+from .osm_features import features_in_area
 import gc
 import warnings
 
@@ -97,7 +98,7 @@ def drop_repeated_stops(bus_stations):
         return bus_stations
     return bus_stations.drop_duplicates(subset='osmid_drive', keep='first')
 
-def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base):
+def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_folder_base, polygon=None):
 
     warnings.filterwarnings(action="ignore")
     '''
@@ -124,8 +125,7 @@ def get_bus_stations_matrix_csv(G_walk, G_drive, place_name, save_dir, output_fo
         tags = {
             'highway':'bus_stop',
         }
-        #poi_bus_stations = ox.geometries_from_polygon(polygon_drive, tags=tags)
-        poi_bus_stations = ox.features_from_place(place_name, tags=tags)
+        poi_bus_stations = features_in_area(place_name, tags, polygon)
 
         print('number pois: ', len(poi_bus_stations))
         bus_stations = pd.DataFrame(bus_station_rows(G_walk, G_drive, poi_bus_stations))

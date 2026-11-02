@@ -1,0 +1,45 @@
+\section{Open questions and next steps}
+
+The table consolidates every open item in the source notes. Repeated mentions
+of the same issue (for example the station-matrix cost in the test results and
+the open-items list) appear once. Items marked done in the notes are not
+relisted as open.
+
+\begin{longtable}{@{}p{0.12\linewidth}p{0.58\linewidth}p{0.17\linewidth}@{}}
+\caption{Open items and whether they block the full set or a later analysis.}\\
+\toprule
+ID & Item & Blocking?\\
+\midrule
+\endfirsthead
+\toprule
+ID & Item & Blocking?\\
+\midrule
+\endhead
+\textbf{OPEN-G1} & Determine the final result of test job 29846018; it reached the six-hour limit with no output files. & Yes: full generation\\
+\textbf{OPEN-G3} & Measure where the test job's unaccounted \(\sim\)4 hours went; run the separate station-matrix job and record time and memory. & Yes: full generation\\
+\textbf{OPEN-G4} & Implement the feature step that attaches the shared station matrix, required for consistent time-window features. & Yes: feature pipeline\\
+\textbf{OPEN-G5} & Choose batch memory and wall-time settings from a measured full instance. & Yes: batch runs\\
+\textbf{OPEN-G6} & Resolve the suspicious 67 MB maximum-memory report after the nearest-node fix; do not size from it. & No: verify before sizing\\
+\textbf{OPEN-A1} & Choose the third ISA algorithm (SA configuration or max-ALNS) and identify its code. & No: ISA algorithm set\\
+\textbf{OPEN-A2} & Run the MIP-based matheuristic on HPC and record results. & No: matheuristic study\\
+\textbf{OPEN-A3} & Resize SA/GR memory reservation (16 GB reserved; about 6 GB used). & No: solver efficiency\\
+\textbf{OPEN-A4} & Commit and rebuild the solver with \texttt{maxstations} 4000. & Yes: Capital Region solver run\\
+\textbf{OPEN-A5} & Tabulate SA and v2 objectives, bounds, and vehicles used on the 5- and 10-request cases. & No: validation report\\
+\textbf{OPEN-A6} & Test whether SA's 70-of-72 advantage over GR persists on the wide design. & No: full-set analysis\\
+\textbf{OPEN-S1} & Revisit the request range if generation cost allows going above 50--500 per hour; the current range is decided for now. & No: later design revision\\
+\textbf{OPEN-S2} & Decide whether maximum walking time should vary, given its effect on candidate stops. & No: design choice\\
+\textbf{OPEN-S3} & Decide whether several depots affect algorithm-performance differences. & No: design choice\\
+\textbf{OPEN-S4} & Set the cap for batches of 100 instances. & Yes: stopping rule\\
+\textbf{OPEN-D1} & Add a description of what \sourcepath{REQreate/rank_model.py} computes. & No: documentation\\
+\textbf{OPEN-D2} & Diagnose or document the seven web-app tests that fail on this branch and its predecessor. & No: unrelated test suite\\
+\textbf{OPEN-D3} & Determine why the first generation job-array attempt passed an empty config argument. & No: replaced workflow\\
+\textbf{OPEN-D4} & Clarify that the \sourcepath{/jobs} reminder tracks only assistant-run \texttt{bsub} commands. & No: monitoring\\
+\textbf{OPEN-T3} & Establish resource sizing for the exact-model jobs; the source lists threads and memory as not yet sized. & No: exact-model scale-up\\
+\bottomrule
+\end{longtable}
+
+The same next-step priorities follow from the evidence: complete and measure
+the station-matrix path before scaling generation; resolve memory reports
+before setting reservations; then expand the instance set and test algorithm
+selection on the continuous design. The author still makes final choices for
+the \tagprop settings.

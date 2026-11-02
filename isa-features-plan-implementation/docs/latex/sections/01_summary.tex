@@ -1,0 +1,34 @@
+\section{Summary}
+
+The study asks how instance characteristics relate to the performance of
+algorithms for the static H-ODBRP. Instances are described by demand, time
+window, fleet, and network features, then projected into a low-dimensional
+instance space. SA and GR form the present performance matrix. The exact
+Gurobi model is reserved for validation on very small cases; a MIP-based
+large-neighbourhood matheuristic is intended to show where SA can improve, not
+to act as a third ISA algorithm.
+
+Work completed includes a 72-case Copenhagen pilot, a correction to request
+seeding, a network cut-out for Bornholm, a nearest-node cache, solver input
+fixes, an exact-model checker, a rewritten exact model, and HPC job scripts.
+The pilot suggests that SA is usually better than GR: SA wins on 70 of 72
+cases. GR is competitive in a narrow corner: tight time windows and the
+smallest pilot fleet. The pilot projection retains a gap associated with the
+two time-window settings. The available feature CSVs do not independently
+reproduce the documented pre-fix count of six distinct mean OD distances; the
+post-fix CSV does contain 24.
+
+The proposed full design covers 100--1000 requests in a two-hour period and
+draws instance settings and fleets using Latin hypercubes. The region, period,
+and ranges remain \tagprop; the author has the final decision. The new exact
+model agrees with the heuristic feasibility checks in all 11 tested
+scenarios, while the original model disagreed in 9. On rerun, the new model
+proved the five-request case in 2.5 seconds, but had a 25\% gap at the limit
+for 10 requests and did not prove the 15-request case.
+
+The full instance set is still blocked by unresolved generation cost and
+memory questions, an unrun station-matrix build, and the missing shared-matrix
+feature step. Other open work includes the third ISA algorithm, the
+matheuristic HPC test, solver resource sizing, and final design choices. These
+results are preliminary, and the one-sided SA--GR result must be tested on the
+wide design.

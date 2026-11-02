@@ -1,0 +1,38 @@
+\section{Decisions log}
+
+\begin{longtable}{@{}p{0.08\linewidth}p{0.84\linewidth}@{}}
+\caption{Short form of the decisions recorded in \sourcepath{docs/01_decisions.md}.}\\
+\toprule
+ID & Decision\\
+\midrule
+\endfirsthead
+\toprule
+ID & Decision\\
+\midrule
+\endhead
+D1 & Optimise passenger ride time plus a four-times direct-time penalty for third-party service; operator cost is post hoc.\\
+D2 & Use SA and GR in the ISA performance matrix; use exact Gurobi only for validation on 5--15 requests.\\
+D3 & A third ISA algorithm is wanted, but its exact variant is \tagopen.\\
+D4 & Use the matheuristic to identify where SA is weak, not as an ISA algorithm.\\
+D5 & Use the Capital Region of Denmark without Bornholm.\\
+D6 & Use a two-hour period starting 12:00--19:30.\\
+D7 & Use 50--500 requests per hour (100--1000 per instance).\\
+D8 & Draw continuous settings with Latin hypercubes, not a small factorial grid.\\
+D9 & Grow the set in batches until space growth is small or a cap is reached.\\
+D10 & Do not vary depots or hotspots during generation; choose the depot later.\\
+D11 & Draw three fleets per request instance with a second Latin hypercube.\\
+D12 & Use the documented walking, vehicle-speed, and direct-trip-time settings.\\
+D13 & Write the shared station travel-time matrix once per network.\\
+D14a & Keep the current request range for now; it may be raised later.\\
+D14b & Compute the station matrix in a separate HPC job.\\
+D14 & Keep settings editable in \sourcepath{isa_set/design.json}; final choices belong to the author.\\
+D15 & Replace the earlier IP model with model v2.\\
+D16 & Make request seeds depend on the config seed.\\
+D17 & Restrict station, school, and hospital lookups to the network polygon.\\
+D18 & Use a cached nearest-node index in request sampling.\\
+D19 & Preserve directed travel times and convert walking distance to seconds.\\
+D20 & Keep hybrid-feasibility code but deprecate it for this ISA.\\
+D21 & Run solvers and long generation jobs on DTU HPC, not the author's PC.\\
+D22 & Reserve only measured resources with modest headroom; report CPU, wall time, and maximum memory.\\
+\bottomrule
+\end{longtable}

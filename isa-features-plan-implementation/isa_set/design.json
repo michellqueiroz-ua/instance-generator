@@ -1,0 +1,32 @@
+{
+  "_notes": [
+    "Ranges of the ISA instance set. Every batch draws its instances with a Latin hypercube over 'instance',",
+    "and pairs each generated instance with 'fleet.draws_per_instance' fleets drawn over 'fleet'.",
+    "Edit the ranges here; make_batch.py reads this file for every new batch.",
+    "start_hour stops at 19.5 so that latest arrivals stay before midnight (the solver treats 86400 s specially).",
+    "max_dtt_s is 3600 because suburban trips in the Capital Region are longer than in Copenhagen Municipality."
+  ],
+  "network": "Capital Region of Denmark",
+  "problem": "ODBRP",
+  "period_hours": 2,
+  "instance": {
+    "requests_per_hour": [50, 500],
+    "start_hour": [12.0, 19.5],
+    "peak_sd_min": [10, 60],
+    "urgency_mean_min": [5, 40],
+    "urgency_sd_min": [1, 10],
+    "arrival_slack_min": [5, 60]
+  },
+  "fleet": {
+    "draws_per_instance": 3,
+    "percent_of_requests": [5, 40],
+    "share_8_seats": [0.0, 1.0]
+  },
+  "fixed": {
+    "max_walking_s": [550, 600],
+    "walk_speed_mps": 1.38889,
+    "min_dtt_s": 300,
+    "max_dtt_s": 3600,
+    "vehicle_speed_kmh": 20
+  }
+}
