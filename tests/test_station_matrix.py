@@ -42,5 +42,24 @@ class TravelTimesBetweenTests(unittest.TestCase):
         self.assertEqual(calls[-1], (10, 10))
 
 
+class RowCacheTests(unittest.TestCase):
+    def test_cache_is_capped_in_bytes(self):
+        import REQreate.compute_distance_matrix as module
+        G = road_graph(60)
+        old = module.MAX_CACHE_BYTES
+        module.MAX_CACHE_BYTES = 4 * 60 * 40  # room for 40 rows, above the floor of 32
+        try:
+            lazy = LazyDistanceMatrix(G, "travel_time", int)
+        finally:
+            module.MAX_CACHE_BYTES = old
+        self.assertEqual(lazy.max_rows, 40)
+        for origin in range(60):
+            lazy.get(origin, 0)
+        self.assertEqual(len(lazy._rows), 40)
+
+    def test_default_cache_keeps_row_limit_on_small_graphs(self):
+        self.assertEqual(LazyDistanceMatrix(road_graph(60), "length").max_rows, 5000)
+
+
 if __name__ == "__main__":
     unittest.main()

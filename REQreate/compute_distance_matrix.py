@@ -101,8 +101,11 @@ if RAY_AVAILABLE:
 
 
 # Rows kept in memory per matrix. A row is one float32/int32 per graph node,
-# so 5000 rows of a 26k-node city take about 500 MB.
+# so 5000 rows of a 26k-node city take about 500 MB. The cache is also capped in bytes: on a
+# graph of several hundred thousand nodes (a walk network of a whole region) 5000 rows would
+# need several GB per matrix and a generation job is killed by the memory limit.
 MAX_CACHED_ROWS = 5000
+MAX_CACHE_BYTES = 400 * 1024 * 1024
 
 _UNREACHABLE_INT = -1
 
@@ -142,12 +145,14 @@ class LazyDistanceMatrix:
     exactly. Distances are stored as float32 (sub-millimetre differences).
     """
 
-    def __init__(self, G, weight, value_type=float, max_rows=MAX_CACHED_ROWS):
+    def __init__(self, G, weight, value_type=float, max_rows=None):
         self.weight = weight
         self.value_type = value_type
-        self.max_rows = max_rows
         self.directed = G.is_directed()
         self.nodes = list(G.nodes)
+        if max_rows is None:
+            max_rows = min(MAX_CACHED_ROWS, max(32, MAX_CACHE_BYTES // (4 * max(1, len(self.nodes)))))
+        self.max_rows = max_rows
         self.node_to_index = {node: index for index, node in enumerate(self.nodes)}
 
         # Parallel edges collapse to the cheapest one.

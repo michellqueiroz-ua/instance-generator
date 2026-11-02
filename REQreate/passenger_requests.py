@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import os
+import sys
 import osmnx as ox
 import pandas as pd
 import pickle
@@ -36,6 +37,17 @@ from multiprocessing import cpu_count
 import gc
 from datetime import datetime
 from .nearest import nearest_node
+
+
+def _peak_memory_mb():
+    """Peak resident memory of this process in MB (Linux/macOS); None where unavailable."""
+    try:
+        import resource
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    except Exception:
+        return None
+    return round(peak / 1024) if sys.platform != "darwin" else round(peak / 1024 / 1024)
+
 from .dynamism import dynamism
 from .logger_utils import get_logger
 
@@ -828,7 +840,7 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
             # Log completion time for slow requests
             if reqid % 5 == 0 or reqid == 0:
                 elapsed = time_module.time() - start_time
-                print(f"✓ Request {reqid} completed in {elapsed:.2f}s (attempts: {feasibility_attempts})")
+                print(f"✓ Request {reqid} completed in {elapsed:.2f}s (attempts: {feasibility_attempts}, peak memory {_peak_memory_mb()} MB)")
             
             return attributes
 
