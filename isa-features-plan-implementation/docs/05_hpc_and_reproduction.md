@@ -54,3 +54,12 @@ Profile a small generation run:
 Step 5 must use the shared station matrix when computing the time-window features: with no
 matrix in the instance, `tw_tightness` falls back to each request's direct travel time, which
 is a different definition. `load_reqreate_instance` now attaches `station_travel_time_matrix.npy` automatically (memory-mapped), so `backfill_features.py` uses it for instances inside the network folder; check the log line "no station matrix found" is absent.
+
+## Solver jobs for a batch (SA and GR)
+
+`isa_set/make_solver_jobs.py` writes `<work>/solver/batch_XX/jobs.csv` and `submit.sh`: per (instance, fleet), SA with seeds 1..3 and GR (one single-core job each; 3 fleets per instance, so 12 jobs per instance). Depot: per instance, the station closest to the mean position that none of its requests uses. Only instances whose csv already exists are included, so rerun it as instances appear (finished runs are skipped by `submit.sh`).
+
+    python ~/instance-generator/isa-features-plan-implementation/isa_set/make_solver_jobs.py --batch 1
+    SOLVER=<folder with the built a.out> MEM_GB=8 bash /work3/$USER/isa/solver/batch_01/submit.sh 1-4
+
+Memory per job is **OPEN** (OPEN-A3): the default is 8 GB; size it from `Max Memory` of the first four finished logs (a long job, so LSF's figure is reliable). The solver must be rebuilt with `maxstations 4000` first (OPEN-A4). Tests: `test_t16_solver_jobs.py`.
