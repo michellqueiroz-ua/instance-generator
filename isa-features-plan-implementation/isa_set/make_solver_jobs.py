@@ -94,7 +94,10 @@ def read_requests(path):
         for row in csv.DictReader(f):
             n += 1
             for column in ("stops_orgn", "stops_dest"):
-                used.update(ast.literal_eval(row[column]))
+                try:
+                    used.update(ast.literal_eval(row[column]))
+                except (SyntaxError, ValueError) as error:
+                    raise SystemExit(f"{path}, request {n}: cannot read {column} = {row[column]!r} ({error})")
     return n, used
 
 
