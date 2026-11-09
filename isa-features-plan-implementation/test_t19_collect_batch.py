@@ -16,9 +16,9 @@ from features_export import append_features_rows
 PATH = "/work3/u/isa/Capital Region of Denmark/csv_format/ISA_b01_i001_1.csv"
 
 
-def result_line(best, served=95, third=5, seconds=9.5):
+def result_line(best, served=95, third=5, seconds=9.5, ratio=1.2):
     # filename served third total ppk extra ratio deadheading shared total_urt best_urt avgurt: ... elapsed duration
-    return (f"{PATH} {served} {third} {served + third} 0.5 1.5 1.2 40 50 {best + 100} {best} avgurt: 60.5 7.1 "
+    return (f"{PATH} {served} {third} {served + third} 0.5 1.5 {ratio} 40 50 {best + 100} {best} avgurt: 60.5 7.1 "
             f"1001 10 0.3 0.3 0.3 0.0 4 4 0 0 20 30 {seconds} 9\n=== VEHICLE ROUTES ===\n")
 
 
@@ -39,7 +39,8 @@ class CollectBatchTests(unittest.TestCase):
 
     def test_parses_numbers_despite_spaces_in_the_path(self):
         row = collect_batch.parse_first_line(result_line(1234, served=90, third=10, seconds=42.5).splitlines()[0])
-        self.assertEqual(row, {"served": 90.0, "third_party": 10.0, "best_total_urt": 1234.0, "elapsed_s": 42.5})
+        self.assertEqual(row, {"served": 90.0, "third_party": 10.0, "avg_extra_s": 1.5, "avg_ratio": 1.2,
+                               "best_total_urt": 1234.0, "elapsed_s": 42.5})
 
     def test_writes_runs_and_both_scorings_of_sa(self):
         collect_batch.main(["--batch", "1", "--work", str(self.work)])
@@ -55,6 +56,21 @@ class CollectBatchTests(unittest.TestCase):
         self.assertAlmostEqual(perf_mean.loc["ISA_b01_i001_1_fleet1", "GR"], 0.8)
         self.assertAlmostEqual(perf_best.loc["ISA_b01_i001_1_fleet1", "GR"], 0.78)
         self.assertEqual(len(pd.read_csv(results / "solver_runs_batch_01.csv")), 8)
+
+    def test_served_share_and_accepted_quality_are_scored_too(self):
+        # fleet2: SA serves 80%, GR 95%; GR rides are slower (ratio 1.5) than SA's (1.2)
+        runs = self.work / "solver" / "batch_01" / "results"
+        for seed in (1, 2, 3):
+            (runs / f"ISA_b01_i001_1_fleet2_SA_s{seed}.txt").write_text(result_line(500, served=80, third=20, ratio=1.2))
+        (runs / "ISA_b01_i001_1_fleet2_GR_s1.txt").write_text(result_line(600, served=95, third=5, ratio=1.5))
+        collect_batch.main(["--batch", "1", "--work", str(self.work)])
+        results = self.work / "results"
+        served = pd.read_csv(results / "perf_matrix_served_mean_batch_01.csv", index_col="instance")
+        quality = pd.read_csv(results / "perf_matrix_quality_mean_batch_01.csv", index_col="instance")
+        self.assertEqual(served.loc["ISA_b01_i001_1_fleet2", "GR"], 1.0)             # higher served share is better
+        self.assertAlmostEqual(served.loc["ISA_b01_i001_1_fleet2", "SA"], 0.8 / 0.95)
+        self.assertEqual(quality.loc["ISA_b01_i001_1_fleet2", "SA"], 1.0)            # lower ratio is better
+        self.assertAlmostEqual(quality.loc["ISA_b01_i001_1_fleet2", "GR"], 1.2 / 1.5)
 
     def test_a_missing_run_is_reported(self):
         (self.work / "solver" / "batch_01" / "results" / "ISA_b01_i001_1_fleet2_GR_s1.txt").unlink()

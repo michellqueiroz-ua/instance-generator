@@ -188,3 +188,22 @@ tw_tightness spreads over a factor of four and fleet sizes differ per fleet, as 
 ## T11. Solver on the largest instance (2026-11-09)
 
 ISA_b01_i024 (995 requests), fleet 1, default build (`maxstations 4000`, 1 core): GR 38 s, SA 39-42 s (CPU/run 96-98%); peak resident memory 277-279 MB (GNU time). Instance i001 (579 requests): SA 8-9 s, GR 2 s. Memory is far below the 6 GB the old build reserved. SA code reading: `number_clusters` is 1 (one thread); the run is static: all requests are queued before the main loop (line 16666), the constructive phase inserts them and re-queues rejected ones, and the main loop (`while(algo_iterations < 90)`, line 16709) then calls SA once per outer iteration, up to 90 times. Each SA call stops after 200 counted moves (`count_static_it`, line 15625), a budget that does not depend on the instance size (about 18,000 counted moves in total, which is 20 per request at 1000 requests and 180 per request at 100). So `--maxnrep`, `--increase_rep` and `--lambda` never take effect and the temperature stays at 1.3. New flag `--max_static_iterations` (default 200) makes the cap a setting. Jobs bundle one instance (12 runs, about 5-8 min) per LSF job at 1 GB.
+
+## T12. Batch 1 results (2026-11-09)
+
+1200 runs (100 instances x 3 fleets x (3 SA seeds + GR)), 100 LSF jobs of 12 runs, 1 core and 1 GB each: no failed run, peak memory 407 MB, CPU 8878 s of 11959 s run time (74%; each run reads the 81 MB travel-time file). GR 4.3 s on average (max 36 s), SA 7.5 s (max 40 s).
+
+Total objective, 300 (instance, fleet) keys: SA beats GR on 232 keys scored by its mean over the seeds and on 263 keys scored by its best seed; SA/GR cost ratio 0.70 (mean score) and 0.68 (best seed), range 0.35-1.14. The ratio correlates -0.21 with the number of requests (SA relatively better on larger instances), so the fixed SA budget does not show up as a size effect in this data.
+
+Third-party share (GR, share of the passengers not served by the own fleet) by fleet size as a percentage of the requests:
+
+| Fleet size | Keys | Mean third-party share | Max |
+|---|---|---|---|
+| 5-10% | 42 | 55.7% | 73.9% |
+| 10-15% | 44 | 32.4% | 48.5% |
+| 15-20% | 43 | 16.7% | 33.7% |
+| 20-25% | 43 | 4.5% | 16.1% |
+| 25-30% | 43 | 0.9% | 4.5% |
+| 30-40% | 85 | 0.2% | 5.1% |
+
+Below a fleet of about 20% of the requests the total objective is dominated by the 4 x direct time penalty. Decision (author, 2026-11-09): the small fleets stay in the design; for them the algorithms are compared on the accepted requests (served share and ride time ratio of the accepted passengers) in addition to the total. First instance space (pilot-analytic, 16 features): variance explained 0.45 (features) and 0.39 (performance); at footprint threshold 0.80 SA is good on 300/300 keys and GR on 116/300.
