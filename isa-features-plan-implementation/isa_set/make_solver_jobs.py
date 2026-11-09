@@ -52,6 +52,8 @@ HERE=$(pwd)
 mkdir -p results logs
 MEM=${MEM_GB:-8}
 HOURS=${WALL_H:-24}
+# GNU time writes "Maximum resident set size" to the .err file: LSF's Max Memory is unreliable for short jobs.
+TIMEV=""; [ -x /usr/bin/time ] && TIMEV="/usr/bin/time -v"
 N=$(tail -n +2 jobs.csv | grep -c . || true)
 RANGE=${1:-1-$N}
 FIRST=${RANGE%-*}
@@ -66,7 +68,7 @@ tail -n +2 jobs.csv | while IFS=';' read -r key instance algo seed total n1 n2 d
     greedy=""; [ "$algo" = "GR" ] && greedy="--greedy_only"
     bsub -J "isa_$name" -q hpc -n 1 -R "span[hosts=1]" -R "rusage[mem=${MEM}GB]" -M ${MEM}GB -W ${HOURS}:00 \\
          -o "$HERE/logs/$name.out" -e "$HERE/logs/$name.err" \\
-         "OMP_NUM_THREADS=1 '$SOLVER/a.out' --filename_requests 3 '$instance' --seed $seed \\
+         "OMP_NUM_THREADS=1 $TIMEV '$SOLVER/a.out' --filename_requests 3 '$instance' --seed $seed \\
           --filename_travel_time '$TRAVEL_TIME' --output_file '$HERE/results/$name.txt' \\
           --number_depots 1 --depot $depot --type_vehicles 2 --capacity_vehicles 4 8 __SA_ARGS__ \\
           --number_vehicles1 $n1 --number_vehicles2 $n2 --number_vehicles3 0 --total_requests $total $greedy"
