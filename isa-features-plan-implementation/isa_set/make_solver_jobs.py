@@ -12,6 +12,9 @@ Writes  <work>/solver/batch_XX/jobs.csv      one row per solver run
 Nothing is run here; submit.sh is run on a login node, after the solver is built (see its header).
 
 Runs per (instance, fleet): SA with seeds 1..sa-seeds and GR (SA binary with --greedy_only).
+With --sa-variants 1000,2000,10000 there are also SA1000, SA2000 and SA10000 (same seeds), which stop each SA call
+after that many counted moves instead of 200 (--max_static_iterations). Their rows come after the standard rows,
+9 per fleet and 27 per instance: run them with PER_JOB=27 and a longer WALL_H (see solver_submit.sh).
 The solver takes each vehicle type's count as a percentage of the requests, rounded up, so a count is
 written as (count - 0.5) / requests * 100, which rounds back to exactly the count.
 
@@ -97,6 +100,9 @@ def main(argv=None):
     parser.add_argument("--work", default=os.environ.get("ISA_WORK", f"/work3/{os.environ.get('USER', 'user')}/isa"))
     parser.add_argument("--network", default="Capital Region of Denmark")
     parser.add_argument("--sa-seeds", type=int, default=3)
+    parser.add_argument("--sa-variants", default="",
+                        help="comma-separated move caps, e.g. 1000,2000,10000: extra SA runs named SA<cap> with "
+                             "--max_static_iterations <cap>, written after the standard rows")
     args = parser.parse_args(argv)
 
     work = Path(args.work)
@@ -111,7 +117,9 @@ def main(argv=None):
     out = work / "solver" / f"batch_{tag}"
     out.mkdir(parents=True, exist_ok=True)
 
+    caps = [int(c) for c in args.sa_variants.split(",") if c.strip()]
     rows = ["key; instance; algo; seed; total_requests; n1; n2; depot"]
+    variant_rows = []
     cache = {}
     missing = []
     for key, fleet in sorted(fleets.items()):
@@ -131,6 +139,11 @@ def main(argv=None):
         for algo, seeds in (("SA", range(1, args.sa_seeds + 1)), ("GR", [1])):
             for seed in seeds:
                 rows.append(f"{key}; {path}; {algo}; {seed}; {n_requests}; {n1}; {n2}; {depot}")
+        for cap in caps:
+            for seed in range(1, args.sa_seeds + 1):
+                variant_rows.append(f"{key}; {path}; SA{cap}; {seed}; {n_requests}; {n1}; {n2}; {depot}")
+    # appended, so the rows of the standard runs keep their numbers (finished runs are skipped by name)
+    rows.extend(variant_rows)
 
     # open() instead of Path.write_text(newline=): the login node runs Python 3.9
     with open(out / "jobs.csv", "w", encoding="utf-8", newline="\n") as f:

@@ -79,3 +79,9 @@ Memory per job is **OPEN** (OPEN-A3): the default is 8 GB; size it from `Max Mem
 ## Performance matrix of a batch
 
 `isa_set/collect_batch.py --batch 1` reads `<work>/solver/batch_XX/results/*.txt` and `features_batch_XX.csv` and writes `solver_runs_batch_XX.csv`, `raw_results_{mean,best}_batch_XX.csv` and `perf_matrix_{mean,best}_batch_XX.csv` (SA = mean over the 3 seeds, or its best seed; GR has one run; ratio normalization: best / value, best = 1.0). The objective is `best_total_user_ride_time`. The instance path in the first line of a result file contains spaces ("Capital Region of Denmark"), so the numbers are located after the token ending in `.csv`; the pilot parser, which counted from the start of the line, would have read the wrong columns. Both scorings are written and can be reported side by side (author decision 2026-11-09). Tests: `test_t19_collect_batch.py`.
+
+## SA variants (more moves per SA call)
+
+`make_solver_jobs.py --batch 1 --sa-variants 1000,2000,10000` appends SA1000, SA2000 and SA10000 (3 seeds each, flag `--max_static_iterations <cap>`) after the standard 1200 rows (rows 1201 to 3900, 27 per instance, so instance N is rows 1200+(N-1)*27+1 to 1200+N*27). Run them with `PER_JOB=27 WALL_H=3`. `collect_batch.py` then adds one column per variant to every performance matrix and prints the `ISA_ALGORITHMS` value for the instance space (`SA,SA1000,SA2000,SA10000,GR`). Test: the largest instance first (i024, rows 1822-1848).
+
+Check of the SA criterion (2026-11-09): SA seed 1 against GR on the same key: where SA is worse (60 keys) it serves 4.3 points more passengers (never fewer) at 2% higher total cost; where it is better (240 keys) it serves 2.7 points more at 0.62 of the cost. The hypothesis that SA gains by dropping passengers (its internal criterion, `compute_cluster_URT`, counts only served passengers) is not supported.

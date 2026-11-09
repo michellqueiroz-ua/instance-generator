@@ -17,10 +17,12 @@ tail -n +2 jobs.csv | while IFS=';' read -r key instance algo seed total n1 n2 d
     name="${key}_${algo}_s${seed}"
     [ -s "results/$name.txt" ] && continue
     greedy=""; [ "$algo" = "GR" ] && greedy="--greedy_only"
+    # SA<cap> (e.g. SA2000): stop each SA call after <cap> counted moves instead of the built-in 200
+    cap=""; case "$algo" in SA[0-9]*) cap="--max_static_iterations ${algo#SA}";; esac
     OMP_NUM_THREADS=1 $TIMEV "$SOLVER/a.out" --filename_requests 3 "$instance" --seed $seed \
         --filename_travel_time "$TRAVEL_TIME" --output_file "$HERE/results/$name.txt" \
         --number_depots 1 --depot $depot --type_vehicles 2 --capacity_vehicles 4 8 __SA_ARGS__ \
-        --number_vehicles1 $n1 --number_vehicles2 $n2 --number_vehicles3 0 --total_requests $total $greedy \
+        --number_vehicles1 $n1 --number_vehicles2 $n2 --number_vehicles3 0 --total_requests $total $greedy $cap \
         > "logs/$name.out" 2> "logs/$name.err"
     echo "$name exit $?"
 done

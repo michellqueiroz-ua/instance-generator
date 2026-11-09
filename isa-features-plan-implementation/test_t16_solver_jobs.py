@@ -57,6 +57,17 @@ class SolverJobsTests(unittest.TestCase):
         self.assertEqual([(r[2], r[3]) for r in rows], [("SA", "1"), ("SA", "2"), ("GR", "1")])
         self.assertTrue(all(r[0] == "ISA_b01_i001_1_fleet1" for r in rows))
 
+    def test_sa_variants_are_appended_after_the_standard_rows(self):
+        standard = self.rows()
+        jobs.main(["--batch", "1", "--work", str(self.work), "--network", "Net", "--sa-seeds", "2",
+                   "--sa-variants", "1000,2000"])
+        rows = self.rows()
+        self.assertEqual(rows[:len(standard)], standard)  # row numbers of finished runs do not move
+        self.assertEqual([(r[2], r[3]) for r in rows[len(standard):]],
+                         [("SA1000", "1"), ("SA1000", "2"), ("SA2000", "1"), ("SA2000", "2")])
+        run_rows = (self.out / "run_rows.sh").read_text()
+        self.assertIn("--max_static_iterations ${algo#SA}", run_rows)
+
     def test_vehicle_counts_round_trip_through_the_solver_percentages(self):
         row = self.rows()[0]
         n_requests = int(row[4])

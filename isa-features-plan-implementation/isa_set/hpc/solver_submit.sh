@@ -4,6 +4,8 @@
 #   SOLVER=<dir with the built a.out> bash submit.sh [first-last]     e.g.  bash submit.sh 277-288   (a test)
 # MEM_GB (default 1), WALL_H (default 1) and PER_JOB (default 12 = one instance: 3 fleets x (3 SA + 1 GR)) are per job.
 # Measured on the largest instance (995 requests): peak 280 MB, 42 s per run. Finished runs are skipped.
+# SA variants (rows after the first 1200, 27 per instance): PER_JOB=27 and WALL_H=3, e.g.
+#   SOLVER=... PER_JOB=27 WALL_H=3 bash submit.sh 1201-1227   (one instance as a timing test)
 # This file is copied to <work>/solver/batch_XX/submit.sh by make_solver_jobs.py.
 cd "$(dirname "${BASH_SOURCE[0]}")"
 HERE=$(pwd)

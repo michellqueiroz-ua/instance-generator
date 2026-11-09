@@ -72,11 +72,22 @@ class CollectBatchTests(unittest.TestCase):
         self.assertEqual(quality.loc["ISA_b01_i001_1_fleet2", "SA"], 1.0)            # lower ratio is better
         self.assertAlmostEqual(quality.loc["ISA_b01_i001_1_fleet2", "GR"], 1.2 / 1.5)
 
+    def test_sa_variants_become_columns_and_are_compared_with_gr(self):
+        runs = self.work / "solver" / "batch_01" / "results"
+        for key, value in (("ISA_b01_i001_1_fleet1", 700), ("ISA_b01_i001_1_fleet2", 450)):
+            for seed in (1, 2, 3):
+                (runs / f"{key}_SA2000_s{seed}.txt").write_text(result_line(value))
+        collect_batch.main(["--batch", "1", "--work", str(self.work)])
+        perf = pd.read_csv(self.work / "results" / "perf_matrix_mean_batch_01.csv", index_col="instance")
+        self.assertEqual(list(perf.columns), ["SA", "SA2000", "GR"])
+        self.assertEqual(perf.loc["ISA_b01_i001_1_fleet1", "SA2000"], 1.0)  # 700 beats SA 800 and GR 1000
+        self.assertAlmostEqual(perf.loc["ISA_b01_i001_1_fleet1", "SA"], 700 / 800)
+
     def test_a_missing_run_is_reported(self):
         (self.work / "solver" / "batch_01" / "results" / "ISA_b01_i001_1_fleet2_GR_s1.txt").unlink()
         with self.assertRaises(SystemExit) as context:
             collect_batch.main(["--batch", "1", "--work", str(self.work)])
-        self.assertIn("lack SA or GR", str(context.exception))
+        self.assertIn("lack results of some of", str(context.exception))
 
 
 if __name__ == "__main__":
