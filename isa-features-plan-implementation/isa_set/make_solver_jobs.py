@@ -165,11 +165,14 @@ def main(argv=None):
             for seed in seeds:
                 rows.append(f"{key}; {path}; {algo}; {seed}; {n_requests}; {n1}; {n2}; {depot}")
 
-    (out / "jobs.csv").write_text("\n".join(rows) + "\n", encoding="utf-8", newline="\n")
+    # open() instead of Path.write_text(newline=): the login node runs Python 3.9
+    with open(out / "jobs.csv", "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(rows) + "\n")
     script = SUBMIT.replace("__SA_ARGS__", SA_ARGS).replace(
         "cd \"$(dirname", f"TRAVEL_TIME='{matrix}'\ncd \"$(dirname", 1
     )
-    (out / "submit.sh").write_text(script, encoding="utf-8", newline="\n")
+    with open(out / "submit.sh", "w", encoding="utf-8", newline="\n") as f:
+        f.write(script)
     print(f"{len(rows) - 1} runs for {len(fleets) - len(missing)} fleets of {len(cache)} instances in {out}")
     if missing:
         print(f"skipped {len(missing)} fleets whose instance csv does not exist yet, e.g. {missing[0]}")
