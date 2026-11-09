@@ -104,6 +104,16 @@ def plot_requests(network, save_dir_images, origin_points, destination_points):
     plt.close(fig)
 
 
+def attribute_minimum(node, name, default=0):
+    """Smallest value a constraint like ``name >= 60`` allows for an attribute, else ``default``."""
+    minimum = default
+    for constraint in node.get('constraints', []):
+        match = re.fullmatch(r'\s*' + re.escape(name) + r'\s*>=?\s*(-?\d+(?:\.\d+)?)\s*', constraint)
+        if match:
+            minimum = max(minimum, float(match.group(1)))
+    return minimum
+
+
 def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid, method_poi, distancex, pu, do, pdfunc, loc, scale, aux, time_stamps, replicate_num, reaction_times, num_requests, zonescsv, base_seed=1):
     
     import time as time_module
@@ -1101,9 +1111,13 @@ def _generate_requests(
             reaction_times = uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=num_requests)
            
         
+        # The values are drawn here once and handed to the requests, so a value that breaks
+        # a constraint such as "reaction_time >= 60" must be redrawn here: the per-request
+        # check can never fix it and the request would be written half empty.
+        min_reaction = attribute_minimum(inst.GA.nodes['reaction_time'], 'reaction_time')
         for r in range(num_requests):
             reaction_times[r] = int(reaction_times[r])
-            while (reaction_times[r] < 0):
+            while (reaction_times[r] < min_reaction):
                 if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'normal':
                     reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
 
@@ -1127,14 +1141,14 @@ def _generate_requests(
                 
                 else:
                     while(True):
-                        if (reaction_times[r] > inst.GA.nodes['reaction_time']['pdf'][0]['loc']) or (reaction_times[r] < 0):
+                        if (reaction_times[r] > inst.GA.nodes['reaction_time']['pdf'][0]['loc']) or (reaction_times[r] < min_reaction):
                             if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'normal':
                                 reaction_times[r] = int(norm.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
 
                             if inst.GA.nodes['reaction_time']['pdf'][0]['type'] == 'uniform':
                                 reaction_times[r] = int(uniform.rvs(loc=inst.GA.nodes['reaction_time']['pdf'][0]['loc'], scale=inst.GA.nodes['reaction_time']['pdf'][0]['scale'], size=1)[0])
                         
-                        if (reaction_times[r] >= 0) and (reaction_times[r] <= inst.GA.nodes['reaction_time']['pdf'][0]['loc']):    
+                        if (reaction_times[r] >= min_reaction) and (reaction_times[r] <= inst.GA.nodes['reaction_time']['pdf'][0]['loc']):
                             break
 
     if logger:

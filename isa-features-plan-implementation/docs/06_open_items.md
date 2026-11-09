@@ -47,3 +47,7 @@ See OPEN-S1 to S4 in `03_recommended_settings.md`. The author makes the final ch
 ## Growth check settings (OPEN-G7)
 
 The stop rule is not the literal "fewer than 5% far instances": with any fixed distance threshold a same-distribution batch has a far share that depends on the tails of the feature distribution (13.5% at 2 x the typical spacing in a test). The rule is calibrated on the existing rows instead (see 05). Author to decide: the quantile (95%), the margin (3 points), the cap (3000 rows), and whether to judge in the feature space (now) or in the 2-D projection (footprints in `src/isa_pipeline.py`). Nothing has run on real data yet: it needs at least two batches.
+
+## Incomplete requests in batch 1 (OPEN-G8)
+
+Found 2026-11-09 when the solver job writer failed on an empty `stops_orgn`. Cause and fix: 04, change 11. Batch 1 instances with such requests are regenerated with `isa_set/hpc/regenerate_incomplete.sh 1 --redo` (old files are moved to `<work>/incomplete_backup/batch_01`), then the features are recomputed. The earlier feature run counted incomplete requests in `n_requests` (they have a time stamp). **OPEN** until regenerated and the check finds none.
