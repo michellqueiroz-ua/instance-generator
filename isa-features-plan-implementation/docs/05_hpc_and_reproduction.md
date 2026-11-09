@@ -71,3 +71,7 @@ Memory per job is **OPEN** (OPEN-A3): the default is 8 GB; size it from `Max Mem
 ## Batch 1 generation result (2026-11-06)
 
 100 instances generated, 1 core and 4 GB each, no job killed. Highest LSF Max Memory over the 95 jobs of the full run: 2849 MB (the cache plateau: 1613 MB at start + 3 x 400 MB cap). A fresh 579-request instance: CPU 425 s, run time 497 s (86% of the core).
+
+## Growth check (stop rule for the instance set)
+
+`isa_set/growth_check.py --new <work>/results/features_batch_02.csv` (earlier batches are found next to it) compares a new batch with the existing rows in the standardized feature space (rows = instance and fleet pairs). A new row is far when its nearest existing row is farther than the 95% quantile of the nearest-neighbour distances the existing rows have to each other, so a batch that fills the same space has about 5% far rows (the baseline). Verdict: STOP when the far share is at most baseline plus 3 points, or the set reaches 3000 rows (cap); otherwise CONTINUE. Also printed: the share outside the existing range of some feature and the worst features. Exit code 0 = continue, 1 = stop, 2 = no earlier batch. Simulation (8 Gaussian features): a batch from the same distribution wrongly says CONTINUE in 5% (1000 existing, 300 new) to 13% (300 existing, 100 new) of the draws; a false CONTINUE only costs one more batch. Tests: `test_t18_growth_check.py`.

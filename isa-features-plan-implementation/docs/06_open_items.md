@@ -43,3 +43,7 @@ See OPEN-S1 to S4 in `03_recommended_settings.md`. The author makes the final ch
 2. A seed bug can silently collapse the instance space; check the number of distinct values of key features.
 3. Profile before scaling up: one hidden call (`osmnx.nearest_nodes`) dominated request generation.
 4. Reserve resources from measured usage; early jobs over-reserved memory and cores.
+
+## Growth check settings (OPEN-G7)
+
+The stop rule is not the literal "fewer than 5% far instances": with any fixed distance threshold a same-distribution batch has a far share that depends on the tails of the feature distribution (13.5% at 2 x the typical spacing in a test). The rule is calibrated on the existing rows instead (see 05). Author to decide: the quantile (95%), the margin (3 points), the cap (3000 rows), and whether to judge in the feature space (now) or in the 2-D projection (footprints in `src/isa_pipeline.py`). Nothing has run on real data yet: it needs at least two batches.
