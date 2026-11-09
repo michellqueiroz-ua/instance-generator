@@ -63,3 +63,11 @@ is a different definition. `load_reqreate_instance` now attaches `station_travel
     SOLVER=<folder with the built a.out> MEM_GB=8 bash /work3/$USER/isa/solver/batch_01/submit.sh 1-4
 
 Memory per job is **OPEN** (OPEN-A3): the default is 8 GB; size it from `Max Memory` of the first four finished logs (a long job, so LSF's figure is reliable). The solver must be rebuilt with `maxstations 4000` first (OPEN-A4). Tests: `test_t16_solver_jobs.py`.
+
+## Features of a batch
+
+`isa_set/features_batch.py` (run through `isa_set/hpc/features_batch.sh`) computes the ISA features per instance and fleet: key = fleet key (`ISA_b01_i001_1_fleet2`), 3 rows per instance, output `<work>/results/features_batch_XX.csv`. It attaches the shared station matrix (aborts if it is missing), loads the network pickle once, and writes every 10 instances. One core, single thread. Memory and wall time are **OPEN** until the first log (guess: 4 GB, 3 h); the log prints time and peak memory per instance. Tests: `test_t17_features_batch.py`.
+
+## Batch 1 generation result (2026-11-06)
+
+100 instances generated, 1 core and 4 GB each, no job killed. Highest LSF Max Memory over the 95 jobs of the full run: 2849 MB (the cache plateau: 1613 MB at start + 3 x 400 MB cap). A fresh 579-request instance: CPU 425 s, run time 497 s (86% of the core).
