@@ -32,7 +32,7 @@ See OPEN-S1 to S4 in `03_recommended_settings.md`. The author makes the final ch
 
 | ID | Item |
 |---|---|
-| OPEN-D1 | `REQreate/rank_model.py`: another ISA feature (confirmed); add one line on what it computes. |
+| OPEN-D1 | Done: `REQreate/rank_model.py` builds the 25 x 25 zone grid (always, at network build), the POI density of the zones (downloads OSM POIs; only with `method_pois`) and the zone ranks and travel probabilities between zones (only with `zone_probabilities`). The ISA set uses none of these: depots and hotspots are ignored (D-decisions). |
 | OPEN-D2 | 7 web-app tests fail on the branch and on the commit before; cause is the old main-checkout REQreate in separate processes, plus timeouts. Not fixed. |
 | OPEN-D3 | The cause of the first generation job's exit code 2 (empty config argument from the job array) was never found; replaced by one job per config. |
 | OPEN-D4 | The exit of the LSF job reminder: the `/jobs` mod tracks only `bsub` commands the assistant runs, not the author's own HPC window. |

@@ -170,3 +170,17 @@ Rerun of i002 and i003 at 8 GB with the row cache capped (commit 2ffbeae4) and p
 
 LSF `Max Memory` (5160 and 7280 MB) matched the logged peak, so it was reliable for these long jobs.
 The growth is linear in the number of requests, so the cap of 2ffbeae4 had no effect. Cause: the cap was not applied to matrices restored from the network pickle (see 04, change 9). Result of the fix: **OPEN**, HPC down on 2026-11-02.
+
+## T10. Batch 1 generation and features (2026-11-06)
+
+100 instances generated at 1 core and 4 GB each, none killed; highest LSF Max Memory 2849 MB (cache plateau). Feature test on i001 to i005 (15 rows, 1 core): peak memory 1564 MB, 119 s of which about 114 s is the one-time network pickle read; CPU 21 s of run time 132 s (16%, disk wait).
+
+| Instance | Requests | tw_tightness_factor | Fleet sizes (3 fleets) |
+|---|---|---|---|
+| ISA_b01_i001_1 | 579 | 1.58 | 163, 154, 186 |
+| ISA_b01_i002_1 | 435 | 1.00 | 117, 80, 81 |
+| ISA_b01_i003_1 | 685 | 0.49 | 53, 180, 151 |
+| ISA_b01_i004_1 | 561 | 2.09 | 73, 165, 199 |
+| ISA_b01_i005_1 | 144 | 2.03 | 53, 9, 46 |
+
+tw_tightness spreads over a factor of four and fleet sizes differ per fleet, as the design intends. Not compared against the old direct-travel-time fallback. Full 100-instance run: **OPEN** (submitted 2026-11-06).
