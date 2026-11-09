@@ -41,15 +41,20 @@ class CollectBatchTests(unittest.TestCase):
         row = collect_batch.parse_first_line(result_line(1234, served=90, third=10, seconds=42.5).splitlines()[0])
         self.assertEqual(row, {"served": 90.0, "third_party": 10.0, "best_total_urt": 1234.0, "elapsed_s": 42.5})
 
-    def test_writes_runs_raw_results_and_perf_matrix(self):
+    def test_writes_runs_and_both_scorings_of_sa(self):
         collect_batch.main(["--batch", "1", "--work", str(self.work)])
-        raw = pd.read_csv(self.work / "results" / "raw_results_batch_01.csv", index_col="instance")
-        self.assertAlmostEqual(raw.loc["ISA_b01_i001_1_fleet1", "SA"], 800.0)  # mean of the three seeds
-        self.assertEqual(raw.loc["ISA_b01_i001_1_fleet2", "GR"], 600)
-        perf = pd.read_csv(self.work / "results" / "perf_matrix_batch_01.csv", index_col="instance")
-        self.assertEqual(perf.loc["ISA_b01_i001_1_fleet1", "SA"], 1.0)  # the best scores 1.0
-        self.assertAlmostEqual(perf.loc["ISA_b01_i001_1_fleet1", "GR"], 0.8)
-        self.assertEqual(len(pd.read_csv(self.work / "results" / "solver_runs_batch_01.csv")), 8)
+        results = self.work / "results"
+        mean = pd.read_csv(results / "raw_results_mean_batch_01.csv", index_col="instance")
+        best = pd.read_csv(results / "raw_results_best_batch_01.csv", index_col="instance")
+        self.assertAlmostEqual(mean.loc["ISA_b01_i001_1_fleet1", "SA"], 800.0)  # mean of 800, 820, 780
+        self.assertEqual(best.loc["ISA_b01_i001_1_fleet1", "SA"], 780)          # best seed
+        self.assertEqual(best.loc["ISA_b01_i001_1_fleet2", "GR"], 600)
+        perf_mean = pd.read_csv(results / "perf_matrix_mean_batch_01.csv", index_col="instance")
+        perf_best = pd.read_csv(results / "perf_matrix_best_batch_01.csv", index_col="instance")
+        self.assertEqual(perf_mean.loc["ISA_b01_i001_1_fleet1", "SA"], 1.0)  # the best scores 1.0
+        self.assertAlmostEqual(perf_mean.loc["ISA_b01_i001_1_fleet1", "GR"], 0.8)
+        self.assertAlmostEqual(perf_best.loc["ISA_b01_i001_1_fleet1", "GR"], 0.78)
+        self.assertEqual(len(pd.read_csv(results / "solver_runs_batch_01.csv")), 8)
 
     def test_a_missing_run_is_reported(self):
         (self.work / "solver" / "batch_01" / "results" / "ISA_b01_i001_1_fleet2_GR_s1.txt").unlink()

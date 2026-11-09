@@ -6,8 +6,8 @@ collect_batch.py - ISA instance set: turn the solver results of one batch into i
 Reads   <work>/solver/batch_XX/results/<key>_<SA|GR>_s<seed>.txt   the solver output, one file per run
         <work>/results/features_batch_XX.csv                       the feature rows (instance order and keys)
 Writes  <work>/results/solver_runs_batch_XX.csv    one row per run: key, algo, seed, served, third party, URT, seconds
-        <work>/results/raw_results_batch_XX.csv    per key: mean SA URT over the seeds, GR URT
-        <work>/results/perf_matrix_batch_XX.csv    normalized scores (ratio: best / value; best = 1.0)
+        <work>/results/raw_results_{mean,best}_batch_XX.csv   per key: SA URT (mean over the seeds / best seed), GR URT
+        <work>/results/perf_matrix_{mean,best}_batch_XX.csv   normalized scores (ratio: best / value; best = 1.0)
 
 The objective is the solver's best_total_user_ride_time: total ride time of all passengers, where a passenger
 handed to a third party counts as 4 x the direct travel time. Only SA and GR exist for the batches.
@@ -81,34 +81,36 @@ def main(argv=None):
         raise SystemExit("no result files")
     runs.to_csv(results / f"solver_runs_batch_{tag}.csv", index=False)
 
-    raw = runs.groupby(["key", "algo"])["best_total_urt"].mean().unstack("algo")
     expected = pd.read_csv(features_csv)["instance"]
-    complete = set(raw.dropna().index)
+    grouped = runs.groupby(["key", "algo"])["best_total_urt"]
+    # SA is reported two ways: the mean over its seeds and its best seed (GR has one run).
+    scorings = {"mean": grouped.mean().unstack("algo"), "best": grouped.min().unstack("algo")}
+    complete = set(scorings["mean"].dropna().index)
     missing = [key for key in expected if key not in complete]
     if missing:
         raise SystemExit(f"{len(missing)} keys lack SA or GR results, e.g. {missing[:3]}")
-    raw = raw.loc[expected]
-    raw.rename_axis("instance").to_csv(results / f"raw_results_batch_{tag}.csv")
-
-    export_perf_matrix(
-        {key: values.to_dict() for key, values in raw.iterrows()},
-        csv_path=results / f"perf_matrix_batch_{tag}.csv",
-        features_path=features_csv,
-        sense="min",
-        method="ratio",
-    )
 
     per_algo = runs.groupby("algo").agg(
         runs=("key", "size"),
-        unserved=("third_party", "sum"),
+        third_party=("third_party", "sum"),
         mean_seconds=("elapsed_s", "mean"),
         max_seconds=("elapsed_s", "max"),
     )
     print(per_algo.round(1).to_string())
-    ratio = raw["SA"] / raw["GR"]
-    print(f"SA better than GR on {(raw['SA'] < raw['GR']).sum()}/{len(raw)} keys; "
-          f"SA/GR cost ratio: mean {ratio.mean():.2f}, min {ratio.min():.2f}, max {ratio.max():.2f}")
-    print(f"Wrote {results / f'perf_matrix_batch_{tag}.csv'}")
+    for name, raw in scorings.items():
+        raw = raw.loc[expected]
+        raw.rename_axis("instance").to_csv(results / f"raw_results_{name}_batch_{tag}.csv")
+        export_perf_matrix(
+            {key: values.to_dict() for key, values in raw.iterrows()},
+            csv_path=results / f"perf_matrix_{name}_batch_{tag}.csv",
+            features_path=features_csv,
+            sense="min",
+            method="ratio",
+        )
+        ratio = raw["SA"] / raw["GR"]
+        print(f"SA ({name} of seeds) better than GR on {(raw['SA'] < raw['GR']).sum()}/{len(raw)} keys; "
+              f"SA/GR cost ratio: mean {ratio.mean():.2f}, min {ratio.min():.2f}, max {ratio.max():.2f}")
+        print(f"Wrote {results / f'perf_matrix_{name}_batch_{tag}.csv'}")
     return 0
 
 
