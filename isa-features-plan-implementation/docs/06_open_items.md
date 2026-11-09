@@ -51,3 +51,9 @@ The stop rule is not the literal "fewer than 5% far instances": with any fixed d
 ## Incomplete requests in batch 1 (OPEN-G8)
 
 Found 2026-11-09 when the solver job writer failed on an empty `stops_orgn`. Cause and fix: 04, change 11. Batch 1 instances with such requests are regenerated with `isa_set/hpc/regenerate_incomplete.sh 1 --redo` (old files are moved to `<work>/incomplete_backup/batch_01`), then the features are recomputed. The earlier feature run counted incomplete requests in `n_requests` (they have a time stamp). **OPEN** until regenerated and the check finds none.
+
+## SA budget and small fleets (OPEN-A7, OPEN-S5), 2026-11-09
+
+- OPEN-A7: the SA budget is fixed (90 outer iterations x 200 counted moves, `--max_static_iterations`), so SA gets fewer moves per request on large instances. This may couple the SA/GR gap to instance size. Check the correlation of SA/GR cost ratio with n_requests in batch 1 before interpreting the instance space. SA is also skipped when the fleet has at least as many vehicles as requests (`k > total_number_vehicles + 1`).
+- OPEN-S5: small fleets (down to 6% of the requests) hand 12-15% of the passengers to a third party (4 x direct time in the objective). Author: "small fleets are a huge problem". Candidate: raise the lower end of `fleet.percent_of_requests` in design.json and redraw the fleets only (instances unchanged); the solver runs (about 3 CPU hours) and the features (3 minutes) are rerun.
+- Footprints at the default threshold 0.80: SA is good on 300/300 (it is within 20% of the best everywhere), GR on 116/300, so the footprint carries no selection signal. A tighter threshold (0.95) is the candidate.
