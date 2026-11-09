@@ -184,3 +184,7 @@ The growth is linear in the number of requests, so the cap of 2ffbeae4 had no ef
 | ISA_b01_i005_1 | 144 | 2.03 | 53, 9, 46 |
 
 tw_tightness spreads over a factor of four and fleet sizes differ per fleet, as the design intends. Not compared against the old direct-travel-time fallback. Full 100-instance run: **OPEN** (submitted 2026-11-06).
+
+## T11. Solver on the largest instance (2026-11-09)
+
+ISA_b01_i024 (995 requests), fleet 1, default build (`maxstations 4000`, 1 core): GR 38 s, SA 39-42 s (CPU/run 96-98%); peak resident memory 277-279 MB (GNU time). Instance i001 (579 requests): SA 8-9 s, GR 2 s. Memory is far below the 6 GB the old build reserved. SA code reading: `number_clusters` is 1 (one thread); SA runs after each inserted request and stops after 200 counted moves (`count_static_it`, line 15625 of odbrp-parallel.cpp), so `--maxnrep`, `--increase_rep` and `--lambda` never take effect and the temperature stays at 1.3. New flag `--max_static_iterations` (default 200) makes the cap a setting. Jobs bundle one instance (12 runs, about 5-8 min) per LSF job at 1 GB.

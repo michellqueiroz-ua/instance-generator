@@ -40,42 +40,7 @@ CAPACITIES = [4, 8]
 # Same SA settings as the published MDHODBRP runs (see pilot/make_solver_jobs.py).
 SA_ARGS = "--init_temperature 1.3 --maxnrep 350 --increase_rep 800"
 
-SUBMIT = """#!/bin/bash
-# Submit one single-core LSF job per row of jobs.csv. Run on a login node.
-#   SOLVER=<dir with the built a.out> bash submit.sh [first-last]     e.g.  bash submit.sh 1-4   (a test)
-# MEM_GB (default 8) and WALL_H (default 24) are per job. The solver reserves large fixed arrays at start
-# (about 6 GB with the old station limit): too little memory makes it segfault before printing anything.
-# Size MEM_GB from the Max Memory line of the first finished logs. Finished runs (results/<name>.txt) are skipped.
-cd "$(dirname "${BASH_SOURCE[0]}")"
-HERE=$(pwd)
-[ -x "$SOLVER/a.out" ] || { echo "set SOLVER to the folder with the built a.out"; exit 1; }
-mkdir -p results logs
-MEM=${MEM_GB:-8}
-HOURS=${WALL_H:-24}
-# GNU time writes "Maximum resident set size" to the .err file: LSF's Max Memory is unreliable for short jobs.
-TIMEV=""; [ -x /usr/bin/time ] && TIMEV="/usr/bin/time -v"
-N=$(tail -n +2 jobs.csv | grep -c . || true)
-RANGE=${1:-1-$N}
-FIRST=${RANGE%-*}
-LAST=${RANGE#*-}
-n=0
-tail -n +2 jobs.csv | while IFS=';' read -r key instance algo seed total n1 n2 depot; do
-    n=$((n+1)); [ "$n" -lt "$FIRST" ] && continue; [ "$n" -gt "$LAST" ] && break
-    key=$(echo $key); algo=$(echo $algo); seed=$(echo $seed); total=$(echo $total)
-    n1=$(echo $n1); n2=$(echo $n2); depot=$(echo $depot); instance=$(echo $instance)
-    name="${key}_${algo}_s${seed}"
-    [ -s "results/$name.txt" ] && continue
-    greedy=""; [ "$algo" = "GR" ] && greedy="--greedy_only"
-    bsub -J "isa_$name" -q hpc -n 1 -R "span[hosts=1]" -R "rusage[mem=${MEM}GB]" -M ${MEM}GB -W ${HOURS}:00 \\
-         -o "$HERE/logs/$name.out" -e "$HERE/logs/$name.err" \\
-         "OMP_NUM_THREADS=1 $TIMEV '$SOLVER/a.out' --filename_requests 3 '$instance' --seed $seed \\
-          --filename_travel_time '$TRAVEL_TIME' --output_file '$HERE/results/$name.txt' \\
-          --number_depots 1 --depot $depot --type_vehicles 2 --capacity_vehicles 4 8 __SA_ARGS__ \\
-          --number_vehicles1 $n1 --number_vehicles2 $n2 --number_vehicles3 0 --total_requests $total $greedy"
-    echo "submitted $name"
-done
-echo "1 core and ${MEM} GB per job, ${HOURS} h limit"
-"""
+TEMPLATES = HERE / "hpc"
 
 
 def percent_for(count, n_requests):
@@ -170,11 +135,12 @@ def main(argv=None):
     # open() instead of Path.write_text(newline=): the login node runs Python 3.9
     with open(out / "jobs.csv", "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(rows) + "\n")
-    script = SUBMIT.replace("__SA_ARGS__", SA_ARGS).replace(
-        "cd \"$(dirname", f"TRAVEL_TIME='{matrix}'\ncd \"$(dirname", 1
-    )
-    with open(out / "submit.sh", "w", encoding="utf-8", newline="\n") as f:
-        f.write(script)
+    # read_text turns any CRLF of a Windows checkout into LF; the files must run on Linux
+    for name in ("submit.sh", "run_rows.sh"):
+        text = (TEMPLATES / ("solver_" + name)).read_text(encoding="utf-8")
+        text = text.replace("__TRAVEL_TIME__", str(matrix)).replace("__SA_ARGS__", SA_ARGS)
+        with open(out / name, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
     print(f"{len(rows) - 1} runs for {len(fleets) - len(missing)} fleets of {len(cache)} instances in {out}")
     if missing:
         print(f"skipped {len(missing)} fleets whose instance csv does not exist yet, e.g. {missing[0]}")

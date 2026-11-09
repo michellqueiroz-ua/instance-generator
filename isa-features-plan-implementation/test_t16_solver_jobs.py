@@ -70,12 +70,17 @@ class SolverJobsTests(unittest.TestCase):
         self.assertEqual(depot, 1)  # closest to the centre among 0, 1, 4 (tie broken by order)
 
     def test_submit_script_has_resources_and_matrix_path(self):
-        script = (self.out / "submit.sh").read_text()
-        self.assertIn("-n 1", script)
-        self.assertIn("rusage[mem=${MEM}GB]", script)
-        self.assertIn("station_travel_time_matrix.csv", script)
-        self.assertNotIn("__SA_ARGS__", script)
-        self.assertIn("--init_temperature 1.3", script)
+        submit = (self.out / "submit.sh").read_text()
+        self.assertIn("-n 1", submit)
+        self.assertIn("rusage[mem=${MEM}GB]", submit)
+        self.assertIn("run_rows.sh", submit)
+        self.assertNotIn("\r", submit)
+        run_rows = (self.out / "run_rows.sh").read_text()
+        self.assertIn("station_travel_time_matrix.csv", run_rows)
+        self.assertNotIn("__TRAVEL_TIME__", run_rows)
+        self.assertNotIn("__SA_ARGS__", run_rows)
+        self.assertIn("--init_temperature 1.3", run_rows)
+        self.assertIn("--greedy_only", run_rows)
 
 
 if __name__ == "__main__":
