@@ -227,3 +227,16 @@ ISA_b01_i024 (995 requests), 3 fleets, 3 seeds each, mean over the seeds. One LS
 | | SA10000 | 1379823 | 1.00 | 1.00 | 745 s |
 
 Tight fleet: the ride time ratio of the accepted passengers falls steadily with the moves (2.32, 2.09, 1.99, 1.54), the total only drops below GR at 10000 moves (-12% against GR, -21% against SA with 200 moves). Ample fleets: SA with 200 moves already gives ratio 1.00 (every passenger rides directly) and the total sits at the sum of the direct times (checked against the instance file: OPEN until the sum is printed); 10000 moves change it by 0.1% and take 40 times as long, so these fleets are 86% of the job's run time. SA serves more passengers than GR but the total can be worse because the third-party penalty is weighted by the direct time of the unserved passengers (a count-based served share does not show this). `make_solver_jobs.py --variants-max-fleet-percent 25` limits the variants to fleets of at most 25 vehicles per 100 requests.
+
+## T14. SA with 1000, 2000 and 10000 moves on the tight fleets of batch 1 (2026-11-10)
+
+SA variants were run for the 174 of 300 keys whose fleet has at most 25 vehicles per 100 requests (3 seeds each, 522 runs per variant, 2766 result files in total). Total cost against GR (ratio of costs, SA scored by the mean of its seeds / by its best seed):
+
+| Algorithm | Run time per run (mean / max) | Better than GR on keys (mean score) | Cost / GR (mean score) | Better than GR on keys (best seed) | Cost / GR (best seed) |
+|---|---|---|---|---|---|
+| SA (200 moves) | 7.5 s / 40 s | 106 / 174 | 0.85 | 137 / 174 | 0.82 |
+| SA1000 | 17.8 s / 80 s | 128 / 174 | 0.82 | 152 / 174 | 0.79 |
+| SA2000 | 29.8 s / 160 s | 142 / 174 | 0.80 | 159 / 174 | 0.77 |
+| SA10000 | 125 s / 812 s | 155 / 174 | 0.76 | 166 / 174 | 0.73 |
+
+Served share against GR: SA serves more passengers on 159 to 163 of 174 keys, ratio 1.07 to 1.08 (no change with more moves). Ride-time ratio of the accepted passengers against GR: 0.77 (200 moves) falling to 0.67 (10000 moves), mean score. The quality comparison is only like for like where both serve about the same passengers (served shares within 2 points): 39 to 50 of 174 keys. The cost of GR is still lower than SA10000 on 19 keys (mean score) and 8 keys (best seed), with a worst ratio of 1.13. **OPEN**: instance space with the five algorithms (ISA_ALGORITHMS=SA,SA1000,SA2000,SA10000,GR) on `features_batch_01_partial.csv`.
