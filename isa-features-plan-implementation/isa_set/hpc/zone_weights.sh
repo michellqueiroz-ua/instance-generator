@@ -10,7 +10,7 @@
 WORK=${ISA_WORK:-/work3/$USER/isa}
 HERE=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$WORK/logs"
-bsub -J isa_zone_weights -q hpc -n 1 -R "rusage[mem=4GB]" -M 4GB -W 12:00 \
+bsub -J isa_zone_weights -q hpc -n 1 -R "rusage[mem=1GB]" -M 1GB -W 12:00 \
      -o "$WORK/logs/zone_weights.out" -e "$WORK/logs/zone_weights.err" \
      "module load python3/3.11.13; source $HOME/venvs/reqreate/bin/activate; cd '$WORK'; export PYTHONUNBUFFERED=1; \
       /usr/bin/time -v python '$HERE/../zone_weights.py' --work '$WORK'"
