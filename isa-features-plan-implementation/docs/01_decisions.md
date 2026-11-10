@@ -46,3 +46,13 @@ Format: decision, reason, source. Dates are 2026. "Author" is the researcher (Mi
 |---|---|---|
 | D21 | Solvers and long generation runs are **not run on the author's PC**. They run on the DTU HPC. Short local Python checks and unit tests are fine. | Author |
 | D22 | HPC jobs reserve only what they use. One core per single-threaded job. On LSF memory is per slot. After each run, report CPU time, run time and max memory. | Author (admins kill over-reserving jobs); an early network job reserved 4 cores / 64 GB and used 7.7% CPU / 4.4 GB |
+
+## Decisions of 2026-11-10 (model-based neighbourhood search, see 07)
+
+| # | Decision | Source |
+|---|---|---|
+| D23 | In the model-based repair, requests that stay fixed keep their vehicle, their chosen stop and their relative order; their times may shift as long as the route stays feasible, and the freed requests may be inserted between their stops. | Author |
+| D24 | The 6-8 freed requests are chosen with three operators that are all tried and logged (related requests in space and time, worst ride-time ratio, unserved requests with the largest penalty); unserved requests are included. | Author |
+| D25 | "SA plus model" becomes a column of the performance matrix. This revises D4 (the matheuristic was only to show where SA is weak). | Author |
+| D26 | Budget of the first experiment: about 100 core-hours (6 tight-fleet instances, starts from SA with 200 and with 10000 moves). | Author |
+| D27 | A fleet that leaves about 55% of the passengers to third parties is too small for the design. The new lower bound of the fleet size is **OPEN** (see 06, OPEN-S5). | Author |
