@@ -77,6 +77,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
     parser.add_argument("--batch", type=int, required=True)
     parser.add_argument("--work", default=os.environ.get("ISA_WORK", f"/work3/{os.environ.get('USER', 'user')}/isa"))
+    parser.add_argument("--partial", action="store_true",
+                        help="when some keys lack some algorithm (SA variants only for small fleets), write the "
+                             "matrices and a features file for the keys that have all of them (names end in _partial)")
     args = parser.parse_args(argv)
 
     tag = f"{args.batch:02d}"
@@ -104,9 +107,20 @@ def main(argv=None):
     runs["served_share"] = runs["served"] / (runs["served"] + runs["third_party"])
     complete = set(runs.groupby(["key", "algo"])["best_total_urt"].mean().unstack("algo").dropna().index)
     missing = [key for key in expected if key not in complete]
+    out_tag = tag
+    if missing and not args.partial:
+        raise SystemExit(f"{len(missing)} keys lack results of some of {algos}, e.g. {missing[:3]}; "
+                         f"--partial writes the matrices for the keys that have all of them")
     if missing:
-        raise SystemExit(f"{len(missing)} keys lack results of some of {algos}, e.g. {missing[:3]}")
-    runs.to_csv(results / f"solver_runs_batch_{tag}.csv", index=False)
+        # e.g. the SA variants were run for small fleets only: keep the keys that have every algorithm
+        expected = pd.Series([key for key in expected if key in complete], name="instance")
+        out_tag = f"{tag}_partial"
+        features_csv = results / f"features_batch_{out_tag}.csv"
+        features = pd.read_csv(results / f"features_batch_{tag}.csv")
+        features[features["instance"].isin(set(expected))].to_csv(features_csv, index=False)
+        print(f"partial: {len(expected)} of {len(expected) + len(missing)} keys have all of {algos}; "
+              f"{len(missing)} are left out; features written to {features_csv}")
+    runs.to_csv(results / f"solver_runs_batch_{out_tag}.csv", index=False)
 
     per_algo = runs.groupby("algo").agg(
         runs=("key", "size"),
@@ -123,10 +137,10 @@ def main(argv=None):
         for scoring, values in (("mean", grouped.mean()), ("best", best_of_seeds)):
             raw = values.unstack("algo").loc[expected]
             suffix = f"{scoring}" if measure == "total" else f"{measure}_{scoring}"  # total keeps the first names
-            raw.rename_axis("instance").to_csv(results / f"raw_results_{suffix}_batch_{tag}.csv")
+            raw.rename_axis("instance").to_csv(results / f"raw_results_{suffix}_batch_{out_tag}.csv")
             export_perf_matrix(
                 {key: row.to_dict() for key, row in raw.iterrows()},
-                csv_path=results / f"perf_matrix_{suffix}_batch_{tag}.csv",
+                csv_path=results / f"perf_matrix_{suffix}_batch_{out_tag}.csv",
                 features_path=features_csv,
                 sense=sense,
                 method="ratio",
@@ -136,7 +150,7 @@ def main(argv=None):
                 ratio = raw[algo] / raw["GR"]
                 print(f"  {algo} ({scoring} of seeds) better than GR on {wins.sum()}/{len(raw)} keys; "
                       f"{algo}/GR: mean {ratio.mean():.2f}, min {ratio.min():.2f}, max {ratio.max():.2f}")
-            print(f"  -> perf_matrix_{suffix}_batch_{tag}.csv")
+            print(f"  -> perf_matrix_{suffix}_batch_{out_tag}.csv")
     served = runs.groupby(["key", "algo"])["served_share"].mean().unstack("algo").loc[expected]
     print()
     for algo in sa_algos:

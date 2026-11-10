@@ -83,6 +83,20 @@ class CollectBatchTests(unittest.TestCase):
         self.assertEqual(perf.loc["ISA_b01_i001_1_fleet1", "SA2000"], 1.0)  # 700 beats SA 800 and GR 1000
         self.assertAlmostEqual(perf.loc["ISA_b01_i001_1_fleet1", "SA"], 700 / 800)
 
+    def test_partial_keeps_the_keys_that_have_every_algorithm(self):
+        runs = self.work / "solver" / "batch_01" / "results"
+        for seed in (1, 2, 3):  # a variant for fleet1 only
+            (runs / f"ISA_b01_i001_1_fleet1_SA2000_s{seed}.txt").write_text(result_line(700))
+        with self.assertRaises(SystemExit):
+            collect_batch.main(["--batch", "1", "--work", str(self.work)])
+        collect_batch.main(["--batch", "1", "--work", str(self.work), "--partial"])
+        results = self.work / "results"
+        perf = pd.read_csv(results / "perf_matrix_mean_batch_01_partial.csv", index_col="instance")
+        self.assertEqual(list(perf.index), ["ISA_b01_i001_1_fleet1"])
+        self.assertEqual(list(perf.columns), ["SA", "SA2000", "GR"])
+        features = pd.read_csv(results / "features_batch_01_partial.csv")
+        self.assertEqual(list(features["instance"]), ["ISA_b01_i001_1_fleet1"])
+
     def test_a_missing_run_is_reported(self):
         (self.work / "solver" / "batch_01" / "results" / "ISA_b01_i001_1_fleet2_GR_s1.txt").unlink()
         with self.assertRaises(SystemExit) as context:
