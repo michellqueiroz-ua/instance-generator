@@ -51,9 +51,30 @@ def _peak_memory_mb():
 from .dynamism import dynamism
 from .logger_utils import get_logger
 
+_ZONE_BOUNDS = {}
+
+
+def _zone_bounds(zonescsv):
+    """[(row label, (west, south, east, north))] of the zones csv, parsed once per DataFrame."""
+    cached = _ZONE_BOUNDS.get(id(zonescsv))
+    if cached is None or cached[0] is not zonescsv:
+        cached = (zonescsv, [(label, shapely.wkt.loads(polygon).bounds) for label, polygon in zonescsv['polygon'].items()])
+        _ZONE_BOUNDS.clear()
+        _ZONE_BOUNDS[id(zonescsv)] = cached
+    return cached[1]
+
+
+def zones_near_point(bounds, lon, lat, radius_m):
+    """Row labels of the zones whose rectangle lies within radius_m (straight line, metres) of the point."""
+    margin_lat = radius_m / 111000.0
+    margin_lon = margin_lat / max(0.1, math.cos(math.radians(lat)))
+    return [label for label, (west, south, east, north) in bounds
+            if west - margin_lon <= lon <= east + margin_lon and south - margin_lat <= lat <= north + margin_lat]
+
+
 def eval_expression(input_string):
-    
-    allowed_names = {"len": len, 
+
+    allowed_names = {"len": len,
                     "set": set,
                     "abs": abs,
                     "float": float,
@@ -697,28 +718,12 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
                             else:
                                 if att == 'stops_dest':
                                     pnt = Point(attributes['destinationx'], attributes['destinationy'])
-                            index_inside_zone = -1
-                            for indexz, zone in zonescsv.iterrows():
+                            # Every zone whose rectangle is within walking range of the point. The earlier
+                            # search used fixed offsets in the zone index (+-1 and +-16..24), which never
+                            # reached the zones directly north and south (+-25) on the 25-wide grid.
+                            walk_radius_m = attributes['max_walking'] * attributes['walk_speed'] * 1.05
+                            all_zones = zones_near_point(_zone_bounds(zonescsv), pnt.x, pnt.y, walk_radius_m)
 
-                                polygonz = shapely.wkt.loads(zone['polygon'])
-                                if polygonz.contains(pnt):
-                                    index_inside_zone = indexz
-                                    break
-
-                            all_zones = []
-                            all_zones.append(index_inside_zone)
-                            
-                            all_zones.append(index_inside_zone-1)
-                            all_zones.append(index_inside_zone+1)
-                            for r in range(5):
-                                all_zones.append(index_inside_zone-20+r)
-                            for r in range(5):
-                                all_zones.append(index_inside_zone-20-r)
-                            for r in range(5):
-                                all_zones.append(index_inside_zone+20-r)
-                            for r in range(5):
-                                all_zones.append(index_inside_zone+20+r)
-                            
                             #print('zones')
                             #print(all_zones)
                             for z in all_zones:

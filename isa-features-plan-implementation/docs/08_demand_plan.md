@@ -1,6 +1,6 @@
 # 08. Demand pattern of batch 2 (plan, 2026-11-10)
 
-Decisions D29-D36 are in `01_decisions.md`. This file is the plan and the checks.
+Decisions D29-D38 are in `01_decisions.md`. This file is the plan and the checks.
 
 ## What batch 1 had
 
@@ -19,8 +19,14 @@ Decisions D29-D36 are in `01_decisions.md`. This file is the plan and the checks
 | `inbound_share` | none | [0, 1], drawn |
 | `concentration` | none | [0, 2], drawn |
 | `start_hour` | [12, 19.5], drawn | 14.0, fixed (D32) |
-| `max_dtt_s` | 3600 | 5400 (D33) |
-| `period_hours` | 2 | 4 (D36); requests per hour OPEN until the volume report |
+| `max_dtt_s` | 3600 | 3600 (D33, back to the batch 1 value) |
+| `period_hours` | 2 | 4 (D36) |
+| `requests_per_hour` | 50-500, drawn | 1250 fixed = 5000 per instance (D35) |
+| central municipalities | no rule | excluded (D37) |
+| `peak_sd_min` | [10, 60] | [20, 120] |
+| `concentration` | none | [0.1, 1.5] |
+| fleet % of requests | [5, 40] | [10, 40], provisional (fleets can be redrawn) |
+| stop search of the generator | offsets that miss north/south zones | fixed (D38) |
 | speed, walking, urgency, slack | | unchanged (D34: speed becomes a factor in a later batch) |
 
 Weights per zone (`make_batch.od_weights`): residential share r and attraction share a of the zone, each raised

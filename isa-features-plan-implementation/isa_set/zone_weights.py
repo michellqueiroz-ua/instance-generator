@@ -92,6 +92,48 @@ def strip_counts(strip, download=download_points):
     return {zone["name"]: [r, a] for zone, r, a in zip(strip, residential, attraction)}
 
 
+CENTRAL_QUERIES = [["Københavns Kommune, Denmark", "Frederiksberg Kommune, Denmark"],
+                   ["Copenhagen Municipality, Denmark", "Frederiksberg Municipality, Denmark"]]
+
+
+def central_shares(zones, central_polygon):
+    """Share of each zone's rectangle that lies inside the central municipalities (0 to 1)."""
+    from shapely.geometry import box
+    shares = []
+    for zone in zones:
+        rectangle = box(*zone["bounds"])
+        shares.append(float(rectangle.intersection(central_polygon).area / rectangle.area) if rectangle.area else 0.0)
+    return shares
+
+
+def download_central_polygon(log=print):
+    """Union of the Copenhagen and Frederiksberg municipality boundaries (the metro-served central area)."""
+    import osmnx as ox
+    last_error = None
+    for queries in CENTRAL_QUERIES:
+        try:
+            geometry = ox.geocode_to_gdf(queries).geometry
+            polygon = geometry.union_all() if hasattr(geometry, "union_all") else geometry.unary_union
+            if polygon.geom_type in ("Polygon", "MultiPolygon") and polygon.area > 0:
+                log(f"central area from {queries}: {polygon.geom_type}, bounds {tuple(round(b, 3) for b in polygon.bounds)}")
+                return polygon
+            last_error = f"{queries} returned a {polygon.geom_type}, not an area"
+        except Exception as error:  # a place name that Nominatim does not know raises here
+            last_error = f"{queries}: {error}"
+    raise SystemExit(f"cannot find the central municipalities: {last_error}")
+
+
+def add_central_share(weights_csv, zones, log=print):
+    """Add (or refresh) the central_share column of an existing zone weights csv."""
+    frame = pd.read_csv(weights_csv)
+    shares = dict(zip((z["name"] for z in zones), central_shares(zones, download_central_polygon(log))))
+    frame["central_share"] = frame["name"].map(shares).fillna(0.0).round(4)
+    frame.to_csv(weights_csv, index=False)
+    log(f"central_share written to {weights_csv}: {(frame['central_share'] >= 0.5).sum()} zones are mostly central, "
+        f"{((frame['central_share'] > 0) & (frame['central_share'] < 0.5)).sum()} partly")
+    return frame
+
+
 def build(zones, cache_dir, download=download_points, log=print):
     cache_dir.mkdir(parents=True, exist_ok=True)
     counts = {}
@@ -114,10 +156,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
     parser.add_argument("--work", default=os.environ.get("ISA_WORK", f"/work3/{os.environ.get('USER', 'user')}/isa"))
     parser.add_argument("--place", default="Capital Region of Denmark")
+    parser.add_argument("--central-only", action="store_true",
+                        help="only add the central_share column to an existing zone weights csv (two boundary queries)")
     args = parser.parse_args(argv)
 
     csv_dir = Path(args.work) / args.place / "csv"
     zones = read_zones(csv_dir / f"{args.place}.zones.csv")
+    path = csv_dir / f"{args.place}.zone_weights.csv"
+    if args.central_only:
+        add_central_share(path, zones)
+        return 0
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # REQreate lives at the repository root
     from REQreate.overpass_config import configure_overpass
     configure_overpass(timeout=1800)
@@ -125,11 +173,11 @@ def main(argv=None):
     out = pd.DataFrame([{"name": z["name"], "n_stations": z["n_stations"],
                          "n_residential": counts[z["name"]][0], "n_attraction": counts[z["name"]][1]}
                         for z in zones])
-    path = csv_dir / f"{args.place}.zone_weights.csv"
     out.to_csv(path, index=False)
     print(f"{len(out)} zones written to {path}: {out['n_residential'].sum()} residential, "
           f"{out['n_attraction'].sum()} attraction points; zones without any attraction: "
           f"{(out['n_attraction'] == 0).sum()}")
+    add_central_share(path, zones)
     return 0
 
 

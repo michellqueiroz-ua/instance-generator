@@ -43,6 +43,21 @@ class OdWeightsTests(unittest.TestCase):
         self.assertGreater(packed[2], flat[2])
         self.assertLess(packed[1], flat[1])
 
+    def test_central_zones_are_removed_with_factor_zero_and_kept_with_one(self):
+        zones = [(n, h, a, 0.8 if n == "zone1" else 0.1) for n, h, a in ZONES]  # only zone1 is mostly central
+        origin, destination = make_batch.od_weights(zones, 0.5, 1.0, central_factor=0.0)
+        self.assertEqual(origin[1], 0.0)
+        self.assertEqual(destination[1], 0.0)
+        self.assertAlmostEqual(sum(origin), 1.0)
+        self.assertAlmostEqual(sum(destination), 1.0)
+        kept = make_batch.od_weights(zones, 0.5, 1.0, central_factor=1.0)
+        self.assertGreater(kept[0][1], 0.0)
+
+    def test_zero_factor_removes_a_zone_even_at_the_lowest_concentration(self):
+        zones = [(n, h, a, 1.0 if n == "zone3" else 0.0) for n, h, a in ZONES]
+        origin, _ = make_batch.od_weights(zones, 0.5, 0.1, central_factor=0.0)
+        self.assertEqual(origin[3], 0.0)
+
     def test_scenario_labels(self):
         self.assertEqual([make_batch.scenario_label(x) for x in (0.0, 0.5, 1.0)],
                          ["c_outbound", "b_both_ways", "a_inbound"])
@@ -57,9 +72,9 @@ class BatchWithZonesTests(unittest.TestCase):
         folder.mkdir(parents=True)
         with open(folder / "Capital Region of Denmark.zone_weights.csv", "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["name", "n_stations", "n_residential", "n_attraction"])
+            writer.writerow(["name", "n_stations", "n_residential", "n_attraction", "central_share"])
             for name, home, place in ZONES:
-                writer.writerow([name, 3, home, place])
+                writer.writerow([name, 3, home, place, 0.9 if name == "zone1" else 0.0])
 
     def run_batch(self, n=8):
         make_batch.main(["--batch", "2", "--n", str(n), "--work", str(self.work)])
@@ -77,15 +92,40 @@ class BatchWithZonesTests(unittest.TestCase):
                 self.assertEqual(len(attrs[end]["weights"]), 4)
                 self.assertAlmostEqual(sum(attrs[end]["weights"]), 1.0, places=5)
             self.assertEqual(params["min_early_departure"]["value"], 14.0)
-            self.assertEqual(params["max_dtt"]["value"], 5400)
+            self.assertEqual(params["max_dtt"]["value"], 3600)
+            self.assertEqual(attrs["origin"]["weights"][1], 0.0)       # zone1 is central: removed from the service area
+            self.assertEqual(attrs["destination"]["weights"][1], 0.0)
+            self.assertEqual(params["max_early_departure"]["value"], 18.0)  # 4 h period from 14:00
+
+    def test_volume_is_fixed_at_5000_requests_and_the_set_option_holds_a_setting(self):
+        for config in self.run_batch():
+            self.assertEqual(config["requests"], 5000)
+        make_batch.main(["--batch", "3", "--n", "2", "--work", str(self.work),
+                         "--set", "requests_per_hour=250", "--set", "inbound_share=1"])
+        with open(self.work / "design" / "batch_03.csv", newline="") as f:
+            rows = list(csv.DictReader(f))
+        self.assertEqual([(float(r["requests_per_hour"]), float(r["inbound_share"]), r["scenario"]) for r in rows],
+                         [(250.0, 1.0, "a_inbound")] * 2)
+        with self.assertRaises(SystemExit):
+            make_batch.main(["--batch", "4", "--n", "1", "--work", str(self.work), "--set", "nonsense=1"])
 
     def test_batch_csv_has_factors_and_scenario_and_start_hour_is_not_drawn(self):
         self.run_batch(n=20)
         with open(self.work / "design" / "batch_02.csv", newline="") as f:
             rows = list(csv.DictReader(f))
-        self.assertTrue(all(0 <= float(r["inbound_share"]) <= 1 and 0 <= float(r["concentration"]) <= 2 for r in rows))
+        self.assertTrue(all(0 <= float(r["inbound_share"]) <= 1 and 0.1 <= float(r["concentration"]) <= 1.5 for r in rows))
         self.assertTrue(all(float(r["start_hour"]) == 14.0 for r in rows))
         self.assertEqual({r["scenario"] for r in rows}, {"a_inbound", "b_both_ways", "c_outbound"})
+
+    def test_a_weights_file_without_central_share_stops_the_batch(self):
+        path = self.work / "Capital Region of Denmark" / "csv" / "Capital Region of Denmark.zone_weights.csv"
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["name", "n_stations", "n_residential", "n_attraction"])
+            writer.writerow(["zone0", 3, 10, 10])
+        with self.assertRaises(SystemExit) as context:
+            self.run_batch()
+        self.assertIn("central_share", str(context.exception))
 
     def test_missing_zone_weights_stop_the_batch(self):
         (self.work / "Capital Region of Denmark" / "csv" / "Capital Region of Denmark.zone_weights.csv").unlink()

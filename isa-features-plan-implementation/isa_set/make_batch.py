@@ -53,12 +53,24 @@ def scale(unit, low_high):
 
 
 def read_zone_weights(path):
-    """[(zone name, n_residential, n_attraction)] from the csv that zone_weights.py writes."""
+    """[(zone name, n_residential, n_attraction, central_share)] from the csv that zone_weights.py writes.
+
+    central_share is 0 for every zone when the csv has no such column (see has_central_share).
+    """
     with open(path, encoding="utf-8", newline="") as f:
-        return [(r["name"], float(r["n_residential"]), float(r["n_attraction"])) for r in csv.DictReader(f)]
+        return [(r["name"], float(r["n_residential"]), float(r["n_attraction"]), float(r.get("central_share") or 0.0))
+                for r in csv.DictReader(f)]
 
 
-def od_weights(zones, inbound_share, concentration):
+def has_central_share(path):
+    with open(path, encoding="utf-8", newline="") as f:
+        return "central_share" in (csv.DictReader(f).fieldnames or [])
+
+
+CENTRAL_THRESHOLD = 0.5  # a zone whose rectangle is mostly inside the central municipalities counts as central
+
+
+def od_weights(zones, inbound_share, concentration, central_factor=1.0):
     """Origin and destination weight of every zone (same order as ``zones``; each list sums to 1).
 
     Residential and attraction counts become shares, sharpened by ``concentration`` (count ** concentration):
@@ -66,9 +78,16 @@ def od_weights(zones, inbound_share, concentration):
     densest zones. ``inbound_share`` 1 draws every origin from the residential shares and every destination
     from the attraction shares (people travel to where things happen); 0 is the opposite direction (night
     trips home); in between, each end of a trip follows a mix of the two.
+
+    ``central_factor`` multiplies the counts of the zones that are mostly inside the central municipalities
+    (Copenhagen and Frederiksberg, served by metro and S-train): 0 removes them from the service area, 1 keeps
+    them. Zones are tuples (name, residential, attraction[, central_share]); a zone drawn as a whole then
+    receives its points uniformly, so a boundary zone below the threshold leaks a few points into the centre.
     """
+    multiplier = [central_factor if len(z) > 3 and z[3] >= CENTRAL_THRESHOLD else 1.0 for z in zones]
+
     def shares(counts):
-        powered = [count ** concentration for count in counts]
+        powered = [0.0 if m == 0 else (count * m) ** concentration for count, m in zip(counts, multiplier)]
         total = sum(powered)
         if total <= 0:
             raise ValueError("a zone count column is zero everywhere; run zone_weights.py first")
@@ -173,7 +192,8 @@ def make_config(design, settings, seed, with_matrix, zones=None):
     if zones is not None:
         # Origins and destinations are drawn zone by zone with the weights of od_weights(); the generator then
         # picks a random point in the zone (it ignores the dtt ring, so max_dtt only rejects long trips).
-        origin_w, destination_w = od_weights(zones, settings["inbound_share"], settings["concentration"])
+        origin_w, destination_w = od_weights(zones, settings["inbound_share"], settings["concentration"],
+                                             design.get("spatial", {}).get("central_factor", 1.0))
         config["parameters"].append({"name": "zones_all", "type": "array_zones", "size": len(zones),
                                      "value": [z[0] for z in zones]})
         for attribute in config["attributes"]:
@@ -195,6 +215,9 @@ def main(argv=None):
     parser.add_argument("--with-matrix", action="store_true", help="also write the station travel-time matrix")
     parser.add_argument("--zone-weights", help="csv written by zone_weights.py (default: in the network folder of "
                         "--work); needed when design.json draws inbound_share and concentration")
+    parser.add_argument("--set", action="append", default=[], metavar="NAME=VALUE",
+                        help="hold an instance setting fixed instead of drawing it, e.g. --set requests_per_hour=2000 "
+                             "--set inbound_share=1 (for smoke and scaling tests); may be repeated")
     args = parser.parse_args(argv)
 
     design = json.loads(DESIGN_JSON.read_text(encoding="utf-8"))
@@ -205,6 +228,9 @@ def main(argv=None):
         if not weights_csv.is_file():
             raise SystemExit(f"{weights_csv} not found: run hpc/zone_weights.sh first (or --zone-weights)")
         zones = read_zone_weights(weights_csv)
+        if design.get("spatial", {}).get("central_factor", 1.0) < 1.0 and not has_central_share(weights_csv):
+            raise SystemExit(f"{weights_csv} has no central_share column: run "
+                             f"'python isa_set/zone_weights.py --central-only' first")
     rng = random.Random(args.seed if args.seed is not None else args.batch)
     tag = f"b{args.batch:02d}"
     work = Path(args.work)
@@ -218,6 +244,13 @@ def main(argv=None):
     # A range [low, high] is drawn; a single number is a fixed setting (it stays out of the hypercube).
     names = [n for n, v in design["instance"].items() if isinstance(v, list)]
     held = {n: v for n, v in design["instance"].items() if not isinstance(v, list)}
+    for assignment in args.set:
+        name, _, value = assignment.partition("=")
+        if name not in design["instance"]:
+            raise SystemExit(f"--set {assignment}: {name} is not an instance setting of design.json "
+                             f"({', '.join(design['instance'])})")
+        names = [n for n in names if n != name]
+        held[name] = float(value)
     rows, configs = [], []
     for i, unit in enumerate(latin_hypercube(args.n, len(names), rng), start=1):
         settings = {name: scale(u, design["instance"][name]) for name, u in zip(names, unit)}
