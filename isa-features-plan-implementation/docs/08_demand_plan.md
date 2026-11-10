@@ -1,6 +1,6 @@
 # 08. Demand pattern of batch 2 (plan, 2026-11-10)
 
-Decisions D28-D34 are in `01_decisions.md`. This file is the plan and the checks.
+Decisions D29-D36 are in `01_decisions.md`. This file is the plan and the checks.
 
 ## What batch 1 had
 
@@ -15,12 +15,13 @@ Decisions D28-D34 are in `01_decisions.md`. This file is the plan and the checks
 
 | Setting | Batch 1 | Batch 2 |
 |---|---|---|
-| Origin and destination | uniform, destination on a ring | zone weights from OpenStreetMap counts (D30) |
+| Origin and destination | uniform, destination on a ring | zone weights from OpenStreetMap counts (D31) |
 | `inbound_share` | none | [0, 1], drawn |
 | `concentration` | none | [0, 2], drawn |
-| `start_hour` | [12, 19.5], drawn | 14.0, fixed (D31) |
-| `max_dtt_s` | 3600 | 5400 (D32) |
-| speed, walking, urgency, slack, volume | | unchanged (D33, D34) |
+| `start_hour` | [12, 19.5], drawn | 14.0, fixed (D32) |
+| `max_dtt_s` | 3600 | 5400 (D33) |
+| `period_hours` | 2 | 4 (D36); requests per hour OPEN until the volume report |
+| speed, walking, urgency, slack | | unchanged (D34: speed becomes a factor in a later batch) |
 
 Weights per zone (`make_batch.od_weights`): residential share r and attraction share a of the zone, each raised
 to `concentration` and normalised. Origin weight = p r + (1 - p) a, destination weight = p a + (1 - p) r, with
