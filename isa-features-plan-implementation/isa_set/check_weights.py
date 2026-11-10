@@ -36,7 +36,8 @@ def effective_zones(weights):
     return float(1.0 / np.sum(w ** 2)) if w.sum() > 0 else 0.0
 
 
-def simulate(zones, centres, half_km, inbound, concentration, central_factor, bounds_s, speed_mps, samples, rng):
+def simulate(zones, centres, half_km, inbound, concentration, central_factor, bounds_s, speed_mps, samples, rng,
+             decay_km=0.0):
     origin_w, destination_w = make_batch.od_weights(zones, inbound, concentration, central_factor)
     n = len(zones)
     o = rng.choice(n, size=samples, p=np.asarray(origin_w) / sum(origin_w))
@@ -46,6 +47,18 @@ def simulate(zones, centres, half_km, inbound, concentration, central_factor, bo
     jitter = rng.uniform(-half_km, half_km, size=(samples, 4))
     ox = centres[o, 0] * km_per_lon + jitter[:, 0]
     oy = centres[o, 1] * km_per_lat + jitter[:, 1]
+    if decay_km > 0:
+        # the generator redraws the destination zone until it is accepted with 1 / (1 + (distance / scale) ** 2),
+        # distance from the origin point to the zone centre (at most 200 tries)
+        probabilities = np.asarray(destination_w) / sum(destination_w)
+        pending = np.ones(samples, dtype=bool)
+        for _ in range(200):
+            gap = np.hypot(ox - centres[d, 0] * km_per_lon, oy - centres[d, 1] * km_per_lat)
+            keep = rng.random(samples) < 1.0 / (1.0 + (gap / decay_km) ** 2)
+            pending &= ~keep
+            if not pending.any():
+                break
+            d[pending] = rng.choice(n, size=int(pending.sum()), p=probabilities)
     dx = centres[d, 0] * km_per_lon + jitter[:, 2]
     dy = centres[d, 1] * km_per_lat + jitter[:, 3]
     straight = np.hypot(ox - dx, oy - dy)
@@ -70,6 +83,8 @@ def main(argv=None):
     parser.add_argument("--work", default=os.environ.get("ISA_WORK", f"/work3/{os.environ.get('USER', 'user')}/isa"))
     parser.add_argument("--samples", type=int, default=200000)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--decay-km", default="0,3,5,8",
+                        help="comma-separated scales of the zone-level distance decay to try (0 = off)")
     args = parser.parse_args(argv)
 
     design = json.loads((HERE / "design.json").read_text(encoding="utf-8"))
@@ -93,13 +108,18 @@ def main(argv=None):
     print("report, car trips up to 20 km (share of all trips): " + ", ".join(f"{k} {v:.0f}%" for k, v in REPORT_CAR.items())
           + f"; renormalised to 100% of the trips up to 20 km: <5 km {45 / 86 * 100:.0f}%, 5-10 {23 / 86 * 100:.0f}%, "
             f"10-15 {11 / 86 * 100:.0f}%, 15-20 {7 / 86 * 100:.0f}%")
-    header = ("inbound conc | eff.zones o/d | accepted | mean km | <5km  5-10  10-15  >15 (%) | central ends %")
+    header = ("inbound conc decay | eff.zones o/d | accepted | mean km | <5km  5-10  10-15  >15 (%) | central ends %")
     print(header)
-    for inbound in (0.0, 0.5, 1.0):
-        for concentration in (0.1, 0.8, 1.5):
-            r = simulate(zones, centres, half_km, inbound, concentration, central_factor, bounds_s, speed, args.samples, rng)
-            print(f"{inbound:7.1f} {concentration:4.1f} | {r['eff_origin']:5.0f} /{r['eff_dest']:5.0f}   | {r['accept'] * 100:6.1f}% | "
-                  f"{r['mean_km']:6.1f}  | {r['under5']:4.0f} {r['km5_10']:5.0f} {r['km10_15']:6.0f} {r['over15']:5.0f}      | {r['central_ends']:5.1f}")
+    for decay_km in [float(x) for x in args.decay_km.split(",")]:
+        for inbound in (0.0, 0.5, 1.0):
+            for concentration in (0.1, 0.8, 1.5):
+                if decay_km > 0 and (inbound == 0.5 or concentration == 0.8):
+                    continue  # the decay rows only need the corners
+                r = simulate(zones, centres, half_km, inbound, concentration, central_factor, bounds_s, speed, args.samples,
+                             rng, decay_km)
+                print(f"{inbound:7.1f} {concentration:4.1f} {decay_km:5.1f} | {r['eff_origin']:5.0f} /{r['eff_dest']:5.0f}   | "
+                      f"{r['accept'] * 100:6.1f}% | {r['mean_km']:6.1f}  | {r['under5']:4.0f} {r['km5_10']:5.0f} "
+                      f"{r['km10_15']:6.0f} {r['over15']:5.0f}      | {r['central_ends']:5.1f}")
     return 0
 
 

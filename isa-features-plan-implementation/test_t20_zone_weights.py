@@ -58,6 +58,19 @@ class OdWeightsTests(unittest.TestCase):
         origin, _ = make_batch.od_weights(zones, 0.5, 0.1, central_factor=0.0)
         self.assertEqual(origin[3], 0.0)
 
+    def test_the_decay_scale_goes_to_the_destination_only(self):
+        design = json.loads((THIS_DIR / "isa_set" / "design.json").read_text(encoding="utf-8"))
+        settings = {"start_hour": 14.0, "requests": 100, "peak_sd_min": 30, "urgency_mean_min": 10, "urgency_sd_min": 3,
+                    "arrival_slack_min": 20, "inbound_share": 0.5, "concentration": 1.0}
+        design["spatial"]["trip_decay_km"] = 5
+        config = make_batch.make_config(design, settings, 1, False, ZONES)
+        attrs = {a["name"]: a for a in config["attributes"]}
+        self.assertEqual(attrs["destination"]["distance_decay_m"], 5000)
+        self.assertNotIn("distance_decay_m", attrs["origin"])
+        design["spatial"]["trip_decay_km"] = None
+        config = make_batch.make_config(design, settings, 1, False, ZONES)
+        self.assertNotIn("distance_decay_m", {a["name"]: a for a in config["attributes"]}["destination"])
+
     def test_scenario_labels(self):
         self.assertEqual([make_batch.scenario_label(x) for x in (0.0, 0.5, 1.0)],
                          ["c_outbound", "b_both_ways", "a_inbound"])

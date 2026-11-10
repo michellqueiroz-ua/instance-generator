@@ -201,6 +201,10 @@ def make_config(design, settings, seed, with_matrix, zones=None):
                 attribute.update({"subset_zones": "zones_all", "weights": [round(w, 8) for w in origin_w]})
             elif attribute["name"] == "destination":
                 attribute.update({"subset_zones": "zones_all", "weights": [round(w, 8) for w in destination_w]})
+                decay_km = design.get("spatial", {}).get("trip_decay_km")
+                if decay_km:
+                    # zone-level distance decay of the generator: short trips are favoured without extra searches
+                    attribute["distance_decay_m"] = round(decay_km * 1000)
     if with_matrix:
         config["travel_time_matrix"] = ["bus_stations"]
     return config

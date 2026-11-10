@@ -1,7 +1,7 @@
 import unittest
 
 try:
-    from REQreate.passenger_requests import zones_near_point
+    from REQreate.passenger_requests import centre_distance_m, decay_acceptance, zones_near_point
 except ImportError:  # the generator's dependencies (osmnx, shapely, ...) are not installed
     zones_near_point = None
 
@@ -31,6 +31,19 @@ class ZonesNearPointTests(unittest.TestCase):
         found = zones_near_point(grid(), 0.06, 0.06, 800.0)
         self.assertNotIn(51, found)
         self.assertNotIn(1, found)
+
+
+@unittest.skipIf(zones_near_point is None, "generator dependencies missing")
+class DistanceDecayTests(unittest.TestCase):
+    def test_acceptance_is_one_at_zero_half_at_the_scale_and_falls_with_distance(self):
+        self.assertEqual(decay_acceptance(0.0, 5000.0), 1.0)
+        self.assertAlmostEqual(decay_acceptance(5000.0, 5000.0), 0.5)
+        self.assertLess(decay_acceptance(20000.0, 5000.0), decay_acceptance(10000.0, 5000.0))
+
+    def test_centre_distance_of_one_degree_of_latitude_is_about_111_km(self):
+        self.assertAlmostEqual(centre_distance_m(12.0, 55.0, 12.0, 56.0) / 1000.0, 111.2, delta=0.5)
+        # a degree of longitude at 55 N is shorter by cos(55 deg)
+        self.assertAlmostEqual(centre_distance_m(12.0, 55.0, 13.0, 55.0) / 1000.0, 63.8, delta=0.7)
 
 
 if __name__ == "__main__":

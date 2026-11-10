@@ -12,6 +12,7 @@
     "  concentration (count ** concentration; 1 = the OSM counts as they are) replace uniform demand. concentration never reaches 0.",
     "  spatial.central_factor 0 removes the central municipalities (Copenhagen, Frederiksberg; metro and S-train) from the service area.",
     "  make_batch.py needs zone_weights.py output (with central_share) for these. Scenario labels a/b/c come from inbound_share.",
+    "  spatial.trip_decay_km: scale L of the zone-level distance decay (a destination zone is kept with 1/(1+(d/L)^2), d from the origin point to the zone centre); null = off. Choose L with check_weights.py.",
     "  max_dtt_s 3600 (20 km at 20 km/h); with zone weights the generator ignores the min/max dtt ring around the origin, so it only rejects long trips.",
     "  peak_sd_min [20, 120] because the period is 4 h. Fleet percent [10, 40] is provisional (fleets can be redrawn without regenerating).",
     "Batch 1 used period 2 h, 50-500 requests/h, start_hour [12, 19.5], peak_sd [10, 60], fleet [5, 40] and uniform demand."
@@ -30,7 +31,8 @@
     "concentration": [0.1, 1.5]
   },
   "spatial": {
-    "central_factor": 0.0
+    "central_factor": 0.0,
+    "trip_decay_km": null
   },
   "fleet": {
     "draws_per_instance": 3,

@@ -99,6 +99,12 @@ def _add_attribute_dependencies(GA):
                     for name in needed:
                         GA.add_edge(name, node)
 
+        if 'distance_decay_m' in GA.nodes[node]:
+            # the decay compares the zone drawn here with the origin point, so the origin is drawn first
+            if node == 'origin' or 'origin' not in GA:
+                raise ValueError("distance_decay_m on '" + str(node) + "' needs another attribute named origin")
+            GA.add_edge('origin', node)
+
         if 'constraints' in GA.nodes[node]:
 
             for constraint in GA.nodes[node]['constraints']:
@@ -747,6 +753,15 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
             else:
 
                 GA.nodes[name]['subset_zones'] = False
+
+            if 'distance_decay_m' in attribute:
+
+                decay = attribute['distance_decay_m']
+                if isinstance(decay, bool) or not isinstance(decay, (int, float)) or decay <= 0:
+                    raise TypeError('distance_decay_m must be a positive number (metres)')
+                if not GA.nodes[name]['subset_zones']:
+                    raise ValueError('distance_decay_m needs subset_zones on the same attribute')
+                GA.nodes[name]['distance_decay_m'] = float(decay)
 
 
             if 'subset_locations' in attribute:

@@ -64,6 +64,21 @@ def _zone_bounds(zonescsv):
     return cached[1]
 
 
+MAX_ZONE_DECAY_TRIES = 200
+
+
+def decay_acceptance(distance_m, scale_m):
+    """Probability of keeping a zone at this distance: 1 at 0, 1/2 at scale_m, a 1/d**2 tail beyond."""
+    return 1.0 / (1.0 + (distance_m / scale_m) ** 2)
+
+
+def centre_distance_m(lon1, lat1, lon2, lat2):
+    """Straight-line distance in metres between two points (equirectangular, fine at city scale)."""
+    x = math.radians(lon2 - lon1) * math.cos(math.radians((lat1 + lat2) / 2.0))
+    y = math.radians(lat2 - lat1)
+    return 6371009.0 * math.hypot(x, y)
+
+
 def zones_near_point(bounds, lon, lat, radius_m):
     """Row labels of the zones whose rectangle lies within radius_m (straight line, metres) of the point."""
     margin_lat = radius_m / 111000.0
@@ -456,17 +471,32 @@ def _generate_single_data_impl(GA, network, sorted_attributes, parameters, reqid
 
                             zones = parameters[zone]['zones'+str(replicate_num)]
 
-                            if 'weights' in GA.nodes[att]:
+                            # distance_decay_m (optional): the zone is redrawn, cheaply and without a shortest-path
+                            # search, until it is accepted with probability 1 / (1 + (distance / scale) ** 2), where
+                            # distance runs from the origin point already drawn to the centre of the zone.
+                            decay_scale_m = GA.nodes[att].get('distance_decay_m')
+                            for _zone_try in range(MAX_ZONE_DECAY_TRIES):
 
-                                random_zone_id = random.choices(zones, weights=GA.nodes[att]['weights'], k=1)
-                                random_zone_id = random_zone_id[0]
-                                polygon_zone = network.zones.loc[random_zone_id]['polygon']
+                                if 'weights' in GA.nodes[att]:
 
-                            else:
+                                    random_zone_id = random.choices(zones, weights=GA.nodes[att]['weights'], k=1)
+                                    random_zone_id = random_zone_id[0]
 
-                                random_zone_id = random.choice(zones)
-                                polygon_zone = network.zones.loc[random_zone_id]['polygon']
-                            
+                                else:
+
+                                    random_zone_id = random.choice(zones)
+
+                                if (decay_scale_m is None) or ('originx' not in attributes):
+                                    break
+
+                                distance_m = centre_distance_m(attributes['originx'], attributes['originy'],
+                                                               network.zones.loc[random_zone_id]['center_x'],
+                                                               network.zones.loc[random_zone_id]['center_y'])
+                                if random.random() < decay_acceptance(distance_m, decay_scale_m):
+                                    break
+
+                            polygon_zone = network.zones.loc[random_zone_id]['polygon']
+
                             try:
 
                                 if math.isnan(polygon_zone):
