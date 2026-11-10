@@ -10,11 +10,13 @@
     "concentration (0 = uniform over the zones as in batch 1, 2 = demand packed into the densest zones) replace uniform demand;",
     "make_batch.py needs zone_weights.py output for them. Scenario labels a/b/c are derived from inbound_share.",
     "max_dtt_s only rejects long trips: with zone weights the generator ignores the min/max dtt ring around the origin.",
-    "Batch 1 used start_hour [12, 19.5], max_dtt_s 3600 and uniform demand (no inbound_share, no concentration)."
+    "Batch 2: period_hours is 4 (about what a driver can drive before a break). requests_per_hour is a PLACEHOLDER until the volume report arrives:",
+    "with 4 h, 50-500 per hour means 200-2000 requests per instance, which the solver may run 3-4 times slower (not measured).",
+    "Batch 1 used period 2 h, start_hour [12, 19.5], max_dtt_s 3600 and uniform demand (no inbound_share, no concentration)."
   ],
   "network": "Capital Region of Denmark",
   "problem": "ODBRP",
-  "period_hours": 2,
+  "period_hours": 4,
   "instance": {
     "requests_per_hour": [50, 500],
     "start_hour": 14.0,

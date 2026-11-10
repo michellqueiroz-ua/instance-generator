@@ -58,3 +58,8 @@ Found 2026-11-09 when the solver job writer failed on an empty `stops_orgn`. Cau
 - OPEN-S5: small fleets (down to 6% of the requests) hand up to 56% of the passengers to a third party (02, T12). Author decision 2026-11-09: keep them and compare on the accepted requests as well; collect_batch.py writes perf_matrix_served_* and perf_matrix_quality_* (quality is like-for-like only where both algorithms serve about the same passengers). Open: how to combine the three measures in one instance space (separate spaces per measure, or only the total for fleets of at least 20%).
   Update 2026-11-10 (D27): a fleet that leaves about 55% out is too small. Options: filter the keys of batch 1 by fleet share (no rerun; about 86% of the keys have at least 10 vehicles per 100 requests) and raise `fleet.percent_of_requests` from [5, 40] for new batches. The threshold is OPEN.
 - Footprints at the default threshold 0.80: SA is good on 300/300 (it is within 20% of the best everywhere), GR on 116/300, so the footprint carries no selection signal. A tighter threshold (0.95) is the candidate.
+
+## D28: SA without the +3600 s (2026-11-10)
+
+- Edited in `odbrp-parallel.cpp` (ODBRP_P, author commits): rebuild `a.out` with `maxstations 4000` (OPEN-A4) and rerun batch 1 for SA, SA1000/2000/10000 and GR. All results in 02 (T12-T14) and the perf matrices are void until then. Expect ample fleets to no longer sit exactly at the sum of the direct times if some requests become unservable in time.
+- Run `model/check_requests.py` on the batch 1 instances (pure Python) to count requests that the matrix cannot serve in their window and requests whose file direct time differs from the matrix. Decide whether the generator should drop or repair such requests (OPEN).
