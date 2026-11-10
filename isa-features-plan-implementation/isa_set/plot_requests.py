@@ -1,0 +1,103 @@
+"""
+plot_requests.py - ISA instance set: look at the requests of generated instances (map and trip statistics).
+
+    python plot_requests.py ISA_b90_i001 [ISA_b91_i001 ...] [--work /work3/$USER/isa]
+
+Reads   <work>/<place>/csv_format/<instance>_1.csv   the solver csv of the instance
+Writes  <work>/results/maps/<instance>.png            origins (blue) and destinations (red), a sample of the trips as lines
+Prints  requests, mean direct drive distance, share of trips by length against the 2024 mobility report, the share of
+        ends inside the rough bounding box of the central municipalities, and the busiest 5 x 5 km cells.
+"""
+
+import argparse
+import os
+import re
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+PLACE = "Capital Region of Denmark"
+CENTRAL_BOX = (12.453, 55.613, 12.734, 55.733)  # lon min, lat min, lon max, lat max of Copenhagen + Frederiksberg
+BINS = [(0, 5, "<5 km"), (5, 10, "5-10"), (10, 15, "10-15"), (15, 20, "15-20"), (20, 1e9, ">20")]
+REPORT = "report, trips of 2-20 km renormalised: car 41/33/16/10 %, public transport 28/39/21/12 % (<5, 5-10, 10-15, 15-20)"
+
+
+def parse_point(text):
+    """(lat, lon) from a cell like '(55.67, 12.56)'."""
+    numbers = re.findall(r"-?\d+\.\d+", str(text))
+    return float(numbers[0]), float(numbers[1])
+
+
+def load(csv_path):
+    frame = pd.read_csv(csv_path)
+    origin = np.array([parse_point(v) for v in frame["origin"]])
+    destination = np.array([parse_point(v) for v in frame["destination"]])
+    return frame, origin, destination
+
+
+def trip_shares(distance_km):
+    return [float(((distance_km >= low) & (distance_km < high)).mean() * 100) for low, high, _ in BINS]
+
+
+def in_box(points, box=CENTRAL_BOX):
+    return (points[:, 1] >= box[0]) & (points[:, 0] >= box[1]) & (points[:, 1] <= box[2]) & (points[:, 0] <= box[3])
+
+
+def busiest_cells(points, size_km=5.0, top=5):
+    lat0 = np.radians(points[:, 0].mean())
+    x = np.floor(points[:, 1] * 111.0 * np.cos(lat0) / size_km).astype(int)
+    y = np.floor(points[:, 0] * 111.0 / size_km).astype(int)
+    cells = pd.Series(list(zip(x, y))).value_counts().head(top)
+    return [(f"lat {key[1] * size_km / 111.0:.2f}, lon {key[0] * size_km / (111.0 * np.cos(lat0)):.2f}", int(n))
+            for key, n in cells.items()]
+
+
+def plot(name, origin, destination, out_path, sample=300, seed=1):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    rng = np.random.default_rng(seed)
+    fig, ax = plt.subplots(figsize=(9, 9))
+    ax.scatter(origin[:, 1], origin[:, 0], s=3, c="tab:blue", alpha=0.4, label="origins")
+    ax.scatter(destination[:, 1], destination[:, 0], s=3, c="tab:red", alpha=0.4, label="destinations")
+    for i in rng.choice(len(origin), size=min(sample, len(origin)), replace=False):
+        ax.plot([origin[i, 1], destination[i, 1]], [origin[i, 0], destination[i, 0]], c="grey", lw=0.3, alpha=0.5)
+    ax.add_patch(plt.Rectangle((CENTRAL_BOX[0], CENTRAL_BOX[1]), CENTRAL_BOX[2] - CENTRAL_BOX[0],
+                               CENTRAL_BOX[3] - CENTRAL_BOX[1], fill=False, ec="black", ls="--", lw=0.8))
+    ax.set_aspect(1 / np.cos(np.radians(origin[:, 0].mean())))
+    ax.set_title(f"{name}: {len(origin)} requests (dashed: central bounding box)")
+    ax.legend(loc="upper left")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
+    parser.add_argument("instances", nargs="+", help="instance names, e.g. ISA_b90_i001")
+    parser.add_argument("--work", default=os.environ.get("ISA_WORK", f"/work3/{os.environ.get('USER', 'user')}/isa"))
+    args = parser.parse_args(argv)
+    print(REPORT)
+    for name in args.instances:
+        csv_path = Path(args.work) / PLACE / "csv_format" / f"{name}_1.csv"
+        frame, origin, destination = load(csv_path)
+        distance_km = frame["direct_distance"].to_numpy(dtype=float) / 1000.0
+        shares = trip_shares(distance_km)
+        print(f"\n{name}: {len(frame)} requests, mean direct drive distance {distance_km.mean():.1f} km "
+              f"(median {np.median(distance_km):.1f}); direct time {frame['direct_travel_time'].min():.0f}-"
+              f"{frame['direct_travel_time'].max():.0f} s")
+        print("  trips by length: " + ", ".join(f"{label} {share:.0f}%" for (_, _, label), share in zip(BINS, shares)))
+        print(f"  ends inside the central bounding box: origins {in_box(origin).mean() * 100:.1f}%, "
+              f"destinations {in_box(destination).mean() * 100:.1f}% (the box is rough: it holds some non-central land)")
+        print("  busiest 5 km cells (origins): " + "; ".join(f"{k} = {n}" for k, n in busiest_cells(origin)))
+        print("  busiest 5 km cells (destinations): " + "; ".join(f"{k} = {n}" for k, n in busiest_cells(destination)))
+        out = Path(args.work) / "results" / "maps" / f"{name}.png"
+        plot(name, origin, destination, out)
+        print(f"  map: {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

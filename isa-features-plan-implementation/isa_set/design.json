@@ -32,7 +32,7 @@
   },
   "spatial": {
     "central_factor": 0.0,
-    "trip_decay_km": null
+    "trip_decay_km": 3
   },
   "fleet": {
     "draws_per_instance": 3,
