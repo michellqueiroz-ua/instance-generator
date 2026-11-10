@@ -14,7 +14,8 @@ Nothing is run here; submit.sh is run on a login node, after the solver is built
 Runs per (instance, fleet): SA with seeds 1..sa-seeds and GR (SA binary with --greedy_only).
 With --sa-variants 1000,2000,10000 there are also SA1000, SA2000 and SA10000 (same seeds), which stop each SA call
 after that many counted moves instead of 200 (--max_static_iterations). Their rows come after the standard rows,
-9 per fleet and 27 per instance: run them with PER_JOB=27 and a longer WALL_H (see solver_submit.sh).
+9 per fleet (27 per instance, fewer with --variants-max-fleet-percent): run them with PER_JOB=18 and a longer
+WALL_H (see solver_submit.sh).
 The solver takes each vehicle type's count as a percentage of the requests, rounded up, so a count is
 written as (count - 0.5) / requests * 100, which rounds back to exactly the count.
 
@@ -103,6 +104,10 @@ def main(argv=None):
     parser.add_argument("--sa-variants", default="",
                         help="comma-separated move caps, e.g. 1000,2000,10000: extra SA runs named SA<cap> with "
                              "--max_static_iterations <cap>, written after the standard rows")
+    parser.add_argument("--variants-max-fleet-percent", type=float, default=None,
+                        help="only fleets with at most this many vehicles per 100 requests get the SA variants "
+                             "(batch 1: with ample fleets SA already reaches the sum of the direct times and the "
+                             "variants take 40 times as long)")
     args = parser.parse_args(argv)
 
     work = Path(args.work)
@@ -139,7 +144,9 @@ def main(argv=None):
         for algo, seeds in (("SA", range(1, args.sa_seeds + 1)), ("GR", [1])):
             for seed in seeds:
                 rows.append(f"{key}; {path}; {algo}; {seed}; {n_requests}; {n1}; {n2}; {depot}")
-        for cap in caps:
+        fleet_percent = 100.0 * len(vehicles) / n_requests
+        for cap in caps if (args.variants_max_fleet_percent is None
+                            or fleet_percent <= args.variants_max_fleet_percent) else []:
             for seed in range(1, args.sa_seeds + 1):
                 variant_rows.append(f"{key}; {path}; SA{cap}; {seed}; {n_requests}; {n1}; {n2}; {depot}")
     # appended, so the rows of the standard runs keep their numbers (finished runs are skipped by name)

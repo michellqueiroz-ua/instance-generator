@@ -68,6 +68,15 @@ class SolverJobsTests(unittest.TestCase):
         run_rows = (self.out / "run_rows.sh").read_text()
         self.assertIn("--max_static_iterations ${algo#SA}", run_rows)
 
+    def test_variants_can_be_limited_to_small_fleets(self):
+        # the fleet of i001 has 5 vehicles for 20 requests: 25 vehicles per 100 requests
+        jobs.main(["--batch", "1", "--work", str(self.work), "--network", "Net", "--sa-seeds", "1",
+                   "--sa-variants", "1000", "--variants-max-fleet-percent", "24"])
+        self.assertEqual([r[2] for r in self.rows()], ["SA", "GR"])
+        jobs.main(["--batch", "1", "--work", str(self.work), "--network", "Net", "--sa-seeds", "1",
+                   "--sa-variants", "1000", "--variants-max-fleet-percent", "25"])
+        self.assertEqual([r[2] for r in self.rows()], ["SA", "GR", "SA1000"])
+
     def test_vehicle_counts_round_trip_through_the_solver_percentages(self):
         row = self.rows()[0]
         n_requests = int(row[4])

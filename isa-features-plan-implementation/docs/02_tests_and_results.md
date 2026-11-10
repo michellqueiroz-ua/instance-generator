@@ -207,3 +207,23 @@ Third-party share (GR, share of the passengers not served by the own fleet) by f
 | 30-40% | 85 | 0.2% | 5.1% |
 
 Below a fleet of about 20% of the requests the total objective is dominated by the 4 x direct time penalty. Decision (author, 2026-11-09): the small fleets stay in the design; for them the algorithms are compared on the accepted requests (served share and ride time ratio of the accepted passengers) in addition to the total. First instance space (pilot-analytic, 16 features): variance explained 0.45 (features) and 0.39 (performance); at footprint threshold 0.80 SA is good on 300/300 keys and GR on 116/300.
+
+## T13. SA with more moves per call, largest instance (2026-11-10)
+
+ISA_b01_i024 (995 requests), 3 fleets, 3 seeds each, mean over the seeds. One LSF job of 27 runs: run time 6523 s, CPU 6486 s (99.4%), peak memory 387 MB, no failed run.
+
+| Fleet | Algorithm | Total cost | Served share | Ride time / direct (accepted) | Run time per run |
+|---|---|---|---|---|---|
+| 1 (tight) | GR | 1527149 | 0.48 | 2.47 | 36 s |
+| | SA (200 moves) | 1689896 | 0.57 | 2.32 | 39 s |
+| | SA1000 | 1720765 | 0.63 | 2.09 | 43 s |
+| | SA2000 | 1658281 | 0.63 | 1.99 | 58 s |
+| | SA10000 | 1337167 | 0.64 | 1.54 | 171 s |
+| 2 (ample) | GR | 3051719 | 1.00 | 2.31 | 0.5 s |
+| | SA (200 moves) | 1381448 | 1.00 | 1.00 | 17 s |
+| | SA10000 | 1380076 | 1.00 | 1.00 | 698 s |
+| 3 (ample) | GR | 3044730 | 1.00 | 2.29 | 0.4 s |
+| | SA (200 moves) | 1382072 | 1.00 | 1.00 | 17 s |
+| | SA10000 | 1379823 | 1.00 | 1.00 | 745 s |
+
+Tight fleet: the ride time ratio of the accepted passengers falls steadily with the moves (2.32, 2.09, 1.99, 1.54), the total only drops below GR at 10000 moves (-12% against GR, -21% against SA with 200 moves). Ample fleets: SA with 200 moves already gives ratio 1.00 (every passenger rides directly) and the total sits at the sum of the direct times (checked against the instance file: OPEN until the sum is printed); 10000 moves change it by 0.1% and take 40 times as long, so these fleets are 86% of the job's run time. SA serves more passengers than GR but the total can be worse because the third-party penalty is weighted by the direct time of the unserved passengers (a count-based served share does not show this). `make_solver_jobs.py --variants-max-fleet-percent 25` limits the variants to fleets of at most 25 vehicles per 100 requests.
