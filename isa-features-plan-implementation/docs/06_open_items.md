@@ -18,7 +18,7 @@ Marked in order of what blocks the next step.
 | ID | Item | State |
 |---|---|---|
 | OPEN-A1 | Third ISA algorithm: SA variants (neighbourhood configurations) or max-ALNS (D3). Which exact variants, and where the code lives. | Author to decide. |
-| OPEN-A2 | HPC test of the matheuristic (copy `MDHODBRP_model_v2.cpp`, `matheuristic.py`, `submit_mh.sh` to `~/ip_model`, rebuild, run `submit_mh.sh ... sa15`). | Not run. |
+| OPEN-A2 | HPC test of the matheuristic (copy `MDHODBRP_model_v2.cpp`, `matheuristic.py`, `audit_sa.py`, `submit_mh.sh`, `submit_audit.sh` to `~/ip_model`, rebuild, first run `submit_audit.sh` on 20 SA results, then `submit_mh.sh`). Phase A code written 2026-11-10 (02, T15), not run. | Not run. |
 | OPEN-A3 | SA/GR job memory: 16 GB reserved in the pilot, about 6 GB used. `make_solver_jobs.py` defaults to 8 GB (`MEM_GB`); measure on the first 4 jobs with the 4000-station build. | Measure |
 | OPEN-A4 | Rebuild the solver with `maxstations 4000`; the change in ODBRP_P is not committed. | Author to commit. |
 | OPEN-A5 | Table of SA vs v2 objective and vehicles used on the 5-request and 10-request instances. | Not tabulated. |

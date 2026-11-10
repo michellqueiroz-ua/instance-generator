@@ -33,7 +33,7 @@ everything with `--fix_start`, or nothing).
 | D (about 100 core-hours) | 6 tight-fleet instances (about 100, 300, 1000 requests), starts from SA 200 and SA 10000 | At least 2% below SA 10000 at equal compute on at least 4 of 6, and at least 70% of parts proven optimal in the limit. No-go: below 0.5% |
 | E (only on go) | Set-partitioning repair if B is slow; full tight-fleet batch; "SA plus model" as a performance matrix column (D25) | |
 
-Phase A fixes: infeasible start routes are skipped and their cost left out (find the cause); idle vehicles are missing from the SA output (they absorb unserved requests cheaply); passenger id mapping assumes ids 0..n-1; the parts size, vehicles per part and seed cannot be set from `submit_mh.sh`; `text.split()[10]` breaks when the instance path contains spaces (the Capital Region path does).
+Phase A status 2026-11-10: code written, local tests pass, HPC audit not run (see 02, T15). Phase A fixes: infeasible start routes are skipped and their cost left out (find the cause); idle vehicles are missing from the SA output (they absorb unserved requests cheaply); passenger id mapping assumes ids 0..n-1; the parts size, vehicles per part and seed cannot be set from `submit_mh.sh`; `text.split()[10]` breaks when the instance path contains spaces (the Capital Region path does).
 
 ## Risks
 

@@ -3,19 +3,27 @@
     "Ranges of the ISA instance set. Every batch draws its instances with a Latin hypercube over 'instance',",
     "and pairs each generated instance with 'fleet.draws_per_instance' fleets drawn over 'fleet'.",
     "Edit the ranges here; make_batch.py reads this file for every new batch.",
-    "start_hour stops at 19.5 so that latest arrivals stay before midnight (the solver treats 86400 s specially).",
-    "max_dtt_s is 3600 because suburban trips in the Capital Region are longer than in Copenhagen Municipality."
+    "A setting given as [low, high] is drawn; a single number is held fixed (it stays out of the hypercube).",
+    "Batch 2: start_hour is fixed. For a static solver with a constant travel-time matrix, shifting all times changes nothing,",
+    "so it was a dead axis; the afternoon window also keeps latest arrivals well before midnight (86400 s).",
+    "Batch 2: inbound_share (1 = every trip goes from homes to attractions, 0 = the reverse, 0.5 = both ways) and",
+    "concentration (0 = uniform over the zones as in batch 1, 2 = demand packed into the densest zones) replace uniform demand;",
+    "make_batch.py needs zone_weights.py output for them. Scenario labels a/b/c are derived from inbound_share.",
+    "max_dtt_s only rejects long trips: with zone weights the generator ignores the min/max dtt ring around the origin.",
+    "Batch 1 used start_hour [12, 19.5], max_dtt_s 3600 and uniform demand (no inbound_share, no concentration)."
   ],
   "network": "Capital Region of Denmark",
   "problem": "ODBRP",
   "period_hours": 2,
   "instance": {
     "requests_per_hour": [50, 500],
-    "start_hour": [12.0, 19.5],
+    "start_hour": 14.0,
     "peak_sd_min": [10, 60],
     "urgency_mean_min": [5, 40],
     "urgency_sd_min": [1, 10],
-    "arrival_slack_min": [5, 60]
+    "arrival_slack_min": [5, 60],
+    "inbound_share": [0.0, 1.0],
+    "concentration": [0.0, 2.0]
   },
   "fleet": {
     "draws_per_instance": 3,
@@ -26,7 +34,7 @@
     "max_walking_s": [550, 600],
     "walk_speed_mps": 1.38889,
     "min_dtt_s": 300,
-    "max_dtt_s": 3600,
+    "max_dtt_s": 5400,
     "vehicle_speed_kmh": 20
   }
 }

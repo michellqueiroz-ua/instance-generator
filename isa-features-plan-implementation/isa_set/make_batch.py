@@ -11,8 +11,14 @@ Writes  <work>/configs/batch_XX/ISA_bXX_iNNN.json   one REQreate config per inst
         <work>/design/batch_XX_fleets.json          the fleets per instance (draws_per_instance each)
 
 Instances are drawn with a Latin hypercube over design.json "instance", so every setting is
-spread over its whole range (no grid, no gaps from two-level factors). Fleets cost nothing to
-generate, so each instance gets several fleets, drawn with a second Latin hypercube.
+spread over its whole range (no grid, no gaps from two-level factors); a setting given as a single
+number is held fixed. Fleets cost nothing to generate, so each instance gets several fleets, drawn
+with a second Latin hypercube.
+
+Where requests are (batch 2 on): when design.json draws "inbound_share" and "concentration", origins and
+destinations are drawn zone by zone with the weights of od_weights(), built from the homes and attractions
+that zone_weights.py counted per zone. The batch csv then has a "scenario" label (a_inbound, b_both_ways,
+c_outbound) derived from the inbound share.
 
 The station travel-time matrix is the same for every instance of the network (same stations),
 so configs leave it out; --with-matrix adds it, for the one test instance that writes it once.
@@ -46,7 +52,45 @@ def scale(unit, low_high):
     return low + unit * (high - low)
 
 
-def make_config(design, settings, seed, with_matrix):
+def read_zone_weights(path):
+    """[(zone name, n_residential, n_attraction)] from the csv that zone_weights.py writes."""
+    with open(path, encoding="utf-8", newline="") as f:
+        return [(r["name"], float(r["n_residential"]), float(r["n_attraction"])) for r in csv.DictReader(f)]
+
+
+def od_weights(zones, inbound_share, concentration):
+    """Origin and destination weight of every zone (same order as ``zones``; each list sums to 1).
+
+    Residential and attraction counts become shares, sharpened by ``concentration`` (count ** concentration):
+    0 gives the same weight to every zone (uniform demand, as in batch 1), 2 concentrates the demand in the
+    densest zones. ``inbound_share`` 1 draws every origin from the residential shares and every destination
+    from the attraction shares (people travel to where things happen); 0 is the opposite direction (night
+    trips home); in between, each end of a trip follows a mix of the two.
+    """
+    def shares(counts):
+        powered = [count ** concentration for count in counts]
+        total = sum(powered)
+        if total <= 0:
+            raise ValueError("a zone count column is zero everywhere; run zone_weights.py first")
+        return [p / total for p in powered]
+
+    home = shares([z[1] for z in zones])
+    place = shares([z[2] for z in zones])
+    origin = [inbound_share * h + (1 - inbound_share) * a for h, a in zip(home, place)]
+    destination = [inbound_share * a + (1 - inbound_share) * h for h, a in zip(home, place)]
+    return origin, destination
+
+
+def scenario_label(inbound_share):
+    """Names the corners of the inbound-share axis; only a label for reports, not a design factor."""
+    if inbound_share >= 0.75:
+        return "a_inbound"
+    if inbound_share <= 0.25:
+        return "c_outbound"
+    return "b_both_ways"
+
+
+def make_config(design, settings, seed, with_matrix, zones=None):
     fixed = design["fixed"]
     start_s = settings["start_hour"] * 3600
     end_s = start_s + design["period_hours"] * 3600
@@ -126,6 +170,17 @@ def make_config(design, settings, seed, with_matrix):
             },
         ],
     }
+    if zones is not None:
+        # Origins and destinations are drawn zone by zone with the weights of od_weights(); the generator then
+        # picks a random point in the zone (it ignores the dtt ring, so max_dtt only rejects long trips).
+        origin_w, destination_w = od_weights(zones, settings["inbound_share"], settings["concentration"])
+        config["parameters"].append({"name": "zones_all", "type": "array_zones", "size": len(zones),
+                                     "value": [z[0] for z in zones]})
+        for attribute in config["attributes"]:
+            if attribute["name"] == "origin":
+                attribute.update({"subset_zones": "zones_all", "weights": [round(w, 8) for w in origin_w]})
+            elif attribute["name"] == "destination":
+                attribute.update({"subset_zones": "zones_all", "weights": [round(w, 8) for w in destination_w]})
     if with_matrix:
         config["travel_time_matrix"] = ["bus_stations"]
     return config
@@ -138,9 +193,18 @@ def main(argv=None):
     parser.add_argument("--work", default=os.environ.get("ISA_WORK", f"/work3/{os.environ.get('USER', 'user')}/isa"))
     parser.add_argument("--seed", type=int, help="random seed of the draw (default: the batch number)")
     parser.add_argument("--with-matrix", action="store_true", help="also write the station travel-time matrix")
+    parser.add_argument("--zone-weights", help="csv written by zone_weights.py (default: in the network folder of "
+                        "--work); needed when design.json draws inbound_share and concentration")
     args = parser.parse_args(argv)
 
     design = json.loads(DESIGN_JSON.read_text(encoding="utf-8"))
+    zones = None
+    if "inbound_share" in design["instance"]:
+        place = design["network"]
+        weights_csv = Path(args.zone_weights or Path(args.work) / place / "csv" / f"{place}.zone_weights.csv")
+        if not weights_csv.is_file():
+            raise SystemExit(f"{weights_csv} not found: run hpc/zone_weights.sh first (or --zone-weights)")
+        zones = read_zone_weights(weights_csv)
     rng = random.Random(args.seed if args.seed is not None else args.batch)
     tag = f"b{args.batch:02d}"
     work = Path(args.work)
@@ -151,17 +215,24 @@ def main(argv=None):
     if any(config_dir.glob("*.json")):
         raise SystemExit(f"{config_dir} already has configs; use a new batch number")
 
-    names = list(design["instance"])
+    # A range [low, high] is drawn; a single number is a fixed setting (it stays out of the hypercube).
+    names = [n for n, v in design["instance"].items() if isinstance(v, list)]
+    held = {n: v for n, v in design["instance"].items() if not isinstance(v, list)}
     rows, configs = [], []
     for i, unit in enumerate(latin_hypercube(args.n, len(names), rng), start=1):
         settings = {name: scale(u, design["instance"][name]) for name, u in zip(names, unit)}
+        settings.update(held)
         settings["requests"] = max(1, round(settings["requests_per_hour"] * design["period_hours"]))
         name = f"ISA_{tag}_i{i:03d}"
         seed = args.batch * 1000 + i  # unique per instance over all batches
         path = config_dir / f"{name}.json"
-        path.write_text(json.dumps(make_config(design, settings, seed, args.with_matrix), indent=2), encoding="utf-8")
+        path.write_text(json.dumps(make_config(design, settings, seed, args.with_matrix, zones), indent=2),
+                        encoding="utf-8")
         configs.append(str(path))
-        rows.append({"instance": name, "seed": seed, **{k: round(v, 4) for k, v in settings.items()}})
+        row = {"instance": name, "seed": seed, **{k: round(v, 4) for k, v in settings.items()}}
+        if zones is not None:
+            row["scenario"] = scenario_label(settings["inbound_share"])
+        rows.append(row)
 
     fleet = design["fleet"]
     draws = latin_hypercube(args.n * fleet["draws_per_instance"], 2, rng)

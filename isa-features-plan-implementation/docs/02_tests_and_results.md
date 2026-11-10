@@ -240,3 +240,36 @@ SA variants were run for the 174 of 300 keys whose fleet has at most 25 vehicles
 | SA10000 | 125 s / 812 s | 155 / 174 | 0.76 | 166 / 174 | 0.73 |
 
 Served share against GR: SA serves more passengers on 159 to 163 of 174 keys, ratio 1.07 to 1.08 (no change with more moves). Ride-time ratio of the accepted passengers against GR: 0.77 (200 moves) falling to 0.67 (10000 moves), mean score. The quality comparison is only like for like where both serve about the same passengers (served shares within 2 points): 39 to 50 of 174 keys. The cost of GR is still lower than SA10000 on 19 keys (mean score) and 8 keys (best seed), with a worst ratio of 1.13. **OPEN**: instance space with the five algorithms (ISA_ALGORITHMS=SA,SA1000,SA2000,SA10000,GR) on `features_batch_01_partial.csv`.
+
+## T15. Phase A of the model repair: matheuristic.py fixes and audit tools (2026-11-10)
+
+Code only, in the solver repo `ODBRP_P/MDHODBRP-P/model/` (the author commits there). **Nothing has run on real SA output or on the HPC yet.** Local checks: 7 unit tests on a synthetic SA file (`test_matheuristic.py`, all pass), Python syntax check of the scripts, `bash -n` of the submit scripts. The model itself was not run (no Gurobi locally, D21).
+
+Fixes in `matheuristic.py` (the five known issues of 07):
+
+| Issue | Fix |
+|---|---|
+| Idle vehicles missing from the SA output | `odbrp-parallel.cpp` prints only vehicles with a route. The result line gives the fleet size N; vehicles 0..N-1 are restored. Capacity from the neighbours in id order if they agree, else from `--fleet cap:count,...`; depot from the round-robin pattern of the printed vehicles. Parts add one idle vehicle when third-party requests exist. |
+| Infeasible start routes skipped and left out of the cost | The route is priced with the SA's own times (arrival at drop-off minus departure at pickup), stays in the total, and the run stops with exit 2 unless `--allow_infeasible`. The reason (model warnings) goes to `audit.csv`. A start the model reports as INCOMPLETE is never priced. |
+| `text.split()[10]` breaks on spaces in the path | The result line is parsed with a regular expression; only the last run in the file is used (the SA appends to its output file, so earlier code merged runs). |
+| Passenger ids assumed 0..n-1 | Checked: the SA indexes passengers by the id in the first CSV column and loops over 0..rows-1, so ids that are not 0..n-1 in file order break the SA itself. `read_instance` now stops with a clear message instead of mapping silently. |
+| Part size, vehicles per part, seed not settable from `submit_mh.sh` | Environment variables `PART_VEHICLES`, `MAX_PART_REQUESTS`, `PART_THIRD`, `PART_TIME`, `MAX_STOPS`, `SEED`, `FLEET`, `EXTRA`, `CORES`, `MEM_PER_SLOT`; GNU `time -v` around the run. |
+
+New tools:
+- `audit_sa.py` (no Gurobi): replays an SA result against the rules of model v2 using the SA's printed times and counts violations per rule: pickup and drop-off windows, stop choice, pairing, spacing between consecutive stops, capacity, ride time, printed ride time against the times, and the result line's objective against the recomputed one. It separates `spacing_same` (the model forces 1 s between stops at the same station, the SA allows 0 s) from real violations.
+- `matheuristic.py --audit_only` prices every vehicle with v2 `--fix_start`, one single-thread run per core in parallel, and writes `audit.csv` (SA cost, model cost, status, warnings per vehicle).
+- `submit_audit.sh`: both steps as one LSF job (default 4 cores, 2 GB per slot = 8 GB total, 60 min limit; to be sized from the first run's `Maximum resident set size`).
+
+Reading of the code that bears on the Phase A criterion (not yet tested):
+1. The model has a minimum arc time of 1 s (`tt1`), the SA allows 0 s between stops at the same station. Where several requests are picked up or dropped at one stop, the model's times and ride times can differ by a few seconds from the SA's, and in a tight window a route may not load.
+2. With a fixed stop order the model chooses the best times, so its cost can be lower than the SA's printed cost (the SA may wait longer than needed). Per vehicle, "model cost is at most SA cost" is the consistency test; exact equality is only expected where the SA's times are already the best for the order. A model cost above the SA cost is an inconsistency to explain.
+3. Unserved passengers cost 4 x the CSV direct time in both. `update_direct_travel_times` rewrites the direct time only of served passengers, after the SA.
+
+Go criterion of Phase A (07): 100% of SA routes load in v2 and no vehicle has a model cost above its SA cost, on 20 instances. **OPEN**: run `submit_audit.sh` on 20 SA results (see 05) and tabulate `rules.txt` and `audit.csv`.
+
+### T15 addendum: advisor review of Phase A (2026-11-10, from reading the code, nothing run)
+
+Verified in `odbrp-parallel.cpp:16703-16706`: the SA adds 3600 s to every `latest_arrival` ("ensure feasibility"), for SA and GR alike, unconditionally. Model v2 and `audit_sa.py` used the CSV value. So SA routes can end up to an hour after the CSV deadline, the SA solves a relaxed problem, and its cost can be below the model's "optimum". Added `--latest_arrival_shift` (default 0 in the model and `audit_sa.py`, default 3600 in `matheuristic.py`) and `submit_audit.sh` now audits with shift 0 and with 3600.
+**OPEN (author decision, D28 candidate):** keep the +3600 s as part of the problem definition (then say so in the report and use shift 3600 everywhere), or delete the three lines and rerun every SA/GR job. The audit result with shift 0 shows how many SA routes violate the CSV deadline.
+
+Still unverified, reported by the advisor (not checked by me): (a) the SA tests arrival, not departure, against `latest_departure` (line 1875) and `solution_validation` never checks it; `audit_sa.py` now separates `window_pickup` (arrival too late, not loadable) from `window_pickup_wait` (departs late, loadable with a higher model cost). (b) Same-station 1 s spacing: the model cost can exceed the SA cost by a few seconds per shared stop, so "model cost at most SA cost" needs a tolerance. (c) The SA resets the depot round robin per vehicle type, the parser and the model's fleet path assume one global cycle: no effect with one depot. (d) The SA reads request columns by position and only instance type 3 matches the model. (e) The SA has no start-solution input (`odbrp-parallel.cpp` args 16161-16268): "SA, model, SA again" needs a new loader. (f) Suggested SA output additions to avoid reruns: a fleet section with capacity and depot of every vehicle, the +3600 shift, the instance type and the command line in the header.
