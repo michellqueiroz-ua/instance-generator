@@ -1,5 +1,7 @@
 # 03. Recommended settings so far (PROPOSED)
 
+> **These are the batch 1 settings (as proposed on 2026-10-29).** The settings of batch 2 are in `isa_set/design.json`, `08_demand_plan.md` and decisions D29-D41 in `01_decisions.md`.
+
 These are the values in `isa_set/design.json` today. They are a recommendation, not a final
 choice: the author decides. Comparison with the two earlier papers is in
 `../pilot/settings_from_papers.md` ([H] = Queiroz and Sorensen, R1 2026; [P] = Parallel Computing 129,

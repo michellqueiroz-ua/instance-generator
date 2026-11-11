@@ -40,8 +40,8 @@ p = `inbound_share`. `concentration` 0 is uniform over the zones.
    that also has stops.
 2. `make_batch.py --batch 2 --n 100` (needs step 1). Check: `design/batch_02.csv` has `inbound_share`,
    `concentration`, `scenario`; `start_hour` is 14.0 everywhere.
-3. Smoke test of three instances of 100 requests with `inbound_share` 0, 0.5, 1 and `concentration` 2 (copy
-   a config, edit the two numbers). Check: origins/destinations plot, "failed after" lines in the logs (a request
+3. Smoke test (done 2026-11-10, results in D40): three instances (batches 90-92) made with `make_batch.py --set`, 5000 requests
+   (10000 for one) and inbound_share / concentration 1 / 1.5, 0 / 0.1, 0.5 / 0.8. Check: origins/destinations plot, "failed after" lines in the logs (a request
    returned incomplete after 100 attempts), generation time per request, `direct_travel_time` distribution.
 4. Full batch 2 with the usual `generate_batch.sh`; incomplete requests are found by `regenerate_incomplete.sh`.
 
