@@ -96,12 +96,47 @@ def plot(name, origin, destination, out_path, sample=300, seed=1):
     plt.close(fig)
 
 
+def summarize(args):
+    """One row per instance: size, trip length shares, central share, effective speed (a check over a whole batch)."""
+    polygon = central_polygon(args.work)
+    rows = []
+    for name in args.instances:
+        frame, origin, destination = load(Path(args.work) / PLACE / "csv_format" / f"{name}_1.csv")
+        distance_km = frame["direct_distance"].to_numpy(dtype=float) / 1000.0
+        speed = distance_km * 1000.0 / frame["direct_travel_time"].to_numpy(dtype=float) * 3.6
+        shares = trip_shares(distance_km)
+        rows.append({"instance": name, "requests": len(frame), "mean_km": round(distance_km.mean(), 1),
+                     **{f"share_{label}": round(share) for (_, _, label), share in zip(BINS, shares)},
+                     "median_speed_kmh": round(float(np.median(speed))),
+                     "central_origin_pct": round(share_inside(polygon, origin), 1),
+                     "central_dest_pct": round(share_inside(polygon, destination), 1),
+                     "top_cell_origin_pct": round(busiest_cells(origin, top=1)[0][1] / len(frame) * 100, 1),
+                     "top_cell_dest_pct": round(busiest_cells(destination, top=1)[0][1] / len(frame) * 100, 1)})
+    table = pd.DataFrame(rows)
+    out = Path(args.work) / "results" / f"request_summary_{Path(args.instances[0]).name[4:7]}.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    table.to_csv(out, index=False)
+    print(table.drop(columns=["instance"]).describe().loc[["min", "50%", "max"]].round(1).to_string())
+    print(f"{len(table)} instances; per-instance rows in {out}")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
-    parser.add_argument("instances", nargs="+", help="instance names, e.g. ISA_b90_i001")
+    parser.add_argument("instances", nargs="*", help="instance names, e.g. ISA_b90_i001")
+    parser.add_argument("--batch", type=int, help="all instances of this batch (with --summary: one line each)")
+    parser.add_argument("--summary", action="store_true",
+                        help="one line per instance (no map), written to results/request_summary_batch_XX.csv")
     parser.add_argument("--work", default=os.environ.get("ISA_WORK", f"/work3/{os.environ.get('USER', 'user')}/isa"))
     args = parser.parse_args(argv)
+    if args.batch is not None:
+        folder = Path(args.work) / PLACE / "csv_format"
+        args.instances = sorted(p.name[:-6] for p in folder.glob(f"ISA_b{args.batch:02d}_i*_1.csv"))
+    if not args.instances:
+        raise SystemExit("give instance names or --batch N")
     print(REPORT)
+    if args.summary:
+        return summarize(args)
     for name in args.instances:
         csv_path = Path(args.work) / PLACE / "csv_format" / f"{name}_1.csv"
         frame, origin, destination = load(csv_path)
