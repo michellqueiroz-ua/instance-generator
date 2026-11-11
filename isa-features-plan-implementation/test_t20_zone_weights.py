@@ -53,6 +53,15 @@ class OdWeightsTests(unittest.TestCase):
         kept = make_batch.od_weights(zones, 0.5, 1.0, central_factor=1.0)
         self.assertGreater(kept[0][1], 0.0)
 
+    def test_the_threshold_decides_which_boundary_zones_are_removed(self):
+        zones = [(n, h, a, {"zone0": 0.0, "zone1": 0.3, "zone2": 0.6, "zone3": 0.0}[n]) for n, h, a in ZONES]
+        strict = make_batch.od_weights(zones, 0.5, 1.0, central_factor=0.0, central_threshold=0.5)[0]
+        loose = make_batch.od_weights(zones, 0.5, 1.0, central_factor=0.0, central_threshold=0.2)[0]
+        self.assertGreater(strict[1], 0.0)   # 30% central: kept at threshold 0.5
+        self.assertEqual(loose[1], 0.0)      # removed at threshold 0.2
+        self.assertEqual(strict[2], 0.0)     # 60% central: removed at both
+        self.assertEqual(loose[2], 0.0)
+
     def test_zero_factor_removes_a_zone_even_at_the_lowest_concentration(self):
         zones = [(n, h, a, 1.0 if n == "zone3" else 0.0) for n, h, a in ZONES]
         origin, _ = make_batch.od_weights(zones, 0.5, 0.1, central_factor=0.0)

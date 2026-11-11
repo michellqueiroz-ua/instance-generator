@@ -70,7 +70,7 @@ def has_central_share(path):
 CENTRAL_THRESHOLD = 0.5  # a zone whose rectangle is mostly inside the central municipalities counts as central
 
 
-def od_weights(zones, inbound_share, concentration, central_factor=1.0):
+def od_weights(zones, inbound_share, concentration, central_factor=1.0, central_threshold=CENTRAL_THRESHOLD):
     """Origin and destination weight of every zone (same order as ``zones``; each list sums to 1).
 
     Residential and attraction counts become shares, sharpened by ``concentration`` (count ** concentration):
@@ -84,7 +84,7 @@ def od_weights(zones, inbound_share, concentration, central_factor=1.0):
     them. Zones are tuples (name, residential, attraction[, central_share]); a zone drawn as a whole then
     receives its points uniformly, so a boundary zone below the threshold leaks a few points into the centre.
     """
-    multiplier = [central_factor if len(z) > 3 and z[3] >= CENTRAL_THRESHOLD else 1.0 for z in zones]
+    multiplier = [central_factor if len(z) > 3 and z[3] >= central_threshold else 1.0 for z in zones]
 
     def shares(counts):
         powered = [0.0 if m == 0 else (count * m) ** concentration for count, m in zip(counts, multiplier)]
@@ -192,8 +192,10 @@ def make_config(design, settings, seed, with_matrix, zones=None):
     if zones is not None:
         # Origins and destinations are drawn zone by zone with the weights of od_weights(); the generator then
         # picks a random point in the zone (it ignores the dtt ring, so max_dtt only rejects long trips).
+        spatial = design.get("spatial", {})
         origin_w, destination_w = od_weights(zones, settings["inbound_share"], settings["concentration"],
-                                             design.get("spatial", {}).get("central_factor", 1.0))
+                                             spatial.get("central_factor", 1.0),
+                                             spatial.get("central_threshold", CENTRAL_THRESHOLD))
         config["parameters"].append({"name": "zones_all", "type": "array_zones", "size": len(zones),
                                      "value": [z[0] for z in zones]})
         for attribute in config["attributes"]:

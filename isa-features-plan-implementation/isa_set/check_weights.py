@@ -31,6 +31,16 @@ DRIVE_FACTOR = 1.3
 REPORT_CAR = {"<5 km": 45.0, "5-10 km": 23.0, "10-15 km": 11.0, "15-20 km": 7.0}
 
 
+def expected_central_leak(zones, inbound, concentration, central_factor, threshold):
+    """Expected percent of origins and destinations inside the central municipalities, and the number of zones
+    removed: a zone below the threshold keeps its weight and gives share x weight of its points to the centre."""
+    origin_w, destination_w = make_batch.od_weights(zones, inbound, concentration, central_factor, threshold)
+    share = np.array([z[3] if len(z) > 3 else 0.0 for z in zones])
+    removed = int(sum(1 for z in zones if len(z) > 3 and z[3] >= threshold))
+    o, d = np.asarray(origin_w), np.asarray(destination_w)
+    return float((o * share).sum() / o.sum() * 100), float((d * share).sum() / d.sum() * 100), removed
+
+
 def effective_zones(weights):
     w = np.asarray(weights, dtype=float)
     return float(1.0 / np.sum(w ** 2)) if w.sum() > 0 else 0.0
@@ -83,6 +93,9 @@ def main(argv=None):
     parser.add_argument("--work", default=os.environ.get("ISA_WORK", f"/work3/{os.environ.get('USER', 'user')}/isa"))
     parser.add_argument("--samples", type=int, default=200000)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--speed-kmh", type=float, default=28.0,
+                        help="effective drive speed of the network (smoke test 2026-11-10: median 27-28 km/h); "
+                             "design.json's 20 only sets the generator's old ring radius")
     parser.add_argument("--decay-km", default="0,3,5,8",
                         help="comma-separated scales of the zone-level distance decay to try (0 = off)")
     args = parser.parse_args(argv)
@@ -99,11 +112,11 @@ def main(argv=None):
     half_km = 1.25
     fixed = design["fixed"]
     bounds_s = (fixed["min_dtt_s"], fixed["max_dtt_s"])
-    speed = fixed["vehicle_speed_kmh"] / 3.6
+    speed = args.speed_kmh / 3.6
     central_factor = design.get("spatial", {}).get("central_factor", 1.0)
     rng = np.random.default_rng(args.seed)
 
-    print(f"{len(zones)} zones, central_factor {central_factor}, trip bounds {bounds_s} s at {fixed['vehicle_speed_kmh']} km/h, "
+    print(f"{len(zones)} zones, central_factor {central_factor}, trip bounds {bounds_s} s at {args.speed_kmh} km/h, "
           f"drive distance = {DRIVE_FACTOR} x straight line (assumption), ends jittered +-{half_km} km (assumption)")
     print("report, car trips up to 20 km (share of all trips): " + ", ".join(f"{k} {v:.0f}%" for k, v in REPORT_CAR.items())
           + f"; renormalised to 100% of the trips up to 20 km: <5 km {45 / 86 * 100:.0f}%, 5-10 {23 / 86 * 100:.0f}%, "
@@ -120,6 +133,15 @@ def main(argv=None):
                 print(f"{inbound:7.1f} {concentration:4.1f} {decay_km:5.1f} | {r['eff_origin']:5.0f} /{r['eff_dest']:5.0f}   | "
                       f"{r['accept'] * 100:6.1f}% | {r['mean_km']:6.1f}  | {r['under5']:4.0f} {r['km5_10']:5.0f} "
                       f"{r['km10_15']:6.0f} {r['over15']:5.0f}      | {r['central_ends']:5.1f}")
+    print()
+    print("expected share of ends inside the central municipalities, by the central threshold "
+          "(a zone counts as removed when at least this share of it is central; the smoke test measured, at 0.5: "
+          "6.9%/5.7% origins/destinations for inbound 1, concentration 1.5; 1.8%/1.8% for 0, 0.1; 4.3%/3.9% for 0.5, 0.8)")
+    print("threshold | zones removed | inbound 1, conc 1.5 (orig/dest %) | inbound 0, conc 0.1 | inbound 0.5, conc 0.8")
+    for threshold in (0.5, 0.3, 0.2, 0.1, 0.05):
+        cells = [expected_central_leak(zones, i, c, central_factor, threshold) for i, c in ((1.0, 1.5), (0.0, 0.1), (0.5, 0.8))]
+        print(f"{threshold:9.2f} | {cells[0][2]:13d} | {cells[0][0]:6.1f} / {cells[0][1]:5.1f}                  | "
+              f"{cells[1][0]:5.1f} / {cells[1][1]:5.1f}       | {cells[2][0]:5.1f} / {cells[2][1]:5.1f}")
     return 0
 
 
