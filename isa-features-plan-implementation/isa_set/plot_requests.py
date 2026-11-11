@@ -37,6 +37,28 @@ def load(csv_path):
     return frame, origin, destination
 
 
+def central_polygon(work):
+    """Exact boundary of Copenhagen + Frederiksberg (cached as WKT next to the zone weights)."""
+    from shapely import wkt
+    cache = Path(work) / PLACE / "csv" / "central_polygon.wkt"
+    if cache.exists():
+        return wkt.loads(cache.read_text())
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import zone_weights
+    polygon = zone_weights.download_central_polygon(log=lambda message: None)
+    cache.write_text(polygon.wkt)
+    return polygon
+
+
+def share_inside(polygon, points):
+    """Percent of the (lat, lon) points inside the polygon."""
+    import shapely
+    if hasattr(shapely, "contains_xy"):
+        return float(shapely.contains_xy(polygon, points[:, 1], points[:, 0]).mean() * 100)
+    from shapely.geometry import Point
+    return float(np.mean([polygon.contains(Point(lon, lat)) for lat, lon in points]) * 100)
+
+
 def trip_shares(distance_km):
     return [float(((distance_km >= low) & (distance_km < high)).mean() * 100) for low, high, _ in BINS]
 
@@ -89,6 +111,16 @@ def main(argv=None):
               f"(median {np.median(distance_km):.1f}); direct time {frame['direct_travel_time'].min():.0f}-"
               f"{frame['direct_travel_time'].max():.0f} s")
         print("  trips by length: " + ", ".join(f"{label} {share:.0f}%" for (_, _, label), share in zip(BINS, shares)))
+        speed = frame["direct_distance"].to_numpy(dtype=float) / frame["direct_travel_time"].to_numpy(dtype=float) * 3.6
+        print(f"  effective drive speed (distance / time): median {np.median(speed):.0f} km/h, 5-95%: "
+              f"{np.percentile(speed, 5):.0f}-{np.percentile(speed, 95):.0f} km/h (design.json says 20: that number only "
+              f"sets the ring radius, the travel times come from the network)")
+        try:
+            polygon = central_polygon(args.work)
+            print(f"  ends inside the central municipalities (exact boundary): origins {share_inside(polygon, origin):.1f}%, "
+                  f"destinations {share_inside(polygon, destination):.1f}% (target: close to 0, a few from boundary zones)")
+        except Exception as error:  # needs shapely and, the first time, Nominatim
+            print(f"  (exact central share not available: {error})")
         print(f"  ends inside the central bounding box: origins {in_box(origin).mean() * 100:.1f}%, "
               f"destinations {in_box(destination).mean() * 100:.1f}% (the box is rough: it holds some non-central land)")
         print("  busiest 5 km cells (origins): " + "; ".join(f"{k} = {n}" for k, n in busiest_cells(origin)))
