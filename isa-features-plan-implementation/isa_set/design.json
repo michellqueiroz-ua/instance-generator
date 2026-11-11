@@ -32,6 +32,7 @@
   },
   "spatial": {
     "central_factor": 0.0,
+    "central_threshold": 0.1,
     "trip_decay_km": 3
   },
   "fleet": {
