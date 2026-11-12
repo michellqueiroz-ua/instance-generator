@@ -81,3 +81,10 @@ The urgency of the generator (the reaction time, 5-40 min) is the width of the t
 (2-34) are computed from the spread of the time stamps, not from real dynamism (the study is static): they describe how
 spread out the demand curve is (peak sd) and should be named and interpreted as temporal spread in the report. Sixteen
 features vary.
+
+## 2026-11-12 Phase A pricing audit (b90 and b91, fleet 3, SA, 200 vehicles each)
+- b90: 200/200 loadable. b91: 199/200. Not loadable: vehicle 813, cause is the model's 1 s minimum between two nodes at the same station (route has slack 0). Fix: `--same_station_gap 0` (only with `--fix_start`). Test pending. OPEN-A3.
+- Model cost vs SA cost with fixed routes: b91 137 equal, 36 dearer (max +8 s), 27 cheaper (down to -1070 s). Hypothesis: the SA respects latest_departure, the model does not (D43). OPEN-A4, not tested.
+- LATER (author, 2026-11-12): latest_departure exists because walking to the station is ignored in the static case (latest_departure + shortest bus trip = latest_arrival). A `--hard_latest_departure` comparison is not needed now. In the dynamic version walking times must be accounted for.
+- 2 b91 requests (rows 4663, 4804) are unservable: matrix minimum exceeds the whole window (generator vs matrix inconsistency).
+- 2026-11-12 RESOLVED OPEN-A3: with `--same_station_gap 0` b91 fleet 3 SA prices 200/200 loadable, vehicle 813 model cost 6616 = SA cost 6616. Pricing runs use GAP=0 from now on.
