@@ -56,3 +56,17 @@ are the measurement, so the reservation is generous. After the runs: read the lo
 3. SA + model (07): the model works on 6-8 requests of a solution, so the instance size matters only for the SA start.
 
 Everything in `/work3/micqu/isa/results/` from batch 1 used the +3600 s deadline (D28) and is to be rerun.
+
+## Result of the solver scaling test (2026-11-12, from the SA + model session)
+
+Instances ISA_b90_i001 and ISA_b91_i001 (5000 requests), fleets 1-3, SA (200 moves, seed 1) and GR, solver without the
++3600 s slack (D28), one core and 2 GB reserved per run: all 12 runs completed, CPU use 88-99%, run time 35-663 s
+(longest: b91 fleet 1 GR, 11 min), peak memory 1.09-1.60 GB, so 2 GB per job is enough. Estimate for the whole batch
+(300 fleets x 3 SA seeds + GR): about 90 core-hours. Third-party share SA / GR: b90 4.6/11.4%, 0.6/3.8%, 0.0/0.7% (fleets of
+902, 1288, 1985 vehicles); b91 25.0/32.6%, 0.9/3.6%, 9.2/17.2% (732, 1914, 1122 vehicles). Audits (model v2 rules): reported
+cost equals the sum of the ride times of the served passengers in all 12 runs; no violation except the known 1 s
+same-station artefact; 2 of 5000 requests of b91 are unservable (the matrix minimum exceeds the time window).
+**Limit:** the solver caps the number of passengers at 6000 (`matrixPS[6000+1]`, odbrp-parallel.cpp line 46), so
+instances of 10000 requests (batch 92) give empty result files although the job reports success; batch 2 (5000) is not
+affected. To fix: raise the cap and make the SA exit non-zero on the station-id error (deferred). Open: the model prices
+27 of 200 sampled b91 routes up to 1070 s cheaper than the SA cost (OPEN-A4).
