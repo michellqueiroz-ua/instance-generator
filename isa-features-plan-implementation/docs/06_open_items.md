@@ -63,3 +63,21 @@ Found 2026-11-09 when the solver job writer failed on an empty `stops_orgn`. Cau
 
 - Edited in `odbrp-parallel.cpp` (ODBRP_P, author commits): rebuild `a.out` with `maxstations 4000` (OPEN-A4) and rerun batch 1 for SA, SA1000/2000/10000 and GR. All results in 02 (T12-T14) and the perf matrices are void until then. Expect ample fleets to no longer sit exactly at the sum of the direct times if some requests become unservable in time.
 - Run `model/check_requests.py` on the batch 1 instances (pure Python) to count requests that the matrix cannot serve in their window and requests whose file direct time differs from the matrix. Decide whether the generator should drop or repair such requests (OPEN).
+
+## D42/D43: objective without penalty, soft latest_departure (2026-11-11)
+
+- The audit of the batch 90/91 scaling test (12 results, CSV deadlines): no violation of drop-off window, stop choice, pairing, spacing, capacity or ride-time rules, and printed ride times equal the times in the routes. 1215-2296 pickups per result arrive after `latest_departure` (D43: allowed). The reported total is lower than ride times + 4 x direct time by about 4 x the direct time of the third-party passengers (exact match only where there are none), i.e. the reported total seems to be the ride time of served passengers only (D42). **OPEN**: confirm with the rerun of `audit_scaling.sh` (prints `reported - ride time`, expected 0). Call-graph check of `odbrp-parallel.cpp` (comments stripped, `model/active_calls.py`): `serve_passenger_third_party_vehicle` (the only place with `user_ride_time = 4 x direct`) is defined but never called, so the SA and GR in this source never apply the penalty; unserved passengers keep `user_ride_time` 0 and are printed `UNSERVED` without `(3rd party)`. The reported total is then the ride sum of the served passengers, as intended. **OPEN**: author to say whether another, newer version of the SA exists (path), otherwise this file is the one.
+- `isa_set/collect_batch.py` documents `total` as "a third-party passenger counts 4 x the direct time". With D42 the `total` of SA and GR is the ride time of the served passengers; the comparison of two algorithms at different served shares is not like for like. **OPEN**: define the performance measures again (served share, ride time at equal service) before the instance space.
+- Docs 02 (T12-T14), 03 and the LaTeX sections still describe the penalty and need a revision.
+
+## Features that do not vary in batch 2 (2026-11-12)
+
+Of the 21 features, 5 are constant over the 300 rows of batch 2 and are dropped before the instance space:
+`n_requests` (5000 everywhere), `demand_density` and `station_density` (same network and service area), `avg_station_degree`
+(same network), and `avg_request_urgency`. The last one is **0 by construction, not a bug**: it is the mean of
+`tw_start - issue_time`, that is `earliest_departure - time_stamp`, and the generator sets `earliest_departure = time_stamp`.
+The urgency of the generator (the reaction time, 5-40 min) is the width of the time window and is already carried by
+`tw_width_mean` (5.2-39.8 min) and `tw_width_std`. `request_flux_dynamism` (0.15-0.42) and `static_to_dynamic_ratio`
+(2-34) are computed from the spread of the time stamps, not from real dynamism (the study is static): they describe how
+spread out the demand curve is (peak sd) and should be named and interpreted as temporal spread in the report. Sixteen
+features vary.
