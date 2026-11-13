@@ -4,7 +4,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from REQreate.retrieve_network import build_network
+import geopandas as gpd
+from shapely.geometry import MultiPolygon, box
+
+from REQreate.osm_features import features_in_area
+from REQreate.retrieve_network import build_network, exclude_from_polygon
 from REQreate.webapp.network_utils import list_networks
 
 
@@ -85,4 +89,46 @@ class BuildNetworkTests(unittest.TestCase):
             lon=4.4,
             lat=51.2,
             dist=1200,
+            exclude_places=None,
         )
+
+
+class FeaturesInAreaTests(unittest.TestCase):
+    def test_polygon_limits_the_query_to_the_network_area(self):
+        area = box(0, 0, 10, 10)
+        with patch("REQreate.osm_features.ox.features_from_polygon", return_value="in area") as by_polygon, \
+                patch("REQreate.osm_features.ox.features_from_place") as by_place:
+            result = features_in_area("Region", {"highway": "bus_stop"}, area)
+        self.assertEqual(result, "in area")
+        by_polygon.assert_called_once_with(area, tags={"highway": "bus_stop"})
+        by_place.assert_not_called()
+
+    def test_without_polygon_the_place_is_queried(self):
+        with patch("REQreate.osm_features.ox.features_from_place", return_value="in place") as by_place:
+            result = features_in_area("City", {"amenity": "school"})
+        self.assertEqual(result, "in place")
+        by_place.assert_called_once_with("City", tags={"amenity": "school"})
+
+
+class ExcludeFromPolygonTests(unittest.TestCase):
+    def test_no_exclusions_returns_the_polygon(self):
+        polygon = box(0, 0, 10, 10)
+        with patch("REQreate.retrieve_network.ox.geocoder.geocode_to_gdf") as geocode:
+            self.assertIs(exclude_from_polygon(polygon, None), polygon)
+            self.assertIs(exclude_from_polygon(polygon, []), polygon)
+        geocode.assert_not_called()
+
+    def test_excluded_place_is_cut_out(self):
+        region = MultiPolygon([box(0, 0, 10, 10), box(50, 0, 52, 2)])  # mainland + island
+        island = gpd.GeoDataFrame(geometry=[box(49, -1, 53, 3)])
+        with patch("REQreate.retrieve_network.ox.geocoder.geocode_to_gdf", return_value=island) as geocode:
+            result = exclude_from_polygon(region, ["Island"])
+        geocode.assert_called_once_with(["Island"])
+        self.assertAlmostEqual(result.area, 100)
+        self.assertTrue(result.equals(box(0, 0, 10, 10)))
+
+    def test_excluding_everything_is_an_error(self):
+        everything = gpd.GeoDataFrame(geometry=[box(-1, -1, 11, 11)])
+        with patch("REQreate.retrieve_network.ox.geocoder.geocode_to_gdf", return_value=everything):
+            with self.assertRaisesRegex(ValueError, "whole network area"):
+                exclude_from_polygon(box(0, 0, 10, 10), ["All"])

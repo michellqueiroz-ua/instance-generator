@@ -30,6 +30,31 @@ def nearest_edge_endpoints(G, lats, lons):
     return nodes
 
 
+_NODE_INDEX = {}
+
+
+def nearest_node(G, lon, lat):
+    """Nearest graph node of one point; same answer as ``ox.nearest_nodes(G, lon, lat)``.
+
+    ``ox.nearest_nodes`` converts the whole graph to a GeoDataFrame and builds a
+    new index on every call (0.8 s on the Capital Region drive graph). The index
+    is built once per graph here and kept; request sampling asks for ~25 nodes
+    per request.
+    """
+    if ox.projection.is_projected(G.graph["crs"]):
+        return ox.nearest_nodes(G, lon, lat)
+    entry = _NODE_INDEX.get(id(G))
+    if entry is None or entry[0] is not G:  # the stored graph keeps its id from being reused
+        from sklearn.neighbors import BallTree
+        ids = np.array(list(G.nodes))
+        coordinates = np.radians([[G.nodes[n]["y"], G.nodes[n]["x"]] for n in ids])
+        entry = (G, ids, BallTree(coordinates, metric="haversine"))
+        _NODE_INDEX[id(G)] = entry
+    _, ids, tree = entry
+    _, index = tree.query(np.radians([[lat, lon]]), k=1)
+    return ids[index[0][0]]
+
+
 def nearest_nodes(G, lats, lons):
     """Nearest graph node for each point."""
     if len(lats) == 0:

@@ -103,10 +103,32 @@ class JsonConverter(object):
 
         instance = []
         requests = self.json_data.get('requests')
+        
+        # Define required column order for ODBRP solver (hardcoded in C++ parser)
+        # Type 3 (nightlife/basic) expects 20 columns without dual-time attributes
+        odbrp_column_order = [
+            'time_stamp', 'reaction_time',
+            'origin', 'originnode_drive', 'destination', 'destinationnode_drive',
+            'max_walking', 'walk_speed',
+            'earliest_departure', 'latest_departure',
+            'direct_travel_time', 'direct_distance',
+            'stops_orgn', 'stops_orgn_walking_distance',
+            'latest_arrival',
+            'stops_dest', 'stops_dest_walking_distance',
+            'seed_location', 'reqid'
+        ]
+        
         for request in requests.values():
 
             d = {}
-            for att in inst.sorted_attributes:
+            
+            # For ODBRP, use fixed column order required by solver
+            if problem_type == 'ODBRP':
+                attrs_to_process = odbrp_column_order
+            else:
+                attrs_to_process = inst.sorted_attributes
+            
+            for att in attrs_to_process:
 
                 if request.get(att) is not None:
                     
@@ -120,12 +142,23 @@ class JsonConverter(object):
                         if ((att == 'stops_orgn') or (att == 'stops_dest')):
 
                             d[att+'_walking_distance'] = request.get(att+'_walking_distance')
+                elif problem_type == 'ODBRP' and att in odbrp_column_order:
+                    # For ODBRP, include missing columns as empty/default values
+                    d[att] = None
 
             d['seed_location'] = request.get('seed_location')
             d['reqid'] = request.get('reqid')
             instance.append(d)
 
         instance = pd.DataFrame(instance)
-        instance = instance.sort_values("reqid")
+       
+        # For ODBRP, ensure exact column order (solver reads by position, not name!)
+        if problem_type == 'ODBRP':
+            # Reorder columns to match odbrp_column_order
+            available_cols = [col for col in odbrp_column_order if col in instance.columns]
+            instance = instance[available_cols]
+        else:
+            instance = instance.sort_values("reqid")
+        
         instance.to_csv(path_instance_csv_file)
         

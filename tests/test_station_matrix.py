@@ -1,0 +1,80 @@
+import unittest
+
+import networkx as nx
+import numpy as np
+
+from REQreate.compute_distance_matrix import LazyDistanceMatrix, travel_times_between
+
+
+def road_graph(n=60, seed=3):
+    rng = np.random.default_rng(seed)
+    G = nx.MultiDiGraph()
+    for i in range(n):
+        G.add_edge(i, (i + 1) % n, travel_time=float(rng.uniform(5, 90)))  # a ring keeps it strongly connected
+    for _ in range(3 * n):
+        u, v = rng.integers(0, n, 2)
+        if u != v:
+            G.add_edge(int(u), int(v), travel_time=float(rng.uniform(5, 90)))
+    return G
+
+
+class TravelTimesBetweenTests(unittest.TestCase):
+    def test_same_values_as_lazy_matrix(self):
+        G = road_graph()
+        nodes = [3, 17, 17, 42, 0, 59]  # a repeated node (two stations on one node)
+        lazy = LazyDistanceMatrix(G, "travel_time", int)
+        expected = np.array([[lazy.get(u, v) for v in nodes] for u in nodes])
+        for chunk in (1, 2, 64):
+            np.testing.assert_array_equal(travel_times_between(G, nodes, chunk=chunk), expected)
+
+    def test_unreachable_is_minus_one(self):
+        G = nx.MultiDiGraph()
+        G.add_edge(0, 1, travel_time=10.0)
+        G.add_node(2)
+        result = travel_times_between(G, [0, 1, 2])
+        self.assertEqual(result[0, 1], 10)
+        self.assertEqual(result[1, 0], -1)
+        self.assertEqual(result[0, 2], -1)
+
+    def test_progress_is_reported(self):
+        calls = []
+        travel_times_between(road_graph(10), list(range(10)), chunk=4, progress=lambda a, b: calls.append((a, b)))
+        self.assertEqual(calls[-1], (10, 10))
+
+
+class RowCacheTests(unittest.TestCase):
+    def test_cache_is_capped_in_bytes(self):
+        import REQreate.compute_distance_matrix as module
+        G = road_graph(60)
+        old = module.MAX_CACHE_BYTES
+        module.MAX_CACHE_BYTES = 4 * 60 * 40  # room for 40 rows, above the floor of 32
+        try:
+            lazy = LazyDistanceMatrix(G, "travel_time", int)
+        finally:
+            module.MAX_CACHE_BYTES = old
+        self.assertEqual(lazy.max_rows, 40)
+        for origin in range(60):
+            lazy.get(origin, 0)
+        self.assertEqual(len(lazy._rows), 40)
+
+    def test_cap_is_applied_to_an_old_pickle(self):
+        import pickle
+        import REQreate.compute_distance_matrix as module
+        lazy = LazyDistanceMatrix(road_graph(60), "travel_time", int)
+        state = lazy.__getstate__()
+        state["max_rows"] = 5000  # what a network pickled before the cap carries
+        old = module.MAX_CACHE_BYTES
+        module.MAX_CACHE_BYTES = 4 * 60 * 40
+        try:
+            restored = LazyDistanceMatrix.__new__(LazyDistanceMatrix)
+            restored.__setstate__(state)
+        finally:
+            module.MAX_CACHE_BYTES = old
+        self.assertEqual(restored.max_rows, 40)
+
+    def test_default_cache_keeps_row_limit_on_small_graphs(self):
+        self.assertEqual(LazyDistanceMatrix(road_graph(60), "length").max_rows, 5000)
+
+
+if __name__ == "__main__":
+    unittest.main()

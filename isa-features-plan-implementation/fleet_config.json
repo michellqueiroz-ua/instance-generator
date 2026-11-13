@@ -1,0 +1,80 @@
+{
+  "_comment": [
+    "Fleet used for the ISA experiment. REQreate instances carry no fleet, so",
+    "features 11-14 (fleet_size, capacity_cv, fleet_utilization_ratio,",
+    "request_vehicle_ratio) are computed from this file.",
+    "",
+    "The default below is fleet FF from Melis & Queiroz, 'Heterogeneous ODBRP'",
+    "(Table 13, Section 5.6): |B| = 20% of |R|, split 60% capacity-4 (T1) and",
+    "40% capacity-8 (T2). The parallel-algorithm paper reuses the same fleet",
+    "('the total fleet size remains constant in all experiments', Section 7.2).",
+    "Vehicle types in that paper: T1 = 4 seats, T2 = 8 seats, T3 = 12 seats.",
+    "",
+    "Alternative fleets from Table 9 are in _presets below - copy one into",
+    "'default', or into 'by_problem_type' / 'by_instance', to switch. After any",
+    "change, re-run: python isa-features-plan-implementation/backfill_features.py",
+    "",
+    "Spec shapes (see fleet_config.py):",
+    "  {\"fleet_percent_of_requests\": 20, \"composition\": [{\"capacity\": 4, \"percent\": 60}, ...]}",
+    "  {\"number_vehicles\": 5, \"capacity\": 4}",
+    "  {\"type_vehicles\": 2, \"number_vehicles1\": 5, \"number_vehicles2\": 3, \"capacity_vehicles\": [4, 8]}",
+    "  {\"requests_per_vehicle\": 10, \"capacity\": 4}"
+  ],
+
+  "default": {
+    "fleet_percent_of_requests": 20,
+    "composition": [
+      { "capacity": 4, "percent": 60 },
+      { "capacity": 8, "percent": 40 }
+    ]
+  },
+
+  "by_problem_type": {},
+
+  "by_instance": {},
+
+  "_presets": {
+    "FF": {
+      "_note": "Table 13 - final fleet used in the paper's experiments",
+      "fleet_percent_of_requests": 20,
+      "composition": [
+        { "capacity": 4, "percent": 60 },
+        { "capacity": 8, "percent": 40 }
+      ]
+    },
+    "F1": {
+      "_note": "Table 9 - best of the three preliminary compositions",
+      "fleet_percent_of_requests": 15,
+      "composition": [
+        { "capacity": 4, "percent": 60 },
+        { "capacity": 8, "percent": 40 }
+      ]
+    },
+    "F2": {
+      "_note": "Table 9 - observed in instances with 1200-1800 requests",
+      "fleet_percent_of_requests": 12,
+      "composition": [
+        { "capacity": 4, "percent": 40 },
+        { "capacity": 8, "percent": 45 },
+        { "capacity": 12, "percent": 15 }
+      ]
+    },
+    "F3": {
+      "_note": "Table 9 - observed in instances with 2400-3000 requests",
+      "fleet_percent_of_requests": 10,
+      "composition": [
+        { "capacity": 4, "percent": 30 },
+        { "capacity": 8, "percent": 45 },
+        { "capacity": 12, "percent": 25 }
+      ]
+    },
+    "solver_defaults": {
+      "_note": "solver_utils.py SolverConfig defaults - fixed 5 x capacity 4",
+      "type_vehicles": 1,
+      "number_vehicles1": 5,
+      "number_vehicles2": 0,
+      "number_vehicles3": 0,
+      "capacity_vehicles": [4]
+    }
+  }
+}

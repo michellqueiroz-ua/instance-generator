@@ -101,7 +101,19 @@ class GenerateCliTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         build_network.assert_called_once_with(
-            "Test City", point=None, dist=None, get_fixed_lines="osm"
+            "Test City", point=None, dist=None, get_fixed_lines="osm", exclude_places=None
+        )
+
+    def test_network_command_forwards_excluded_places(self):
+        with patch("REQreate.retrieve_network.build_network") as build_network:
+            result = cli.main(
+                ["network", "Test Region", "--exclude", "Island A", "--exclude", "Island B"]
+            )
+
+        self.assertEqual(result, 0)
+        build_network.assert_called_once_with(
+            "Test Region", point=None, dist=None, get_fixed_lines=None,
+            exclude_places=["Island A", "Island B"],
         )
 
     def test_network_command_parses_point_and_radius(self):
@@ -112,7 +124,7 @@ class GenerateCliTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         build_network.assert_called_once_with(
-            "Test City", point=(4.4, 51.2), dist=1200.0, get_fixed_lines=None
+            "Test City", point=(4.4, 51.2), dist=1200.0, get_fixed_lines=None, exclude_places=None
         )
 
     def test_network_command_requires_point_and_radius_together(self):

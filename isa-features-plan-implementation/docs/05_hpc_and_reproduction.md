@@ -1,0 +1,91 @@
+# 05. HPC set-up, resources and how to reproduce
+
+## Environment (DTU HPC)
+
+| Item | Value |
+|---|---|
+| Scheduler | LSF (`bsub`), queue `hpc`, login node `hpclogin1`, file transfer `transfer.gbar.dtu.dk` (sftp only) |
+| Work directory | `/work3/<user>/isa` |
+| Python | module `python3/3.11.13`, virtualenv `~/venvs/reqreate` (osmnx 2.1.1) |
+| Code | `~/instance-generator` (git clone, branch `isa-features`) |
+| Solver | built from `ODBRP_P` (SA, GR; Gurobi module `gurobi/11.0.2` for the exact model) |
+
+## Resource rule
+
+Single-threaded phases get one core. LSF memory is **per slot**: total = memory x cores. Size from
+the `Max Memory` line of earlier logs, with modest headroom. After each run, report CPU time,
+run time and max memory.
+
+| Phase | Cores | Memory | Measured |
+|---|---|---|---|
+| Network build (once) | 1 | 6 GB | 4.47 GB max (73%), 28% CPU (waits on Overpass), 3.4 h |
+| Generation profile, 6 requests | 1 | 8 GB | 1.6 GB (19%), 77% CPU, 250 s |
+| Generation of one instance (batch 1) | 1 | 8 GB measured | 1.6 GB at start, +8.3 MB per request before the cache fix (7.2 GB at 685 requests); CPU 97-98% of run time. **OPEN**: remeasure after fix |
+| Station matrix (once) | 1 | 4 GB | 97 s run time, 68 s CPU (70%); LSF max memory 74 MB (unreliable) |
+| SA / GR solver job | 1 | 16 GB reserved in the pilot | about 6 GB used. **OPEN**: resize |
+| Exact model v2 | threads | not yet sized | |
+
+## Commands (HPC, bash)
+
+Build the network once:
+
+    bash ~/instance-generator/isa-features-plan-implementation/isa_set/hpc/build_network.sh
+
+Draw a batch of 100 instances, then generate (one single-core job per config):
+
+    python ~/instance-generator/isa-features-plan-implementation/isa_set/make_batch.py --batch 1 --n 100
+    bash ~/instance-generator/isa-features-plan-implementation/isa_set/hpc/generate_batch.sh 1
+
+`MEM_GB` and `WALL_H` override the 8 GB / 6 h defaults. Logs: `/work3/<user>/isa/logs/batch_XX/gen_<instance>.out`.
+
+Profile a small generation run:
+
+    bsub -J isa_prof -q hpc -n 1 -R "rusage[mem=8GB]" -M 8GB -W 1:00 -o /work3/$USER/isa/logs/profile.out bash ~/instance-generator/isa-features-plan-implementation/isa_set/hpc/profile_one.sh <config.json> 6
+
+## Pipeline for the full set
+
+1. Build the network (done).
+2. Write the station travel-time matrix once (**OPEN**, see 06).
+3. Draw a batch, generate instances, collect the feature rows.
+4. Run SA and GR on each instance and fleet (3 fleets per instance); collect `perf_matrix.csv`.
+5. Project into the instance space (`src/isa_pipeline.py`); measure growth of the space.
+6. Stop when the share of new instances far from existing ones falls below about 5%, or at the cap.
+
+Step 5 must use the shared station matrix when computing the time-window features: with no
+matrix in the instance, `tw_tightness` falls back to each request's direct travel time, which
+is a different definition. `load_reqreate_instance` now attaches `station_travel_time_matrix.npy` automatically (memory-mapped), so `backfill_features.py` uses it for instances inside the network folder; check the log line "no station matrix found" is absent.
+
+## Solver jobs for a batch (SA and GR)
+
+`isa_set/make_solver_jobs.py` writes `<work>/solver/batch_XX/jobs.csv` and `submit.sh`: per (instance, fleet), SA with seeds 1..3 and GR (one single-core job each; 3 fleets per instance, so 12 jobs per instance). Depot: per instance, the station closest to the mean position that none of its requests uses. Only instances whose csv already exists are included, so rerun it as instances appear (finished runs are skipped by `submit.sh`).
+
+    python ~/instance-generator/isa-features-plan-implementation/isa_set/make_solver_jobs.py --batch 1
+    SOLVER=<folder with the built a.out> MEM_GB=8 bash /work3/$USER/isa/solver/batch_01/submit.sh 1-4
+
+Memory per job is **OPEN** (OPEN-A3): the default is 8 GB; size it from `Max Memory` of the first four finished logs (a long job, so LSF's figure is reliable). The solver must be rebuilt with `maxstations 4000` first (OPEN-A4). Tests: `test_t16_solver_jobs.py`.
+
+## Features of a batch
+
+`isa_set/features_batch.py` (run through `isa_set/hpc/features_batch.sh`) computes the ISA features per instance and fleet: key = fleet key (`ISA_b01_i001_1_fleet2`), 3 rows per instance, output `<work>/results/features_batch_XX.csv`. It attaches the shared station matrix (aborts if it is missing), loads the network pickle once, and writes every 10 instances. One core, single thread. Memory and wall time are **OPEN** until the first log (guess: 4 GB, 3 h); the log prints time and peak memory per instance. Tests: `test_t17_features_batch.py`.
+
+## Batch 1 generation result (2026-11-06)
+
+100 instances generated, 1 core and 4 GB each, no job killed. Highest LSF Max Memory over the 95 jobs of the full run: 2849 MB (the cache plateau: 1613 MB at start + 3 x 400 MB cap). A fresh 579-request instance: CPU 425 s, run time 497 s (86% of the core).
+
+## Growth check (stop rule for the instance set)
+
+`isa_set/growth_check.py --new <work>/results/features_batch_02.csv` (earlier batches are found next to it) compares a new batch with the existing rows in the standardized feature space (rows = instance and fleet pairs). A new row is far when its nearest existing row is farther than the 95% quantile of the nearest-neighbour distances the existing rows have to each other, so a batch that fills the same space has about 5% far rows (the baseline). Verdict: STOP when the far share is at most baseline plus 3 points, or the set reaches 3000 rows (cap); otherwise CONTINUE. Also printed: the share outside the existing range of some feature and the worst features. Exit code 0 = continue, 1 = stop, 2 = no earlier batch. Simulation (8 Gaussian features): a batch from the same distribution wrongly says CONTINUE in 5% (1000 existing, 300 new) to 13% (300 existing, 100 new) of the draws; a false CONTINUE only costs one more batch. Tests: `test_t18_growth_check.py`.
+
+## Performance matrix of a batch
+
+`isa_set/collect_batch.py --batch 1` reads `<work>/solver/batch_XX/results/*.txt` and `features_batch_XX.csv` and writes `solver_runs_batch_XX.csv`, `raw_results_{mean,best}_batch_XX.csv` and `perf_matrix_{mean,best}_batch_XX.csv` (SA = mean over the 3 seeds, or its best seed; GR has one run; ratio normalization: best / value, best = 1.0). The objective is `best_total_user_ride_time`. The instance path in the first line of a result file contains spaces ("Capital Region of Denmark"), so the numbers are located after the token ending in `.csv`; the pilot parser, which counted from the start of the line, would have read the wrong columns. Both scorings are written and can be reported side by side (author decision 2026-11-09). Tests: `test_t19_collect_batch.py`.
+
+## SA variants (more moves per SA call)
+
+`make_solver_jobs.py --batch 1 --sa-variants 1000,2000,10000` appends SA1000, SA2000 and SA10000 (3 seeds each, flag `--max_static_iterations <cap>`) after the standard 1200 rows (rows 1201 to 3900, 27 per instance, so instance N is rows 1200+(N-1)*27+1 to 1200+N*27). Run them with `PER_JOB=27 WALL_H=3`. `collect_batch.py` then adds one column per variant to every performance matrix and prints the `ISA_ALGORITHMS` value for the instance space (`SA,SA1000,SA2000,SA10000,GR`). Test: the largest instance first (i024, rows 1822-1848).
+
+Check of the SA criterion (2026-11-09): SA seed 1 against GR on the same key: where SA is worse (60 keys) it serves 4.3 points more passengers (never fewer) at 2% higher total cost; where it is better (240 keys) it serves 2.7 points more at 0.62 of the cost. The hypothesis that SA gains by dropping passengers (its internal criterion, `compute_cluster_URT`, counts only served passengers) is not supported.
+
+Author's confirmation (2026-11-09): the SA's only objective is the ride time, and its moves only move a passenger from one vehicle to another; a move never drops a passenger (the third-party penalty term in the old code was removed). The data agrees: SA never served fewer passengers than GR on the same key. No change to the SA criterion is needed.
+
+`collect_batch.py --batch 1 --partial`: when the SA variants were run for small fleets only (`--variants-max-fleet-percent`), the keys without variants cannot enter a matrix with variant columns. `--partial` writes `features_batch_01_partial.csv`, `perf_matrix_*_batch_01_partial.csv` and `raw_results_*_batch_01_partial.csv` for the keys that have every algorithm, and prints how many are left out. Without the flag the script stops and says so.

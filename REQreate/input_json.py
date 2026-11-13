@@ -26,6 +26,7 @@ from .dynamism import dynamism2
 from .urgency import urgency
 from .geographic_dispersion import geographic_dispersion
 from .logger_utils import init_logger
+from .isa_features_hook import export_generated_instance_features
 
 def get_multiplier_time_unit(time_unit):
 
@@ -97,6 +98,12 @@ def _add_attribute_dependencies(GA):
                         )
                     for name in needed:
                         GA.add_edge(name, node)
+
+        if 'distance_decay_m' in GA.nodes[node]:
+            # the decay compares the zone drawn here with the origin point, so the origin is drawn first
+            if node == 'origin' or 'origin' not in GA:
+                raise ValueError("distance_decay_m on '" + str(node) + "' needs another attribute named origin")
+            GA.add_edge('origin', node)
 
         if 'constraints' in GA.nodes[node]:
 
@@ -220,6 +227,7 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
                 max_speed_factor=max_speed_factor,
                 vehicle_speed_data=vehicle_speed_data,
                 vehicle_speed=vehicle_speed,
+                exclude_places=data.get('exclude_places'),
             )
 
             inst = Instance(folder_to_network=place_name)
@@ -660,10 +668,11 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
 
         inst.parameters['travel_time_matrix'] = {}
         inst.parameters['travel_time_matrix']['type'] = 'matrix'
-        inst.parameters['travel_time_matrix']['value'] = True
         
         if (isinstance(data['travel_time_matrix'], (list))): 
             inst.parameters['travel_time_matrix']['locations'] = data['travel_time_matrix']
+            # Only enable if locations list is not empty
+            inst.parameters['travel_time_matrix']['value'] = len(data['travel_time_matrix']) > 0
         else: raise TypeError('locations for travel_time_matrix must be an array')
 
     if 'attributes' in data:
@@ -744,6 +753,15 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
             else:
 
                 GA.nodes[name]['subset_zones'] = False
+
+            if 'distance_decay_m' in attribute:
+
+                decay = attribute['distance_decay_m']
+                if isinstance(decay, bool) or not isinstance(decay, (int, float)) or decay <= 0:
+                    raise TypeError('distance_decay_m must be a positive number (metres)')
+                if not GA.nodes[name]['subset_zones']:
+                    raise ValueError('distance_decay_m needs subset_zones on the same attribute')
+                GA.nodes[name]['distance_decay_m'] = float(decay)
 
 
             if 'subset_locations' in attribute:
@@ -1159,11 +1177,11 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
     network_folder = os.path.join(save_dir_images, 'network')
 
     if not os.path.isdir(network_folder):
-        os.mkdir(network_folder)
+        os.makedirs(network_folder, exist_ok=True)
     plt.savefig(network_folder+'/network_drive')
 
     if not os.path.isdir(inst.save_dir+'/json_format/'+base_save_folder_name):
-        os.mkdir(inst.save_dir+'/json_format/'+base_save_folder_name)
+        os.makedirs(inst.save_dir+'/json_format/'+base_save_folder_name, exist_ok=True)
     
     gc.collect()
     inst.generate_requests(base_save_folder_name, inst_directory)
@@ -1172,11 +1190,9 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
         
     # convert instances from json to csv format
     save_dir_csv = os.path.join(inst.save_dir, 'csv_format')
-    if not os.path.isdir(save_dir_csv):
-        os.mkdir(save_dir_csv)
+    os.makedirs(save_dir_csv, exist_ok=True)
 
-    if not os.path.isdir(save_dir_csv+'/'+base_save_folder_name):
-        os.mkdir(save_dir_csv+'/'+base_save_folder_name)
+    os.makedirs(save_dir_csv+'/'+base_save_folder_name, exist_ok=True)
 
     replicate_num = 1
     for instance in os.listdir(os.path.join(inst.save_dir, 'json_format', base_save_folder_name)):
@@ -1240,6 +1256,14 @@ def input_json(inst_directory, instance_filename, base_save_folder_name):
             full_final_filename = full_final_filename + '_' + str(replicate_num) + '.csv'
 
             os.rename(os.path.join(save_dir_csv, base_save_folder_name, output_name_csv), os.path.join(save_dir_csv, base_save_folder_name, full_final_filename))
+
+            #ISA-HODBRP T12: one features.csv row per generated instance, keyed by the final csv stem
+            export_generated_instance_features(
+                json_path=input_name,
+                instance_ref=full_final_filename,
+                network_graph=getattr(inst.network, 'G_drive', None),
+            )
+
             replicate_num = replicate_num + 1
 
     f.close()
