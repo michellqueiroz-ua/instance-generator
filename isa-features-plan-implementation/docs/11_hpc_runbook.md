@@ -11,7 +11,7 @@ assistant checks it step by step. Never run solver or generation jobs on the Win
 - Python: the login node default is Python 3.9 **without pandas**. Use the venv: `module load python3/3.11.13; source ~/venvs/reqreate/bin/activate`
   (jobs do the same inside the `bsub` command). `pyarrow` is **not** installed yet (needed only for the GTFS features: `pip install pyarrow`).
 - Solver: built from `ODBRP_P/MDHODBRP-P/odbrp-parallel.cpp` on the HPC (source uploaded by sftp, CRLF stripped with `sed -i 's/\r$//'`, then `make` gives `a.out`; the
-  build used for batch 2 is the one without the +3600 s slack, D28). The submit scripts need `SOLVER=<folder with a.out>`; ask the user which folder (the scaling test used it).
+  build used for batch 2 is the one without the +3600 s slack, D28). The submit scripts need `SOLVER=<folder with a.out>`; the SA + model session assumed `SOLVER=$HOME/solver` (unverified): ask the user which folder the scaling test and the batch 2 rows used. Exact-model sources and audits live in `~/ip_model` (see the end of `07_model_neighbourhood_search_plan.md`).
 - File transfer: `transfer.gbar.dtu.dk` accepts **sftp only** (interactive, password); for `scp`/`ssh`/`rsync` use `login2.hpc.dtu.dk`.
 - Memory on LSF is **per slot**; LSF "Max Memory" is unreliable for short jobs (use GNU `/usr/bin/time -v`, "Maximum resident set size"). Admins kill jobs that over-reserve.
 
