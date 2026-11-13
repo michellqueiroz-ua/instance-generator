@@ -82,3 +82,16 @@ min 0.53, max 1.09. Served share: SA better on 299 of 300 (ratio 1.06, max 1.25)
 points): 109 of 300 keys. Batch 1 for comparison (old solver rule): SA better than GR on 232 of 300 keys.
 Consequence for the instance space: SA beats GR almost everywhere, so a footprint of GR rests on about 13 keys; the
 informative contrast may need the SA variants, SA plus the model, or the served share and quality measures.
+
+## Batch 2 instance space, first fit (2026-11-13, SA against GR, footprint threshold 0.95, 300 keys, 16 varying features)
+
+| Measure | Variance explained (features / performance) | SA good | GR good (purity) |
+|---|---|---|---|
+| total ride time (SA by the mean of seeds) | 0.53 / 0.31 | 296 of 300 (purity 0.99) | 32 of 300 (0.21) |
+| served share | 0.50 / 0.86 | 300 of 300 (1.00) | 176 of 300 (0.85) |
+| ride quality of the accepted passengers | 0.54 / 0.46 | 300 of 300 (1.00) | 0 of 300 (no footprint) |
+
+Reading: SA is good almost everywhere; GR is competitive on the served share where the fleet is ample (a well-defined footprint,
+purity 0.85, and the projection explains 86% of the performance variance), but on the total cost its 32 keys are scattered
+(purity 0.21) and on the quality of the accepted passengers it is never within 5% of SA. The contrast the analysis needs has to
+come from a third algorithm (SA variants, SA plus the model) or from the PT coverage features.
