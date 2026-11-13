@@ -70,3 +70,15 @@ same-station artefact; 2 of 5000 requests of b91 are unservable (the matrix mini
 instances of 10000 requests (batch 92) give empty result files although the job reports success; batch 2 (5000) is not
 affected. To fix: raise the cap and make the SA exit non-zero on the station-id error (deferred). Open: the model prices
 27 of 200 sampled b91 routes up to 1070 s cheaper than the SA cost (OPEN-A4).
+
+## Batch 2 solver results, first look (2026-11-13, `collect_batch.py --batch 2`)
+
+1200 runs (300 fleets: SA seeds 1-3 and GR), all with a result file. Mean run time 206 s for SA and 191 s for GR (longest 801 s and
+869 s), about 67 core-hours in total. Third-party requests summed over the runs: GR 111,063 in 300 runs (about 7.4% of 5000 per
+run), SA 113,216 in 900 runs (about 2.5%). Total ride time with the 4 x direct time penalty (the old measure, to be replaced
+after D42): SA better than GR on 287 of 300 keys by the mean of the seeds (288 by the best seed), SA/GR cost ratio mean 0.76,
+min 0.53, max 1.09. Served share: SA better on 299 of 300 (ratio 1.06, max 1.25). Ride quality of the accepted passengers
+(ride time / direct time): SA better on 300 of 300 (ratio 0.65). Like with like (served share differing by less than 2
+points): 109 of 300 keys. Batch 1 for comparison (old solver rule): SA better than GR on 232 of 300 keys.
+Consequence for the instance space: SA beats GR almost everywhere, so a footprint of GR rests on about 13 keys; the
+informative contrast may need the SA variants, SA plus the model, or the served share and quality measures.
