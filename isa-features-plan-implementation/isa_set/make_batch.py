@@ -274,11 +274,26 @@ def main(argv=None):
         rows.append(row)
 
     fleet = design["fleet"]
-    draws = latin_hypercube(args.n * fleet["draws_per_instance"], 2, rng)
+    k_fleets = fleet["draws_per_instance"]
+    draws = latin_hypercube(args.n * k_fleets, 2, rng)
+    if fleet.get("assignment", "random") == "stratified":
+        # every instance gets one point from each of k_fleets strata of the fleet-size coordinate, so each instance spans the whole
+        # fleet range (the points stay those of the one hypercube; the stratum of fleet k is permuted per instance)
+        order = sorted(range(len(draws)), key=lambda j: draws[j][0])
+        strata = [order[s * args.n:(s + 1) * args.n] for s in range(k_fleets)]
+        for stratum in strata:
+            rng.shuffle(stratum)
+        slots = []
+        for i in range(args.n):
+            perm = list(range(k_fleets))
+            rng.shuffle(perm)
+            slots.append([strata[perm[k]][i] for k in range(k_fleets)])
+    else:
+        slots = [[i * k_fleets + k for k in range(k_fleets)] for i in range(args.n)]
     fleets = {}
     for i, row in enumerate(rows):
         for k in range(fleet["draws_per_instance"]):
-            percent_u, share_u = draws[i * fleet["draws_per_instance"] + k]
+            percent_u, share_u = draws[slots[i][k]]
             percent = round(scale(percent_u, fleet["percent_of_requests"]), 2)
             share8 = round(100 * scale(share_u, fleet["share_8_seats"]), 1)
             # REQreate names the instance <config>_<replica>; replicas is 1

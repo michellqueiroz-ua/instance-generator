@@ -13,6 +13,8 @@ for path in (THIS_DIR, THIS_DIR / "isa_set"):
 import make_batch
 import zone_weights
 
+START_HOUR = float(json.loads((THIS_DIR / "isa_set" / "design.json").read_text(encoding="utf-8"))["instance"]["start_hour"])
+
 ZONES = [("zone0", 100.0, 0.0), ("zone1", 50.0, 50.0), ("zone2", 0.0, 100.0), ("zone3", 50.0, 50.0)]
 
 
@@ -113,11 +115,11 @@ class BatchWithZonesTests(unittest.TestCase):
                 self.assertEqual(attrs[end]["subset_zones"], "zones_all")
                 self.assertEqual(len(attrs[end]["weights"]), 4)
                 self.assertAlmostEqual(sum(attrs[end]["weights"]), 1.0, places=5)
-            self.assertEqual(params["min_early_departure"]["value"], 14.0)
+            self.assertEqual(params["min_early_departure"]["value"], START_HOUR)
             self.assertEqual(params["max_dtt"]["value"], 3600)
             self.assertEqual(attrs["origin"]["weights"][1], 0.0)       # zone1 is central: removed from the service area
             self.assertEqual(attrs["destination"]["weights"][1], 0.0)
-            self.assertEqual(params["max_early_departure"]["value"], 18.0)  # 4 h period from 14:00
+            self.assertEqual(params["max_early_departure"]["value"], START_HOUR + 4.0)  # 4 h period from the start hour
 
     def test_volume_is_fixed_at_5000_requests_and_the_set_option_holds_a_setting(self):
         for config in self.run_batch():
@@ -136,7 +138,7 @@ class BatchWithZonesTests(unittest.TestCase):
         with open(self.work / "design" / "batch_02.csv", newline="") as f:
             rows = list(csv.DictReader(f))
         self.assertTrue(all(0 <= float(r["inbound_share"]) <= 1 and 0.1 <= float(r["concentration"]) <= 1.5 for r in rows))
-        self.assertTrue(all(float(r["start_hour"]) == 14.0 for r in rows))
+        self.assertTrue(all(float(r["start_hour"]) == START_HOUR for r in rows))
         self.assertEqual({r["scenario"] for r in rows}, {"a_inbound", "b_both_ways", "c_outbound"})
 
     def test_a_weights_file_without_central_share_stops_the_batch(self):

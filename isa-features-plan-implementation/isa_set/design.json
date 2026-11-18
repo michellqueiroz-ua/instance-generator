@@ -15,6 +15,7 @@
     "  spatial.trip_decay_km: scale L of the zone-level distance decay (a destination zone is kept with 1/(1+(d/L)^2), d from the origin point to the zone centre); null = off. Choose L with check_weights.py.",
     "  max_dtt_s 3600 s (about 28 km at the network's effective speed of 27-28 km/h, measured on the smoke instances; the 20 km/h of vehicle_speed_kmh only sets the radius of the old ring); with zone weights the generator ignores the min/max dtt ring around the origin, so it only rejects long trips.",
     "  peak_sd_min [20, 120] because the period is 4 h. Fleet percent [10, 40] is provisional (fleets can be redrawn without regenerating).",
+    "  fleet.assignment: stratified = each instance gets one fleet from each of draws_per_instance strata of the fleet size (so every instance spans 10-40%); random = consecutive points of the shuffled hypercube.",
     "Batch 1 used period 2 h, 50-500 requests/h, start_hour [12, 19.5], peak_sd [10, 60], fleet [5, 40] and uniform demand."
   ],
   "network": "Capital Region of Denmark",
@@ -22,7 +23,7 @@
   "period_hours": 4,
   "instance": {
     "requests_per_hour": 1250,
-    "start_hour": 14.0,
+    "start_hour": 10.0,
     "peak_sd_min": [20, 120],
     "urgency_mean_min": [5, 40],
     "urgency_sd_min": [1, 10],
@@ -37,6 +38,7 @@
   },
   "fleet": {
     "draws_per_instance": 10,
+    "assignment": "stratified",
     "percent_of_requests": [10, 40],
     "share_8_seats": [0.0, 1.0]
   },
