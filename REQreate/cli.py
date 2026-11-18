@@ -199,6 +199,7 @@ def _run_network(args):
         point=tuple(args.point) if args.point is not None else None,
         dist=args.dist,
         get_fixed_lines=args.fixed_lines,
+        exclude_places=args.exclude,
     )
     return 0
 
@@ -252,6 +253,10 @@ def main(argv=None):
     network.add_argument(
         "--fixed-lines", choices=("osm", "deconet"),
         help="include public transport fixed lines",
+    )
+    network.add_argument(
+        "--exclude", action="append", metavar="PLACE",
+        help="place name cut out of the network area (repeatable), e.g. an island of a region",
     )
     network.set_defaults(func=_run_network, parser=network)
 

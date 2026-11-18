@@ -34,20 +34,14 @@ class Instance:
         self.network_class_file = self.pickle_dir+'/'+self.output_folder_base+'.network.class.pkl'
 
         print(self.network_class_file)
-        with open(self.network_class_file, 'rb') as self.network_class_file:
-            self.network = pickle.load(self.network_class_file)
-
-        self.network_class_file2 = self.pickle_dir+'/'+self.output_folder_base+'.network.class.pkl'
-
-        with open(self.network_class_file2, 'rb') as self.network_class_file:
-            network2 = pickle.load(self.network_class_file)
-
-        self.network.G_walk = network2.G_walk
-        self.network.shortest_path_walk = network2.shortest_path_walk
+        print(f"Loading network pickle file (this may take a moment for large networks)...")
         
-        del network2
-        #del self.network.shortest_path_drive
-        gc.collect()
+        # Load the pickle file ONCE (not twice like before!)
+        with open(self.network_class_file, 'rb') as f:
+            self.network = pickle.load(f)
+        
+        print(f"✓ Network loaded successfully")
+        gc.collect()  # Clean up memory immediately after loading
 
         #problem for which the instance is being created
         self.problem_type = None

@@ -1,0 +1,75 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=25mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{siunitx}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\sisetup{group-separator={,},group-minimum-digits=4}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  citecolor=blue!50!black,
+  urlcolor=blue!50!black,
+  pdftitle={Instance-space analysis of the H-ODBRP},
+  pdfauthor={Michell Queiroz}
+}
+\newcommand{\tagopen}[1][]{\textbf{[OPEN\ifx\relax#1\relax\else-#1\fi]}}
+\newcommand{\tagprop}{\textbf{[PROPOSED]}}
+\newcommand{\tagdone}{\textbf{[DECIDED]}}
+\newcommand{\sourcepath}[1]{{\small\protect\path{#1}}}
+\setlist{nosep,leftmargin=*}
+\lstset{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  breaklines=true,
+  frame=single,
+  keepspaces=true
+}
+
+\title{Instance-Space Analysis for the Heterogeneous\\On-Demand Bus Routing Problem}
+\author{Michell Queiroz}
+\date{Draft based on the source set updated 29 October 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This report records the design, implementation, and preliminary evidence for an
+instance-space analysis (ISA) of the static heterogeneous on-demand bus routing
+problem (H-ODBRP). The study uses simulated annealing (SA) and a greedy
+construction (GR) as the current comparison pair. A pilot of 24 generated
+instances paired with three fleets produced 72 solver cases. SA was better on
+70 of 72 cases; the two-level pilot still has a gap along the time-window
+dimension. A seed defect was identified and fixed, and the reported count of
+distinct mean OD distances rose from 6 to 24. A rewritten exact model and a
+checker replace an original model that disagreed with the heuristic rules in
+9 of 11 scenarios. Full-set generation is not yet established: the station
+matrix job, memory sizing, a third algorithm, and several design choices remain
+\tagopen. The proposed full design uses a Latin hypercube over the Capital
+Region of Denmark, excluding Bornholm, and grows in batches as the instance
+space expands.
+\end{abstract}
+
+\input{sections/01_summary}
+\input{sections/02_study_design}
+\input{sections/03_implementation}
+\input{sections/04_tests_results}
+\input{sections/05_decisions}
+\input{sections/06_open_items}
+\input{sections/07_reproduction}
+\input{sections/08_source_audit}
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}

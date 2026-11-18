@@ -1,0 +1,27 @@
+\section{Reproduction}
+
+The full generation and solver pipeline is intended for DTU HPC. These commands
+are transcribed from \sourcepath{docs/05_hpc_and_reproduction.md}; they are
+not to be run as local solver or generation jobs.
+
+\begin{lstlisting}[language=bash]
+# Build the network once
+bash ~/instance-generator/isa-features-plan-implementation/isa_set/hpc/build_network.sh
+
+# Draw a batch of 100, then submit one single-core job per config
+python ~/instance-generator/isa-features-plan-implementation/isa_set/make_batch.py --batch 1 --n 100
+bash ~/instance-generator/isa-features-plan-implementation/isa_set/hpc/generate_batch.sh 1
+
+# Profile a small generation run
+bsub -J isa_prof -q hpc -n 1 -R "rusage[mem=8GB]" -M 8GB -W 1:00 \
+  -o /work3/$USER/isa/logs/profile.out \
+  bash ~/instance-generator/isa-features-plan-implementation/isa_set/hpc/profile_one.sh <config.json> 6
+\end{lstlisting}
+
+\noindent\texttt{MEM\_GB} and \texttt{WALL\_H} override the 8 GB and 6 hour
+generation defaults. The recorded log pattern is
+\sourcepath{/work3/<user>/isa/logs/batch_XX/gen_<instance>.out}. The documented
+pipeline then collects feature rows, runs SA and GR for every instance/fleet,
+projects the set with \sourcepath{src/isa_pipeline.py}, and measures space
+growth. The matrix attachment step needed for the time-window features is not
+written yet \tagopen[G4].
