@@ -82,6 +82,13 @@ The urgency of the generator (the reaction time, 5-40 min) is the width of the t
 spread out the demand curve is (peak sd) and should be named and interpreted as temporal spread in the report. Sixteen
 features vary.
 
+**Decision 2026-11-18 (author), implemented in `src/isa_pipeline.py` (`EXCLUDED_FEATURES`, switch `--keep-dynamic`):**
+the analysis leaves out `request_flux_dynamism` (equals the peak spread of the time stamps in a static set, Spearman 0.98:
+the peak spread is the time-concentration feature), `avg_request_urgency` (constant in a static set, belongs to the dynamic
+problem, later work) and `static_to_dynamic_ratio` (counts only the requests at the first time stamp). The computation stays
+in `compute_features_scaffold.py`. The new feature `geographic_dispersion` (REQreate paper, section 5.4) is added. On the
+batch 2 file the count is 14 varying features without it and 15 with it (a recomputed column is needed; the old file lacks it).
+
 ## 2026-11-12 Phase A pricing audit (b90 and b91, fleet 3, SA, 200 vehicles each)
 - b90: 200/200 loadable. b91: 199/200. Not loadable: vehicle 813, cause is the model's 1 s minimum between two nodes at the same station (route has slack 0). Fix: `--same_station_gap 0` (only with `--fix_start`). Test pending. OPEN-A3.
 - Model cost vs SA cost with fixed routes: b91 137 equal, 36 dearer (max +8 s), 27 cheaper (down to -1070 s). Hypothesis: the SA respects latest_departure, the model does not (D43). OPEN-A4, not tested.

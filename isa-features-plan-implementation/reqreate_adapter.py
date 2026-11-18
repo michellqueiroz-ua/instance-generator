@@ -344,6 +344,11 @@ def convert_request(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if not math.isnan(tw_end):
         request["tw_end"] = tw_end
 
+    # Latest arrival at the destination (not the latest departure): needed by geographic_dispersion.
+    latest_arrival = _seconds_to_minutes(_first_present(raw, ("latest_arrival", "dropoff_to")))
+    if not math.isnan(latest_arrival):
+        request["latest_arrival"] = latest_arrival
+
     issue_time = _seconds_to_minutes(raw.get("time_stamp"))
     if not math.isnan(issue_time):
         request["issue_time"] = issue_time

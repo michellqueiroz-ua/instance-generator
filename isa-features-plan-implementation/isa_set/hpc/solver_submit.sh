@@ -6,8 +6,10 @@
 # Batches 2-3: 3 fleets per instance, PER_JOB=12 (one instance). Batches >= 4 (design.json draws_per_instance 10): 40 rows per instance, hpc_submit_next_batch.sh passes
 # PER_JOB=10 MEM_GB=2 WALL_H=3 (400 jobs for 100 instances; a row takes 202 s on average, 868 s at most). Nothing in this script depends on the number of fleets.
 # Measured on the largest instance (995 requests): peak 280 MB, 42 s per run. Finished runs are skipped.
-# SA variants (rows after the first 1200, 27 per instance): PER_JOB=27 and WALL_H=3, e.g.
-#   SOLVER=... PER_JOB=27 WALL_H=3 bash submit.sh 1201-1227   (one instance as a timing test)
+# SA variants (make_solver_jobs.py --sa-variants CAP): their rows come AFTER ALL base rows. Batch 4 (100 instances x 10 fleets x 4 base rows = 4000):
+#   variant rows are 4001.., 3 rows (SA seeds 1-3) per fleet and cap, in the order sorted fleet key, cap, seed;
+#   --variants-keys KEY keeps only that fleet (probe: rows 4001-4003). Example probe: SOLVER=... PER_JOB=1 WALL_H=6 bash submit.sh 4001-4003
+#   (batches 2-3: 12 base rows per instance, variants after row 1200, 27 per instance with caps 1000,2000,10000: PER_JOB=27 WALL_H=3).
 # This file is copied to <work>/solver/batch_XX/submit.sh by make_solver_jobs.py.
 cd "$(dirname "${BASH_SOURCE[0]}")"
 HERE=$(pwd)

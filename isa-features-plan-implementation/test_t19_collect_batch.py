@@ -83,6 +83,22 @@ class CollectBatchTests(unittest.TestCase):
         self.assertEqual(perf.loc["ISA_b01_i001_1_fleet1", "SA2000"], 1.0)  # 700 beats SA 800 and GR 1000
         self.assertAlmostEqual(perf.loc["ISA_b01_i001_1_fleet1", "SA"], 700 / 800)
 
+    def test_no_variants_ignores_sa_cap_files_so_only_sa_and_gr_remain(self):
+        runs = self.work / "solver" / "batch_01" / "results"
+        for seed in (1, 2, 3):  # an SA1000 probe for one key only
+            (runs / f"ISA_b01_i001_1_fleet1_SA1000_s{seed}.txt").write_text(result_line(700))
+        with self.assertRaises(SystemExit):  # without the flag the other key lacks SA1000
+            collect_batch.main(["--batch", "1", "--work", str(self.work)])
+        collect_batch.main(["--batch", "1", "--work", str(self.work), "--no-variants"])
+        results = self.work / "results"
+        perf = pd.read_csv(results / "perf_matrix_mean_batch_01.csv", index_col="instance")
+        self.assertEqual(list(perf.columns), ["SA", "GR"])
+        self.assertEqual(len(perf), 2)
+        self.assertAlmostEqual(perf.loc["ISA_b01_i001_1_fleet1", "GR"], 0.8)  # 800 / 1000, not beaten by SA1000
+        solver_runs = pd.read_csv(results / "solver_runs_batch_01.csv")
+        self.assertEqual(set(solver_runs["algo"]), {"SA", "GR"})
+        self.assertEqual(len(solver_runs), 8)
+
     def test_partial_keeps_the_keys_that_have_every_algorithm(self):
         runs = self.work / "solver" / "batch_01" / "results"
         for seed in (1, 2, 3):  # a variant for fleet1 only

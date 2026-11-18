@@ -22,6 +22,10 @@ MIN_COVERAGE_GRID_N = 5
 MAX_COVERAGE_GRID_N = 120
 MAX_COVERAGE_DISTANCE_CHECKS = 2_000_000
 TIME_INFER_SECONDS_THRESHOLD = 1000.0
+# Geographic dispersion (Queiroz, Lucas & Sorensen 2024, section 5.4): time threshold
+# ths = 600 s (10 min) and n = 5 nearest locations, as in REQreate/geographic_dispersion.py.
+GD_TIME_THRESHOLD_MIN = 10.0
+GD_NEAREST_N = 5
 
 
 FEATURE_KEYS: List[str] = [
@@ -47,7 +51,8 @@ FEATURE_KEYS: List[str] = [
     "bsa_flexibility",
     "avg_station_degree",
     "coverage_ratio",
-    # Dynamic
+    "geographic_dispersion",
+    # Dynamic (left out of the static analysis by default: EXCLUDED_FEATURES in src/isa_pipeline.py)
     "request_flux_dynamism",
     "static_to_dynamic_ratio",
     "avg_request_urgency",
@@ -1327,6 +1332,16 @@ def _compute_dynamic_placeholder_features(instance: Dict[str, Any]) -> Dict[str,
     """
     Compute features 19-21 with static-study defaults and dynamic compatibility.
 
+    The code is kept, but the three features are left out of the static analysis by default
+    (``EXCLUDED_FEATURES`` in ``src/isa_pipeline.py``, author decision 2026-11-18):
+    - request_flux_dynamism equals the peak spread of the time stamps in a static set
+      (std of time stamps / horizon; Spearman 0.98 with the design variable "peak spread").
+      The time concentration of the demand is represented by the peak spread, not by this copy.
+    - avg_request_urgency is constant in a static set (issue time = earliest departure): it
+      belongs to the dynamic problem.
+    - static_to_dynamic_ratio counts only the requests at the first time stamp: it is not a
+      static/dynamic share and is removed from the analysis.
+
     Static-study stable defaults:
     - request_flux_dynamism = 0.0
     - static_to_dynamic_ratio = 100.0
@@ -1411,6 +1426,181 @@ def _compute_dynamic_placeholder_features(instance: Dict[str, Any]) -> Dict[str,
         "static_to_dynamic_ratio": static_to_dynamic_ratio,
         "avg_request_urgency": avg_request_urgency,
     }
+
+
+def _gd_station_lists(requests: List[Dict[str, Any]], key: str, n_stations: int) -> List[np.ndarray]:
+    """Per request, the valid station indices of ``key`` (stops_orgn / stops_dest) as an int array."""
+    lists: List[np.ndarray] = []
+    for req in requests:
+        values = _parse_maybe_list(req.get(key)) if isinstance(req, dict) else None
+        ids: List[int] = []
+        for value in values or []:
+            idx = _to_lookup_key(value)
+            if isinstance(idx, int) and 0 <= idx < n_stations:
+                ids.append(idx)
+        lists.append(np.asarray(ids, dtype=np.int64))
+    return lists
+
+
+def _gd_matrix_to_minutes_factor(matrix: np.ndarray, unit_hint: Optional[str]) -> float:
+    if unit_hint == "min":
+        return 1.0
+    if unit_hint == "sec":
+        return 1.0 / 60.0
+    sample = matrix[: min(matrix.shape[0], 50), : min(matrix.shape[1], 50)]
+    sample = sample[np.isfinite(sample) & (sample > 0)]
+    if sample.size and float(np.median(sample)) > TRAVEL_TIME_INFER_SECONDS_THRESHOLD:
+        return 1.0 / 60.0
+    return 1.0
+
+
+def _compute_geographic_dispersion(instance: Dict[str, Any]) -> Dict[str, float]:
+    """
+    Geographic dispersion gd = mu + omega of the requests of one instance (minutes).
+
+    Source: Queiroz, Lucas & Sorensen (2024), "Instance generation tool for on-demand
+    transportation problems", European Journal of Operational Research 317, 696-717,
+    section 5.4 "Geographic dispersion", equations (4)-(6), p. 703 (worked example p. 703-704,
+    Fig. 5 / Table 2). The ODBRP variant is implemented, as in REQreate's own tool
+    (REQreate/geographic_dispersion.py). Both request ends are used (origins and
+    destinations); no zones or zone weights are involved: the measure works on travel times
+    between bus stations (the station travel-time matrix), so it needs ``travel_time_matrix_sec``
+    and, per request, ``stops_orgn``, ``stops_dest``, ``tw_start`` (earliest departure) and
+    ``latest_arrival`` (minutes).
+
+    mu    = mean over requests of the mean travel time between the stations around the origin
+            and the stations around the destination (pairs of different stations).
+    omega = sum_i (tn^o_i + tn^d_i) / (2 |R|), the detour term:
+            L^o_i = origins of requests j != i with |ed_i - ed_j| < ths, and destinations of
+                    requests j != i with |ed_i - la_j| < ths;
+            L^d_i = destinations of requests j != i with |la_i - la_j| < ths, and origins of
+                    requests j != i with |la_i - ed_j| < ths;
+            N^o_i, N^d_i = the n = 5 nearest locations of L^o_i, L^d_i (by travel time from the
+            stations around the origin / the destination of i; locations are unique stations
+            that are not own stations); tn = mean travel time to them (0 when none).
+    ths = 10 min, n = 5 (the values of the tool). All times in minutes, travel times converted
+    to minutes. The measure grows when the stations of simultaneously active requests lie far
+    from each other. Requests without usable stations are skipped in mu; they count in |R| in
+    omega with tn = 0, as in the tool. Result is NaN without a station matrix, stations or
+    latest_arrival (the DARP node-based variant is not implemented).
+
+    Cost: sorted time arrays and a window search per request, one small matrix slice per
+    request; about 2-5 s for 5000 requests with 3-5 stations each. The result is cached on the instance dict
+    (key ``_gd_cache``), because features_batch.py computes the features once per fleet of the
+    same instance.
+    """
+    nan = {"geographic_dispersion": float("nan")}
+    requests = get_field_or_default(instance, "requests", [])
+    if not isinstance(requests, list) or not requests:
+        return nan
+
+    matrix, unit_hint = _resolve_drive_travel_time_matrix(instance)
+    if matrix is None or isinstance(matrix, dict):
+        return nan
+    cache = instance.get("_gd_cache")
+    stamp = (id(requests), len(requests), id(matrix))
+    if isinstance(cache, tuple) and cache[0] == stamp:
+        return {"geographic_dispersion": cache[1]}
+
+    try:
+        m = matrix if isinstance(matrix, np.ndarray) else np.asarray(matrix, dtype=float)
+    except (TypeError, ValueError):
+        return nan
+    if m.ndim != 2 or m.shape[0] == 0:
+        return nan
+    to_min = _gd_matrix_to_minutes_factor(m, unit_hint)
+
+    n = len(requests)
+    ed = np.array([to_float_or_nan(r.get("tw_start")) if isinstance(r, dict) else float("nan") for r in requests])
+    la = np.array([to_float_or_nan(r.get("latest_arrival")) if isinstance(r, dict) else float("nan") for r in requests])
+    if not (np.isfinite(ed).all() and np.isfinite(la).all()):
+        return nan
+
+    own_o = _gd_station_lists(requests, "stops_orgn", m.shape[1])
+    own_d = _gd_station_lists(requests, "stops_dest", m.shape[1])
+    if not any(len(a) for a in own_o) or not any(len(a) for a in own_d):
+        return nan
+
+    # mu: mean over requests of the mean station-to-station time (different stations only).
+    mu_values: List[float] = []
+    for o, d in zip(own_o, own_d):
+        if not len(o) or not len(d):
+            continue
+        sub = m[np.ix_(o, d)]
+        ok = (o[:, None] != d[None, :]) & np.isfinite(sub)
+        if ok.any():
+            mu_values.append(float(sub[ok].mean()))
+    if not mu_values:
+        return nan
+    mu = float(np.mean(mu_values)) * to_min
+
+    # omega: window sets from arrays sorted by earliest departure (origins) and latest arrival (destinations).
+    ths = GD_TIME_THRESHOLD_MIN
+    eps = 1e-9
+    order_e = np.argsort(ed, kind="stable")
+    order_l = np.argsort(la, kind="stable")
+    ed_sorted, la_sorted = ed[order_e], la[order_l]
+    pos_e = np.empty(n, dtype=np.int64)
+    pos_l = np.empty(n, dtype=np.int64)
+    pos_e[order_e] = np.arange(n)
+    pos_l[order_l] = np.arange(n)
+
+    def flatten(lists: List[np.ndarray], order: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        parts = [lists[k] for k in order]
+        offsets = np.zeros(n + 1, dtype=np.int64)
+        offsets[1:] = np.cumsum([len(a) for a in parts])
+        return (np.concatenate(parts) if offsets[-1] else np.zeros(0, dtype=np.int64)), offsets
+
+    flat_o, off_o = flatten(own_o, order_e)   # origins, in earliest-departure order
+    flat_d, off_d = flatten(own_d, order_l)   # destinations, in latest-arrival order
+
+    def window(sorted_vals: np.ndarray, centre: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        return (
+            np.searchsorted(sorted_vals, centre - ths - eps, side="left"),
+            np.searchsorted(sorted_vals, centre + ths + eps, side="right"),
+        )
+
+    e_around_ed = window(ed_sorted, ed)   # ed_j within ths of ed_i
+    l_around_ed = window(la_sorted, ed)   # la_j within ths of ed_i
+    l_around_la = window(la_sorted, la)   # la_j within ths of la_i
+    e_around_la = window(ed_sorted, la)   # ed_j within ths of la_i
+
+    def take(flat: np.ndarray, off: np.ndarray, lo: int, hi: int, self_pos: int) -> np.ndarray:
+        if lo <= self_pos < hi:
+            return np.concatenate((flat[off[lo]:off[self_pos]], flat[off[self_pos + 1]:off[hi]]))
+        return flat[off[lo]:off[hi]]
+
+    def nearest_mean(own: np.ndarray, candidates: np.ndarray) -> float:
+        if not len(own):
+            return 0.0
+        candidates = np.setdiff1d(candidates, own)  # unique, and not an own station
+        if not len(candidates):
+            return 0.0
+        times = m[np.ix_(own, candidates)].ravel()
+        times = times[np.isfinite(times)]
+        if not len(times):
+            return 0.0
+        k = min(GD_NEAREST_N, len(times))
+        smallest = np.partition(times, k - 1)[:k] if k < len(times) else times
+        return float(smallest.mean())
+
+    total = 0.0
+    for i in range(n):
+        pe, pl = int(pos_e[i]), int(pos_l[i])
+        l_o = np.concatenate((
+            take(flat_o, off_o, int(e_around_ed[0][i]), int(e_around_ed[1][i]), pe),
+            take(flat_d, off_d, int(l_around_ed[0][i]), int(l_around_ed[1][i]), pl),
+        ))
+        l_d = np.concatenate((
+            take(flat_d, off_d, int(l_around_la[0][i]), int(l_around_la[1][i]), pl),
+            take(flat_o, off_o, int(e_around_la[0][i]), int(e_around_la[1][i]), pe),
+        ))
+        total += nearest_mean(own_o[i], l_o) + nearest_mean(own_d[i], l_d)
+    omega = total / (2.0 * n) * to_min
+
+    value = mu + omega
+    instance["_gd_cache"] = (stamp, value)
+    return {"geographic_dispersion": value}
 
 
 def _compute_spatial_network_features(instance: Dict[str, Any]) -> Dict[str, float]:
@@ -1530,7 +1720,7 @@ def compute_features(instance: Dict[str, Any]) -> Dict[str, float]:
     Scaffold-only feature entrypoint.
 
     Contract:
-    - Always returns exactly 21 flat keys (FEATURE_KEYS).
+    - Always returns exactly the flat keys of FEATURE_KEYS (22).
     - Values are numeric floats (including NaN placeholders).
     - Performs lightweight schema validation without failing hard.
     """
@@ -1543,6 +1733,7 @@ def compute_features(instance: Dict[str, Any]) -> Dict[str, float]:
     fleet_features = _compute_fleet_features(instance)
     spatial_network_features = _compute_spatial_network_features(instance)
     dynamic_features = _compute_dynamic_placeholder_features(instance)
+    dispersion_feature = _compute_geographic_dispersion(instance)
 
     features: Dict[str, float] = {}
     for key in FEATURE_KEYS:
@@ -1558,6 +1749,8 @@ def compute_features(instance: Dict[str, Any]) -> Dict[str, float]:
             features[key] = to_float_or_nan(fleet_features[key])
         elif key in spatial_network_features:
             features[key] = to_float_or_nan(spatial_network_features[key])
+        elif key in dispersion_feature:
+            features[key] = to_float_or_nan(dispersion_feature[key])
         elif key in dynamic_features:
             features[key] = to_float_or_nan(dynamic_features[key])
         else:

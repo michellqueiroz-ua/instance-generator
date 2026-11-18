@@ -13,9 +13,12 @@ Nothing is run here; submit.sh is run on a login node, after the solver is built
 
 Runs per (instance, fleet): SA with seeds 1..sa-seeds and GR (SA binary with --greedy_only).
 With --sa-variants 1000,2000,10000 there are also SA1000, SA2000 and SA10000 (same seeds), which stop each SA call
-after that many counted moves instead of 200 (--max_static_iterations). Their rows come after the standard rows,
-9 per fleet (27 per instance, fewer with --variants-max-fleet-percent): run them with PER_JOB=18 and a longer
-WALL_H (see solver_submit.sh).
+after that many counted moves instead of 200 (--max_static_iterations). Their rows come after ALL the standard rows
+(rows 4001.. in a batch of 100 instances x 10 fleets x 4 rows; base rows keep their numbers), per fleet 3 rows
+(SA seeds) for each cap, in the order sorted fleet key, cap, seed. --variants-max-fleet-percent X keeps only fleets
+with at most X vehicles per 100 requests; --variants-keys KEY[,KEY] keeps only those fleets (probe of one
+instance--fleet pair: 3 rows for one cap). Run them with PER_JOB=1..3 and a longer WALL_H (see solver_submit.sh).
+jobs.csv, submit.sh and run_rows.sh are written to *.tmp and renamed, so a job that is running never reads a half-written file.
 The solver takes each vehicle type's count as a percentage of the requests, rounded up, so a count is
 written as (count - 0.5) / requests * 100, which rounds back to exactly the count.
 
@@ -108,6 +111,9 @@ def main(argv=None):
                         help="only fleets with at most this many vehicles per 100 requests get the SA variants "
                              "(batch 1: with ample fleets SA already reaches the sum of the direct times and the "
                              "variants take 40 times as long)")
+    parser.add_argument("--variants-keys", default="",
+                        help="comma-separated fleet keys (e.g. ISA_b04_i001_1_fleet7): only these fleets get the SA "
+                             "variants (probe of one instance--fleet pair); combines with --variants-max-fleet-percent")
     args = parser.parse_args(argv)
 
     work = Path(args.work)
@@ -119,10 +125,13 @@ def main(argv=None):
         raise SystemExit(f"{matrix} is missing: run station_matrix.sh first")
     stations = read_stations(next((network / "csv").glob("*.stations.csv")))
 
+    caps = [int(c) for c in args.sa_variants.split(",") if c.strip()]
+    only = {k.strip() for k in args.variants_keys.split(",") if k.strip()}
+    if only - set(fleets):   # before anything is created or written
+        raise SystemExit(f"--variants-keys: unknown fleet key(s) {sorted(only - set(fleets))[:3]}")
+
     out = work / "solver" / f"batch_{tag}"
     out.mkdir(parents=True, exist_ok=True)
-
-    caps = [int(c) for c in args.sa_variants.split(",") if c.strip()]
     rows = ["key; instance; algo; seed; total_requests; n1; n2; depot"]
     variant_rows = []
     cache = {}
@@ -145,22 +154,32 @@ def main(argv=None):
             for seed in seeds:
                 rows.append(f"{key}; {path}; {algo}; {seed}; {n_requests}; {n1}; {n2}; {depot}")
         fleet_percent = 100.0 * len(vehicles) / n_requests
-        for cap in caps if (args.variants_max_fleet_percent is None
-                            or fleet_percent <= args.variants_max_fleet_percent) else []:
+        for cap in caps if ((args.variants_max_fleet_percent is None
+                             or fleet_percent <= args.variants_max_fleet_percent)
+                            and (not only or key in only)) else []:
             for seed in range(1, args.sa_seeds + 1):
                 variant_rows.append(f"{key}; {path}; SA{cap}; {seed}; {n_requests}; {n1}; {n2}; {depot}")
     # appended, so the rows of the standard runs keep their numbers (finished runs are skipped by name)
     rows.extend(variant_rows)
+    if args.variants_keys and not variant_rows:
+        raise SystemExit("--variants-keys: no variant rows written (is --sa-variants given, is the fleet's instance csv "
+                         "there, does --variants-max-fleet-percent exclude it?)")
 
+    # Each file is written to <name>.tmp and renamed (os.replace is atomic on the same folder), so a running job that
+    # reads jobs.csv or run_rows.sh never sees a truncated file.
     # open() instead of Path.write_text(newline=): the login node runs Python 3.9
-    with open(out / "jobs.csv", "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(rows) + "\n")
+    def write_atomic(path, text):
+        tmp = Path(str(path) + ".tmp")
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        os.replace(tmp, path)
+
+    write_atomic(out / "jobs.csv", "\n".join(rows) + "\n")
     # read_text turns any CRLF of a Windows checkout into LF; the files must run on Linux
     for name in ("submit.sh", "run_rows.sh"):
         text = (TEMPLATES / ("solver_" + name)).read_text(encoding="utf-8")
         text = text.replace("__TRAVEL_TIME__", str(matrix)).replace("__SA_ARGS__", SA_ARGS)
-        with open(out / name, "w", encoding="utf-8", newline="\n") as f:
-            f.write(text)
+        write_atomic(out / name, text)
     print(f"{len(rows) - 1} runs for {len(fleets) - len(missing)} fleets of {len(cache)} instances in {out}")
     if missing:
         print(f"skipped {len(missing)} fleets whose instance csv does not exist yet, e.g. {missing[0]}")

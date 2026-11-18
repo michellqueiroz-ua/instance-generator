@@ -18,6 +18,7 @@ for _path in (THIS_DIR, REPO_ROOT / "src"):
 from compute_features_scaffold import FEATURE_KEYS
 from isa_pipeline import (
     DYNAMIC_COLUMNS,
+    EXCLUDED_FEATURES,
     build_metadata_frame,
     Footprint,
     PipelineError,
@@ -149,6 +150,38 @@ class TestT14Preprocessing(PipelineTestCase):
         clean, report = preprocess_features(features, drop_dynamic=False)
         self.assertEqual(report.dropped_dynamic, [])
         self.assertIn("avg_request_urgency", clean.columns)
+
+    def test_excluded_features_are_one_named_list_with_reasons(self) -> None:
+        self.assertEqual(
+            set(EXCLUDED_FEATURES),
+            {"request_flux_dynamism", "avg_request_urgency", "static_to_dynamic_ratio"},
+        )
+        self.assertEqual(DYNAMIC_COLUMNS, tuple(EXCLUDED_FEATURES))
+        self.assertTrue(all(reason.strip() for reason in EXCLUDED_FEATURES.values()))
+        features = _features_frame(20)
+        # request_flux_dynamism and static_to_dynamic_ratio made non-constant: still excluded by default.
+        features["request_flux_dynamism"] = np.linspace(0.1, 0.4, 20)
+        features["static_to_dynamic_ratio"] = np.linspace(0.0, 0.3, 20)
+        clean, report = preprocess_features(features)
+        for name in EXCLUDED_FEATURES:
+            self.assertNotIn(name, clean.columns)
+        text = "\n".join(report.describe())
+        self.assertIn("request_flux_dynamism", text)
+        self.assertIn("peak spread", text)  # the reason is printed
+
+    def test_varying_feature_count_with_and_without_exclusion(self) -> None:
+        features = _features_frame(20)
+        features["request_flux_dynamism"] = np.linspace(0.1, 0.4, 20)
+        features["static_to_dynamic_ratio"] = np.linspace(0.0, 0.3, 20)
+        for name in ("n_requests", "demand_density", "station_density", "avg_station_degree"):
+            features[name] = 1.0                        # constant in the set, dropped by the constant rule
+        kept_default, _ = preprocess_features(features)
+        kept_all, report_all = preprocess_features(features, drop_dynamic=False)
+        n_all = len(FEATURE_KEYS) - 4 - 1               # minus 4 constant, minus constant avg_request_urgency
+        self.assertEqual(kept_all.shape[1], n_all)
+        self.assertEqual(kept_default.shape[1], n_all - 2)  # the two varying excluded features go
+        self.assertIn("avg_request_urgency", report_all.dropped_constant)
+        self.assertIn("geographic_dispersion", kept_default.columns)
 
     def test_invalid_threshold_rejected(self) -> None:
         with self.assertRaises(ValueError):

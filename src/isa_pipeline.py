@@ -89,12 +89,26 @@ DEFAULT_INSTANCE_SPACE_CSV = _REPO_ROOT / "data" / "results" / "instance_space.c
 DEFAULT_FOOTPRINT_CSV = _REPO_ROOT / "data" / "results" / "footprint_summary.csv"
 DEFAULT_FIGURES_DIR = _REPO_ROOT / "figures"
 
-# Constant for the static study (feature_list.md, features 19-21).
-DYNAMIC_COLUMNS = (
-    "request_flux_dynamism",
-    "static_to_dynamic_ratio",
-    "avg_request_urgency",
-)
+# Features that are computed and written to features.csv but left out of the static analysis by
+# default (author decision 2026-11-18). ONE place: this dict. --keep-dynamic puts them back
+# (drop_dynamic=False in run_pipeline / preprocess_features). The constant-column drop in
+# preprocess_features still applies to everything that is kept.
+EXCLUDED_FEATURES = {
+    "request_flux_dynamism": (
+        "equals the peak spread of the time stamps in a static set (std of time stamps / horizon, "
+        "Spearman 0.98 with the design variable); the peak spread is the time-concentration feature"
+    ),
+    "avg_request_urgency": (
+        "constant in a static set (issue time = earliest departure); belongs to the dynamic problem, "
+        "later work"
+    ),
+    "static_to_dynamic_ratio": (
+        "counts only the requests at the first time stamp, not a static/dynamic share; removed "
+        "from the analysis"
+    ),
+}
+# Kept under its old name: the tuple of excluded column names.
+DYNAMIC_COLUMNS = tuple(EXCLUDED_FEATURES)
 
 DEFAULT_NAN_THRESHOLD = 0.10
 DEFAULT_FOOTPRINT_THRESHOLD = 0.80
@@ -201,8 +215,11 @@ class PreprocessingReport:
         ]
         if self.dropped_dynamic:
             lines.append(
-                f"dropped dynamic      : {', '.join(self.dropped_dynamic)}"
+                f"dropped (excluded)   : {', '.join(self.dropped_dynamic)}"
             )
+            for name in self.dropped_dynamic:
+                if name in EXCLUDED_FEATURES:
+                    lines.append(f"    {name}: {EXCLUDED_FEATURES[name]}")
         if self.dropped_high_nan:
             detail = ", ".join(f"{name} ({share:.0%} NaN)" for name, share in self.dropped_high_nan)
             lines.append(f"dropped high-NaN     : {detail}")
@@ -228,7 +245,7 @@ def preprocess_features(
 
     Order matters and differs slightly from the order §7 lists them in:
 
-      1. drop the static-study dynamic columns (they are constant by design);
+      1. drop the columns of EXCLUDED_FEATURES (``dynamic_columns``; reasons in that dict);
       2. drop columns with more than ``nan_threshold`` missing;
       3. median-impute what is left;
       4. drop constant columns **after** imputation — imputing can flatten a
@@ -896,7 +913,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--keep-dynamic",
         action="store_true",
-        help="keep features 19-21 instead of dropping them as static-constant",
+        help="keep the features of EXCLUDED_FEATURES (request_flux_dynamism, avg_request_urgency, "
+        "static_to_dynamic_ratio) instead of leaving them out of the static analysis",
     )
     parser.add_argument(
         "--footprint-threshold",

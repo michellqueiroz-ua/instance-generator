@@ -77,6 +77,53 @@ class SolverJobsTests(unittest.TestCase):
                    "--sa-variants", "1000", "--variants-max-fleet-percent", "25"])
         self.assertEqual([r[2] for r in self.rows()], ["SA", "GR", "SA1000"])
 
+    def two_fleet_setup(self):
+        # a second fleet of the SAME instance, so --variants-keys has to pick one of two
+        path = self.work / "design" / "batch_01_fleets.json"
+        fleets = json.loads(path.read_text())
+        fleets["ISA_b01_i001_1_fleet2"] = dict(fleets["ISA_b01_i001_1_fleet1"])
+        del fleets["ISA_b01_i002_1_fleet1"]
+        path.write_text(json.dumps(fleets))
+
+    def test_variants_keys_limits_the_variants_to_one_fleet(self):
+        self.two_fleet_setup()
+        base = ["--batch", "1", "--work", str(self.work), "--network", "Net", "--sa-seeds", "2"]
+        jobs.main(base)
+        standard = self.rows()
+        self.assertEqual(len(standard), 6)  # 2 fleets x (SA s1, SA s2, GR)
+        jobs.main(base + ["--sa-variants", "1000", "--variants-keys", "ISA_b01_i001_1_fleet2"])
+        rows = self.rows()
+        self.assertEqual(rows[:len(standard)], standard)  # base rows unchanged, same numbers
+        extra = rows[len(standard):]
+        self.assertEqual([(r[0], r[2], r[3]) for r in extra],
+                         [("ISA_b01_i001_1_fleet2", "SA1000", "1"), ("ISA_b01_i001_1_fleet2", "SA1000", "2")])
+        self.assertFalse(any(r[2] == "SA1000" and r[0].endswith("fleet1") for r in rows))
+
+    def test_variants_keys_unknown_key_exits_before_anything_is_written(self):
+        self.two_fleet_setup()
+        before = (self.out / "jobs.csv").read_bytes()
+        (self.out / "jobs.csv").unlink()
+        with self.assertRaises(SystemExit) as context:
+            jobs.main(["--batch", "1", "--work", str(self.work), "--network", "Net", "--sa-variants", "1000",
+                       "--variants-keys", "ISA_b01_i001_1_fleet99"])
+        self.assertIn("unknown fleet key", str(context.exception))
+        self.assertFalse((self.out / "jobs.csv").exists())
+        self.assertTrue(before)
+
+    def test_variants_keys_without_a_variant_row_exits(self):
+        self.two_fleet_setup()
+        (self.out / "jobs.csv").unlink()
+        with self.assertRaises(SystemExit) as context:  # key is known, but no --sa-variants: nothing to write
+            jobs.main(["--batch", "1", "--work", str(self.work), "--network", "Net",
+                       "--variants-keys", "ISA_b01_i001_1_fleet2"])
+        self.assertIn("no variant rows written", str(context.exception))
+        self.assertFalse((self.out / "jobs.csv").exists())
+
+    def test_files_are_replaced_atomically_without_leftovers(self):
+        self.assertEqual(sorted(p.name for p in self.out.iterdir() if p.suffix == ".tmp"), [])
+        self.assertTrue((self.out / "jobs.csv").is_file() and (self.out / "submit.sh").is_file()
+                        and (self.out / "run_rows.sh").is_file())
+
     def test_vehicle_counts_round_trip_through_the_solver_percentages(self):
         row = self.rows()[0]
         n_requests = int(row[4])

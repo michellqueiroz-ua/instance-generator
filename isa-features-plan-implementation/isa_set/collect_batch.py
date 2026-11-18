@@ -1,7 +1,7 @@
 """
 collect_batch.py - ISA instance set: turn the solver results of one batch into its performance matrix.
 
-    python collect_batch.py --batch 1 [--work /work3/$USER/isa]
+    python collect_batch.py --batch 1 [--work /work3/$USER/isa] [--partial] [--no-variants]
 
 Reads   <work>/solver/batch_XX/results/<key>_<SA|SA<cap>|GR>_s<seed>.txt   the solver output, one file per run
         <work>/results/features_batch_XX.csv                       the feature rows (instance order and keys)
@@ -17,6 +17,8 @@ Three performance measures, each scored with SA by the mean of its seeds and by 
 For small fleets the total is dominated by the third-party penalty; served and quality describe those cases.
 quality is only comparable between two algorithms that accept about the same passengers (the printed count).
 SA<cap> (e.g. SA2000) is SA with that many counted moves per call (make_solver_jobs.py --sa-variants).
+--no-variants ignores the SA<cap> result files, so only SA and GR remain (the base set while an SA1000 probe has files for
+a few keys only; otherwise every key must have every algorithm found).
 Every algorithm found becomes a column; the script prints the ISA_ALGORITHMS value the instance space pipeline needs.
 
 The first line of a result file starts with the instance path, which contains spaces ("Capital Region of
@@ -80,6 +82,8 @@ def main(argv=None):
     parser.add_argument("--partial", action="store_true",
                         help="when some keys lack some algorithm (SA variants only for small fleets), write the "
                              "matrices and a features file for the keys that have all of them (names end in _partial)")
+    parser.add_argument("--no-variants", action="store_true",
+                        help="ignore the SA<cap> result files (variant runs, e.g. an SA1000 probe): only SA and GR remain")
     args = parser.parse_args(argv)
 
     tag = f"{args.batch:02d}"
@@ -88,6 +92,10 @@ def main(argv=None):
     features_csv = results / f"features_batch_{tag}.csv"
 
     runs, unreadable = read_runs(work / "solver" / f"batch_{tag}" / "results")
+    if args.no_variants and not runs.empty:
+        n_before = len(runs)
+        runs = runs[~runs["algo"].str.match(r"SA\d")].reset_index(drop=True)
+        print(f"--no-variants: {n_before - len(runs)} SA<cap> result files ignored")
     if unreadable:
         raise SystemExit(f"{len(unreadable)} result files cannot be read, e.g. {unreadable[:3]}")
     if runs.empty:
