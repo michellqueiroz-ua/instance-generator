@@ -36,12 +36,12 @@
     "trip_decay_km": 3
   },
   "fleet": {
-    "draws_per_instance": 3,
+    "draws_per_instance": 10,
     "percent_of_requests": [10, 40],
     "share_8_seats": [0.0, 1.0]
   },
   "fixed": {
-    "max_walking_s": [550, 600],
+    "max_walking_s": [600, 600],
     "walk_speed_mps": 1.38889,
     "min_dtt_s": 300,
     "max_dtt_s": 3600,

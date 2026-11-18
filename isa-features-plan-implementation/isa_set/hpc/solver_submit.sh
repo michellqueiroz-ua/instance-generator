@@ -3,6 +3,8 @@
 # by run_rows.sh, so the reserved core stays busy and the queue is not flooded with 10-second jobs). Login node.
 #   SOLVER=<dir with the built a.out> bash submit.sh [first-last]     e.g.  bash submit.sh 277-288   (a test)
 # MEM_GB (default 1), WALL_H (default 1) and PER_JOB (default 12 = one instance: 3 fleets x (3 SA + 1 GR)) are per job.
+# Batches 2-3: 3 fleets per instance, PER_JOB=12 (one instance). Batches >= 4 (design.json draws_per_instance 10): 40 rows per instance, hpc_submit_next_batch.sh passes
+# PER_JOB=10 MEM_GB=2 WALL_H=3 (400 jobs for 100 instances; a row takes 202 s on average, 868 s at most). Nothing in this script depends on the number of fleets.
 # Measured on the largest instance (995 requests): peak 280 MB, 42 s per run. Finished runs are skipped.
 # SA variants (rows after the first 1200, 27 per instance): PER_JOB=27 and WALL_H=3, e.g.
 #   SOLVER=... PER_JOB=27 WALL_H=3 bash submit.sh 1201-1227   (one instance as a timing test)
