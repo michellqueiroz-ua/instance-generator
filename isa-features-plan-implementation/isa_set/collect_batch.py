@@ -1,7 +1,7 @@
 """
 collect_batch.py - ISA instance set: turn the solver results of one batch into its performance matrix.
 
-    python collect_batch.py --batch 1 [--work /work3/$USER/isa] [--partial] [--no-variants]
+    python collect_batch.py --batch 1 [--work /work3/$USER/isa] [--partial] [--no-variants] [--gr-seeds-max K]
 
 Reads   <work>/solver/batch_XX/results/<key>_<SA|SA<cap>|GR>_s<seed>.txt   the solver output, one file per run
         <work>/results/features_batch_XX.csv                       the feature rows (instance order and keys)
@@ -19,6 +19,9 @@ quality is only comparable between two algorithms that accept about the same pas
 SA<cap> (e.g. SA2000) is SA with that many counted moves per call (make_solver_jobs.py --sa-variants).
 --no-variants ignores the SA<cap> result files, so only SA and GR remain (the base set while an SA1000 probe has files for
 a few keys only; otherwise every key must have every algorithm found).
+--gr-seeds-max K (default 1) uses GR seeds 1..K only. Extra GR seeds (make_solver_jobs.py --gr-extra-seeds) are for
+gr_replication.py; with the default they stay out of the matrices, so GR is still "seed 1" (K = 3 would average GR
+over seeds 1-3). solver_runs_batch_XX.csv keeps every seed.
 Every algorithm found becomes a column; the script prints the ISA_ALGORITHMS value the instance space pipeline needs.
 
 The first line of a result file starts with the instance path, which contains spaces ("Capital Region of
@@ -84,6 +87,8 @@ def main(argv=None):
                              "matrices and a features file for the keys that have all of them (names end in _partial)")
     parser.add_argument("--no-variants", action="store_true",
                         help="ignore the SA<cap> result files (variant runs, e.g. an SA1000 probe): only SA and GR remain")
+    parser.add_argument("--gr-seeds-max", type=int, default=1,
+                        help="use GR seeds 1..K only in the matrices (default 1: GR replication seeds above 1 are ignored)")
     args = parser.parse_args(argv)
 
     tag = f"{args.batch:02d}"
@@ -96,6 +101,11 @@ def main(argv=None):
         n_before = len(runs)
         runs = runs[~runs["algo"].str.match(r"SA\d")].reset_index(drop=True)
         print(f"--no-variants: {n_before - len(runs)} SA<cap> result files ignored")
+    all_runs = runs
+    if not runs.empty:
+        runs = runs[~((runs["algo"] == "GR") & (runs["seed"] > args.gr_seeds_max))].reset_index(drop=True)
+        if len(all_runs) != len(runs):
+            print(f"GR seeds above {args.gr_seeds_max}: {len(all_runs) - len(runs)} result files left out of the matrices")
     if unreadable:
         raise SystemExit(f"{len(unreadable)} result files cannot be read, e.g. {unreadable[:3]}")
     if runs.empty:
@@ -128,7 +138,7 @@ def main(argv=None):
         features[features["instance"].isin(set(expected))].to_csv(features_csv, index=False)
         print(f"partial: {len(expected)} of {len(expected) + len(missing)} keys have all of {algos}; "
               f"{len(missing)} are left out; features written to {features_csv}")
-    runs.to_csv(results / f"solver_runs_batch_{out_tag}.csv", index=False)
+    all_runs.to_csv(results / f"solver_runs_batch_{out_tag}.csv", index=False)
 
     per_algo = runs.groupby("algo").agg(
         runs=("key", "size"),

@@ -9,6 +9,9 @@
 # SA variants (make_solver_jobs.py --sa-variants CAP): their rows come AFTER ALL base rows. Batch 4 (100 instances x 10 fleets x 4 base rows = 4000):
 #   variant rows are 4001.., 3 rows (SA seeds 1-3) per fleet and cap, in the order sorted fleet key, cap, seed;
 #   --variants-keys KEY keeps only that fleet (probe: rows 4001-4003). Example probe: SOLVER=... PER_JOB=1 WALL_H=6 bash submit.sh 4001-4003
+#   --variants-instances A-B keeps the fleets of instances A to B (batch 4, 1-10: 100 fleets x 3 seeds = rows 4001-4300); with --variants-keys it is the intersection.
+#   Extra GR seeds (--gr-extra-seeds N --gr-extra-instances A-B) come AFTER the variant rows (batch 4, N=10, 1-10: 900 rows 4301-5200, single-threaded, about 200 s per row
+#   like a base row): PER_JOB=10 MEM_GB=2 WALL_H=3 bash submit.sh 4301-5200. collect_batch.py ignores GR seeds above 1; gr_replication.py summarises them.
 #   (batches 2-3: 12 base rows per instance, variants after row 1200, 27 per instance with caps 1000,2000,10000: PER_JOB=27 WALL_H=3).
 # This file is copied to <work>/solver/batch_XX/submit.sh by make_solver_jobs.py.
 cd "$(dirname "${BASH_SOURCE[0]}")"

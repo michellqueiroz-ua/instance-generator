@@ -17,7 +17,11 @@ after that many counted moves instead of 200 (--max_static_iterations). Their ro
 (rows 4001.. in a batch of 100 instances x 10 fleets x 4 rows; base rows keep their numbers), per fleet 3 rows
 (SA seeds) for each cap, in the order sorted fleet key, cap, seed. --variants-max-fleet-percent X keeps only fleets
 with at most X vehicles per 100 requests; --variants-keys KEY[,KEY] keeps only those fleets (probe of one
-instance--fleet pair: 3 rows for one cap). Run them with PER_JOB=1..3 and a longer WALL_H (see solver_submit.sh).
+instance--fleet pair: 3 rows for one cap); --variants-instances A-B keeps only the fleets of instances A to B (the
+instance number of ISA_b04_i007_1 is 7); with several of these filters a fleet must pass all of them (intersection).
+--gr-extra-seeds N --gr-extra-instances A-B add GR seeds 2..N for the fleets of instances A to B (GR is randomised and
+runs once per pair otherwise); these rows come last, after the SA variant rows, in the order sorted fleet key, seed.
+collect_batch.py ignores GR seeds above 1 unless --gr-seeds-max says otherwise. Run them with PER_JOB=1..3 and a longer WALL_H (see solver_submit.sh).
 jobs.csv, submit.sh and run_rows.sh are written to *.tmp and renamed, so a job that is running never reads a half-written file.
 The solver takes each vehicle type's count as a percentage of the requests, rounded up, so a count is
 written as (count - 0.5) / requests * 100, which rounds back to exactly the count.
@@ -34,6 +38,7 @@ import csv
 import json
 import math
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -59,6 +64,29 @@ def percent_for(count, n_requests):
     if decoded != count:
         raise ValueError(f"cannot encode {count} vehicles for {n_requests} requests ({text}% -> {decoded})")
     return text
+
+
+def instance_number(fleet):
+    """Number of the instance in its name: ISA_b04_i007_1 -> 7."""
+    match = re.search(r"_i(\d+)_", fleet["instance"])
+    if not match:
+        raise SystemExit(f"cannot read the instance number from {fleet['instance']!r}")
+    return int(match.group(1))
+
+
+def parse_range(text, option):
+    """'1-10' -> (1, 10); '5' -> (5, 5); '' -> None (no filter)."""
+    text = text.strip()
+    if not text:
+        return None
+    try:
+        first, _, last = text.partition("-")
+        low, high = int(first), int(last or first)
+    except ValueError:
+        raise SystemExit(f"{option}: expected A-B (for example 1-10), got {text!r}")
+    if low > high:
+        raise SystemExit(f"{option}: {text!r} is an empty range")
+    return low, high
 
 
 def read_requests(path):
@@ -114,6 +142,14 @@ def main(argv=None):
     parser.add_argument("--variants-keys", default="",
                         help="comma-separated fleet keys (e.g. ISA_b04_i001_1_fleet7): only these fleets get the SA "
                              "variants (probe of one instance--fleet pair); combines with --variants-max-fleet-percent")
+    parser.add_argument("--variants-instances", default="",
+                        help="A-B: only the fleets of instances A to B get the SA variants (instance number as in "
+                             "ISA_b04_i007_1 = 7); with --variants-keys and --variants-max-fleet-percent a fleet "
+                             "must pass every filter")
+    parser.add_argument("--gr-extra-seeds", type=int, default=1,
+                        help="N: add GR runs with seeds 2..N for the instances of --gr-extra-instances (default 1: none)")
+    parser.add_argument("--gr-extra-instances", default="",
+                        help="A-B: instances that get the extra GR seeds (required when --gr-extra-seeds > 1)")
     args = parser.parse_args(argv)
 
     work = Path(args.work)
@@ -127,6 +163,12 @@ def main(argv=None):
 
     caps = [int(c) for c in args.sa_variants.split(",") if c.strip()]
     only = {k.strip() for k in args.variants_keys.split(",") if k.strip()}
+    variant_range = parse_range(args.variants_instances, "--variants-instances")
+    gr_range = parse_range(args.gr_extra_instances, "--gr-extra-instances")
+    if args.gr_extra_seeds < 1:
+        raise SystemExit("--gr-extra-seeds must be at least 1")
+    if args.gr_extra_seeds > 1 and gr_range is None:
+        raise SystemExit("--gr-extra-seeds needs --gr-extra-instances A-B (no default: it would run for every instance)")
     if only - set(fleets):   # before anything is created or written
         raise SystemExit(f"--variants-keys: unknown fleet key(s) {sorted(only - set(fleets))[:3]}")
 
@@ -134,6 +176,7 @@ def main(argv=None):
     out.mkdir(parents=True, exist_ok=True)
     rows = ["key; instance; algo; seed; total_requests; n1; n2; depot"]
     variant_rows = []
+    gr_rows = []
     cache = {}
     missing = []
     for key, fleet in sorted(fleets.items()):
@@ -156,14 +199,24 @@ def main(argv=None):
         fleet_percent = 100.0 * len(vehicles) / n_requests
         for cap in caps if ((args.variants_max_fleet_percent is None
                              or fleet_percent <= args.variants_max_fleet_percent)
-                            and (not only or key in only)) else []:
+                            and (not only or key in only)
+                            and (variant_range is None
+                                 or variant_range[0] <= instance_number(fleet) <= variant_range[1])) else []:
             for seed in range(1, args.sa_seeds + 1):
                 variant_rows.append(f"{key}; {path}; SA{cap}; {seed}; {n_requests}; {n1}; {n2}; {depot}")
+        if gr_range is not None and gr_range[0] <= instance_number(fleet) <= gr_range[1]:
+            for seed in range(2, args.gr_extra_seeds + 1):
+                gr_rows.append(f"{key}; {path}; GR; {seed}; {n_requests}; {n1}; {n2}; {depot}")
     # appended, so the rows of the standard runs keep their numbers (finished runs are skipped by name)
+    # then the extra GR seeds, so the variant rows keep their numbers whether or not GR extras are asked for
+    n_base = len(rows) - 1
     rows.extend(variant_rows)
-    if args.variants_keys and not variant_rows:
-        raise SystemExit("--variants-keys: no variant rows written (is --sa-variants given, is the fleet's instance csv "
-                         "there, does --variants-max-fleet-percent exclude it?)")
+    rows.extend(gr_rows)
+    if (args.variants_keys or args.variants_instances) and not variant_rows:
+        raise SystemExit("--variants-keys/--variants-instances: no variant rows written (is --sa-variants given, is the "
+                         "fleet's instance csv there, do the other variants filters exclude it?)")
+    if args.gr_extra_seeds > 1 and not gr_rows:
+        raise SystemExit("--gr-extra-seeds: no GR rows written (does --gr-extra-instances match an instance with a csv?)")
 
     # Each file is written to <name>.tmp and renamed (os.replace is atomic on the same folder), so a running job that
     # reads jobs.csv or run_rows.sh never sees a truncated file.
@@ -180,6 +233,10 @@ def main(argv=None):
         text = (TEMPLATES / ("solver_" + name)).read_text(encoding="utf-8")
         text = text.replace("__TRAVEL_TIME__", str(matrix)).replace("__SA_ARGS__", SA_ARGS)
         write_atomic(out / name, text)
+    if variant_rows or gr_rows:
+        print(f"{len(rows) - 1} runs: {n_base} base, {len(variant_rows)} SA variant (rows {n_base + 1}-"
+              f"{n_base + len(variant_rows)}), {len(gr_rows)} extra GR "
+              f"(rows {n_base + len(variant_rows) + 1}-{len(rows) - 1})")
     print(f"{len(rows) - 1} runs for {len(fleets) - len(missing)} fleets of {len(cache)} instances in {out}")
     if missing:
         print(f"skipped {len(missing)} fleets whose instance csv does not exist yet, e.g. {missing[0]}")
