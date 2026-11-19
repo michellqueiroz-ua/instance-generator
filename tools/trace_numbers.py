@@ -138,6 +138,20 @@ def strip_tex(text: str) -> str:
                   lambda m: " " * len(m.group(0)), text)
     text = re.sub(r"\\\\\[[^\]]*\]", lambda m: " " * len(m.group(0)), text)
     text = re.sub(r"\d{4}-\d{2}-\d{2}", lambda m: " " * len(m.group(0)), text)
+    # Locators and labels that are not claims: "Sec.~4.3", "p.~8", "Table~3",
+    # "version 0.4.1", "Features 22--23", and a bare feature number that starts a
+    # table row ("\\ 5 &", "\midrule 1 &"). UNSURE: the row-start rule also hides a
+    # real number that stands alone in the first column; it is limited to 1-2 digits.
+    for pat in (
+        r"\b(?:Sec\.|Section|Table|Fig\.|Figure|pp?\.|page)~?\s*\d+(?:\.\d+)*(?:--\d+)?",
+        r"\bversion\s+\d+(?:\.\d+)*",
+        r"\bFeatures?\s+\d+(?:--\d+)?",
+        r"(?<=\\\\)\s*\d{1,2}(?=\s*&)",
+        r"(?<=\\midrule)\s*\d{1,2}(?=\s*&)",
+        r"(?<=\\addlinespace)\s*\d{1,2}(?=\s*&)",
+        r"(?<=\\toprule)\s*\d{1,2}(?=\s*&)",
+    ):
+        text = re.sub(pat, lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
     return text
 
 
@@ -205,7 +219,8 @@ def resolve_files(chapter: Path, sections: list[str]) -> list[Path]:
         for m in re.finditer(r"\\input\{([^}]+)\}", text):
             name = m.group(1)
             target = chapter / (name if name.endswith(".tex") else name + ".tex")
-            if target.exists():
+            # TikZ figure files hold coordinates, not claims: do not read them.
+            if target.exists() and target.relative_to(chapter).parts[0] != "figures":
                 add(target)
 
     for sec in sections:

@@ -145,3 +145,22 @@ def test_needs_sections_or_section_all(tmp_path):
     with pytest.raises(SystemExit) as e:
         tn.main(["--chapter-dir", str(ch)])
     assert e.value.code == 2
+
+
+def test_figure_inputs_are_not_read(tmp_path):
+    (tmp_path / "sections").mkdir()
+    (tmp_path / "figures").mkdir()
+    (tmp_path / "sections" / "03-p.tex").write_text(r"\input{figures/fig_a}" + "\n")
+    (tmp_path / "figures" / "fig_a.tex").write_text(r"\draw (1.5,2.5) -- (3,4);" + "\n")
+    assert [f.name for f in tn.resolve_files(tmp_path, ["03"])] == ["03-p.tex"]
+
+
+def test_locators_versions_and_row_numbers_are_not_claims():
+    text = "\n".join([
+        r"(Sec.~4.3, p.~8) and \citealt[Table~3 and Section~5.2, p.~9]{x}",
+        r"package (version 0.4.1), Features 22--23 and Feature 24",
+        r"\midrule 1 & name & 5 \\",
+        r"\addlinespace 11 & name & 7 \\",
+        r" 12 & other & 99 \\",
+    ])
+    assert [n for n, _ in nums(text)] == ["5", "7", "99"]
