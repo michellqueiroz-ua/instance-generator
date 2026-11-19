@@ -65,3 +65,6 @@ Thumbs.db
 
 # ISA pilot outputs
 isa-features-plan-implementation/pilot/work/
+
+# private registry rows (sources inside the local-only folder); never pushed
+tools/number_sources_local.csv

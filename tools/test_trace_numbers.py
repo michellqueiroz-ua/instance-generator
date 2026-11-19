@@ -97,7 +97,7 @@ def test_exit_codes(tmp_path):
     reg = tmp_path / "reg.csv"
     reg.write_text("section_file,number,source_file,command,note\n"
                    "04-a.tex,5000,design.json,python -c 1,\n")
-    args = ["--chapter-dir", str(tmp_path), "--sections", "04", "--registry", str(reg)]
+    args = ["--chapter-dir", str(tmp_path), "--sections", "04", "--registry", str(reg), "--local-registry", str(tmp_path / "none.csv")]
     assert tn.main(args) == 0
     reg.write_text("section_file,number,source_file,command,note\n"
                    "04-a.tex,5000,design.json,UNSURE: not traced,\n")
@@ -123,7 +123,7 @@ def test_section_all_reads_every_section_and_its_tables(tmp_path, capsys):
     reg = tmp_path / "reg.csv"
     reg.write_text("section_file,number,source_file,command,note\n"
                    "00-abs.tex,11,f,ok,\n05-b.tex,22,f,UNSURE: not traced,\nt05_x.tex,33,f,ok,\n")
-    rc = tn.main(["--chapter-dir", str(ch), "--section-all", "--registry", str(reg)])
+    rc = tn.main(["--chapter-dir", str(ch), "--section-all", "--registry", str(reg), "--local-registry", str(tmp_path / "none.csv")])
     out = capsys.readouterr().out
     assert rc == 1  # 44 is unmapped
     assert "Numbers found: 4" in out  # 11, 22, 33, 44 and nothing from t_unused
@@ -164,3 +164,22 @@ def test_locators_versions_and_row_numbers_are_not_claims():
         r" 12 & other & 99 \\",
     ])
     assert [n for n, _ in nums(text)] == ["5", "7", "99"]
+
+
+def test_local_registry_is_merged_and_missing_one_is_reported(tmp_path, capsys, monkeypatch):
+    ch = _mini_chapter(tmp_path)
+    pub = tmp_path / "pub.csv"
+    pub.write_text("section_file,number,source_file,command,note\n00-abs.tex,11,f,ok,\n")
+    loc = tmp_path / "loc.csv"
+    loc.write_text("section_file,number,source_file,command,note\n05-b.tex,22,f,ok,\n")
+    base = ["--chapter-dir", str(ch), "--sections", "00", "05", "--registry", str(pub), "--report-only"]
+    tn.main(base + ["--local-registry", str(loc)])
+    out = capsys.readouterr().out
+    assert f"Local registry: {loc}" in out and "MAPPED: 2 " in out
+    tn.main(base + ["--local-registry", str(tmp_path / "missing.csv")])
+    out = capsys.readouterr().out
+    assert "not found" in out and "UNMAPPED" in out and "MAPPED: 1 " in out
+    # the environment variable is used when the option is absent
+    monkeypatch.setenv("NUMBER_SOURCES_LOCAL", str(loc))
+    tn.main(base)
+    assert "MAPPED: 2 " in capsys.readouterr().out

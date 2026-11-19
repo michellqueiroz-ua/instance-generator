@@ -4,7 +4,10 @@
 Replaces the manual step "is every number in the text traced to a file and a
 command?". The chapter folder is only read. Standard library only.
 
-Registry: tools/number_sources.csv with columns
+Registry: tools/number_sources.csv, plus an optional private file with the same
+columns (--local-registry, env NUMBER_SOURCES_LOCAL, or tools/number_sources_local.csv;
+never pushed). If the private file is missing, the numbers that depend on it are
+UNMAPPED and the output says so. Columns
     section_file,number,source_file,command,note
 A number is MAPPED when a row has the same file name (the section file or the
 table file where the number stands) and the same number. The number cell is
@@ -33,6 +36,7 @@ when the text moves, which is the signal to look at the number again.
 """
 import argparse
 import csv
+import os
 import re
 import sys
 from pathlib import Path
@@ -306,6 +310,9 @@ def main(argv=None) -> int:
     ap.add_argument("--section-all", action="store_true",
                     help="run every file in sections/ (and the tables they input)")
     ap.add_argument("--registry", type=Path, default=Path(__file__).with_name("number_sources.csv"))
+    ap.add_argument("--local-registry", type=Path, default=None,
+                    help="second, private registry (same columns, never pushed); default: env "
+                         "NUMBER_SOURCES_LOCAL, else tools/number_sources_local.csv")
     ap.add_argument("--report-only", action="store_true", help="always exit 0")
     ap.add_argument("--strict", action="store_true", help="untraced rows also fail")
     ap.add_argument("--all", action="store_true", help="print the mapped numbers too")
@@ -323,6 +330,14 @@ def main(argv=None) -> int:
         rel = f.relative_to(chapter).as_posix()
         hits_by_file[rel] = find_numbers(f.read_text(encoding="utf-8"))
     registry = load_registry(a.registry)
+    local = a.local_registry or (Path(os.environ["NUMBER_SOURCES_LOCAL"])
+                                 if os.environ.get("NUMBER_SOURCES_LOCAL")
+                                 else Path(__file__).with_name("number_sources_local.csv"))
+    if local.exists():
+        registry += load_registry(local)
+        print(f"Local registry: {local}")
+    else:
+        print(f"Local registry: not found ({local}); numbers that depend on it are UNMAPPED")
     mapped, untraced, unmapped, stale = classify(hits_by_file, registry)
 
     total = sum(len(h) for h in hits_by_file.values())

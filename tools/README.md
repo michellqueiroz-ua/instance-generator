@@ -20,19 +20,25 @@ Replaces: reading the chapter to check that every number has a file and a comman
 
 ```
 python tools/trace_numbers.py --chapter-dir "<path to the chapter>" --sections 04 [05 06 ...] [--report-only] [--strict] [--all]
+python tools/trace_numbers.py --chapter-dir "<path to the chapter>" --section-all --report-only
 ```
 
+- `--section-all` takes every file in `sections/`. A table is read only when a section `\input`s it; TikZ files in `figures/` are never read. The output ends with a count per file.
 - Takes `sections/<NN>*.tex` and the tables they `\input`, and lists every number as `file:line  number unit  context`.
 - Looks each number up in `tools/number_sources.csv`. Output: MAPPED, MAPPED-UNTRACED (the row exists but its command is `UNSURE`), UNMAPPED, and STALE (rows that match no number in the requested files).
 - Exit code 1 if anything is UNMAPPED (`--strict`: also if untraced). `--report-only` always exits 0.
 - What is not counted as a number is listed at the top of the script (comments, `\TODO` and footnote notes, refs, cites, widths, years, single digits in math).
 
-### number_sources.csv
+### number_sources.csv and the private registry
+
+The pushed `number_sources.csv` holds only rows whose source is a file of this repository (`design.json`, `make_solver_jobs.py`, `feature_list.md`, the runbook). Rows whose source is a result file in the private folder are kept in a second file with the same columns that is never pushed (`tools/number_sources_local.csv` is in `.gitignore`). `trace_numbers.py` reads it from `--local-registry`, else from the environment variable `NUMBER_SOURCES_LOCAL`, else from that default path. If it is missing the script says so and those numbers are UNMAPPED. Ask the project owner for the file.
+
 
 Columns: `section_file,number,source_file,command,note`.
 
 - `section_file`: the file where the number stands, section or table, by name (`04-instance-generation.tex`, `t04_requests.tex`). Add `:LINE` to match one line only. Use that when one number means different things in one file. Such a row turns stale when the text moves: look at the number again.
 - `number`: the plain number as in the text (`3515`, `0.75`, `10:00`). Add the unit to match only that form (`3600s`, `4h`, `25%`).
-- `command`: run from the repository root; it must print the number (or the values it comes from). Write `UNSURE: not traced` when the number comes from a measurement or a result file that is not reproduced yet. Do not invent a source.
+- `command`: run from the repository root ; it must print the number (or the values it comes from). Write `UNSURE: not traced` when the number comes from a measurement or a result file that is not reproduced yet. Do not invent a source.
 - A row covers all occurrences of that number in the file. For numbers that mean different things in one file, the registry is only as good as the rows: check the `note`.
+- Registry state: section 04 and its tables, section 05, section 06, `t04_features.tex` and `t05_resources.tex` (numbers from `design.json`, `make_solver_jobs.py`, `feature_list.md`, the runbook, and the pulled batch-2 results). Sections 01 to 03 and 07 are not registered.
 - Each traced row was run on 2026-11-19 and printed the number; the output is in the task report.
