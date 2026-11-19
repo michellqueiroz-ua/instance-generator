@@ -106,3 +106,42 @@ def test_exit_codes(tmp_path):
     reg.write_text("section_file,number,source_file,command,note\n")
     assert tn.main(args) == 1
     assert tn.main(args + ["--report-only"]) == 0
+
+
+def _mini_chapter(tmp_path):
+    (tmp_path / "sections").mkdir()
+    (tmp_path / "tables").mkdir()
+    (tmp_path / "sections" / "00-abs.tex").write_text("We use 11 things.\n")
+    (tmp_path / "sections" / "05-b.tex").write_text("\\input{tables/t05_x}\nand 22 more.\n")
+    (tmp_path / "tables" / "t05_x.tex").write_text("33 & 44\n")
+    (tmp_path / "tables" / "t_unused.tex").write_text("55\n")  # not input anywhere
+    return tmp_path
+
+
+def test_section_all_reads_every_section_and_its_tables(tmp_path, capsys):
+    ch = _mini_chapter(tmp_path)
+    reg = tmp_path / "reg.csv"
+    reg.write_text("section_file,number,source_file,command,note\n"
+                   "00-abs.tex,11,f,ok,\n05-b.tex,22,f,UNSURE: not traced,\nt05_x.tex,33,f,ok,\n")
+    rc = tn.main(["--chapter-dir", str(ch), "--section-all", "--registry", str(reg)])
+    out = capsys.readouterr().out
+    assert rc == 1  # 44 is unmapped
+    assert "Numbers found: 4" in out  # 11, 22, 33, 44 and nothing from t_unused
+    assert "MAPPED: 2  MAPPED-UNTRACED: 1  UNMAPPED: 1" in out
+    # per-file table: one line per file read
+    assert any(l.startswith("sections/00-abs.tex") and l.split()[1:] == ["1", "1", "0", "0"] for l in out.splitlines())
+    assert any(l.startswith("tables/t05_x.tex") and l.split()[1:] == ["2", "1", "0", "1"] for l in out.splitlines())
+    assert "t_unused" not in out
+
+
+def test_all_section_prefixes_lists_every_section(tmp_path):
+    ch = _mini_chapter(tmp_path)
+    assert tn.all_section_prefixes(ch) == ["00-abs", "05-b"]
+
+
+def test_needs_sections_or_section_all(tmp_path):
+    import pytest
+    ch = _mini_chapter(tmp_path)
+    with pytest.raises(SystemExit) as e:
+        tn.main(["--chapter-dir", str(ch)])
+    assert e.value.code == 2

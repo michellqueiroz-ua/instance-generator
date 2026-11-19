@@ -217,6 +217,19 @@ def resolve_files(chapter: Path, sections: list[str]) -> list[Path]:
     return files
 
 
+def all_section_prefixes(chapter: Path) -> list[str]:
+    """Every file in sections/ as a prefix that resolve_files accepts (the file stem)."""
+    return [p.stem for p in sorted((chapter / "sections").glob("*.tex"))]
+
+
+def per_file_counts(hits_by_file, mapped, untraced, unmapped) -> list[tuple]:
+    """(file, found, mapped, untraced, unmapped) for every file that was read."""
+    def n(lst, f):
+        return sum(1 for h in lst if h["file"] == f)
+    return [(f, len(h), n(mapped, f), n(untraced, f), n(unmapped, f))
+            for f, h in hits_by_file.items()]
+
+
 def load_registry(path: Path) -> list[dict]:
     if not path.exists():
         return []
@@ -274,14 +287,22 @@ def fmt(hit: dict) -> str:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--chapter-dir", required=True, type=Path)
-    ap.add_argument("--sections", nargs="+", required=True, help="section numbers, e.g. 04 05")
+    ap.add_argument("--sections", nargs="+", default=[], help="section numbers, e.g. 04 05")
+    ap.add_argument("--section-all", action="store_true",
+                    help="run every file in sections/ (and the tables they input)")
     ap.add_argument("--registry", type=Path, default=Path(__file__).with_name("number_sources.csv"))
     ap.add_argument("--report-only", action="store_true", help="always exit 0")
     ap.add_argument("--strict", action="store_true", help="untraced rows also fail")
     ap.add_argument("--all", action="store_true", help="print the mapped numbers too")
     a = ap.parse_args(argv)
     chapter = a.chapter_dir.resolve()
-    files = resolve_files(chapter, a.sections)
+    if a.section_all:
+        sections = all_section_prefixes(chapter)
+    elif a.sections:
+        sections = a.sections
+    else:
+        ap.error("give --sections NN [NN ...] or --section-all")
+    files = resolve_files(chapter, sections)
     hits_by_file = {}
     for f in files:
         rel = f.relative_to(chapter).as_posix()
@@ -293,6 +314,11 @@ def main(argv=None) -> int:
     print(f"Files: {', '.join(hits_by_file)}")
     print(f"Numbers found: {total}")
     print(f"MAPPED: {len(mapped)}  MAPPED-UNTRACED: {len(untraced)}  UNMAPPED: {len(unmapped)}")
+    print()
+    print(f"{'File':<40}{'found':>6}{'MAPPED':>8}{'UNTRACED':>10}{'UNMAPPED':>10}")
+    for f, nf, nm, nu, nx in per_file_counts(hits_by_file, mapped, untraced, unmapped):
+        print(f"{f:<40}{nf:>6}{nm:>8}{nu:>10}{nx:>10}")
+    print()
     print(f"Registry rows with no matching number in these files (stale): {len(stale)}")
     if a.all:
         print("\nMAPPED (file:line  number  context)")
