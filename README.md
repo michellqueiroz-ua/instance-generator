@@ -256,6 +256,49 @@ If you use REQreate in your research, please cite:
 
 GitHub's "Cite this repository" button uses [`CITATION.cff`](CITATION.cff).
 
+## Instance space analysis (optional)
+
+The ISA step (`src/isa_pipeline.py`) builds instance spaces from the
+`features.csv` that REQreate writes. It uses
+[`instancespace`](https://pypi.org/project/instancespace/), the Python
+version of the [MATILDA](https://matilda.unimelb.edu.au) toolkit. It is
+**optional** and not part of the core install: generating instances and
+writing `features.csv` does not need it. `instancespace` needs Python 3.12
+and is installed separately:
+
+```bash
+pip install "instancespace==0.4.1"
+```
+
+If you use the ISA step, please also cite:
+
+> Smith-Miles, K., & Muñoz, M. A. (2023). Instance space analysis for algorithm testing: Methodology and software tools. *ACM Computing Surveys*, 55(12), 255. https://doi.org/10.1145/3572895
+>
+> Güzel, Y. B., Khare, K., Harvey, N., Dsouza, K., Jang, D. H., Chen, J., Lam, C. Z., & Muñoz, M. A. (2025). instancespace: A Python package for insightful algorithm testing through Instance Space Analysis. *SoftwareX*, 31, 102246. https://doi.org/10.1016/j.softx.2025.102246
+
+```bibtex
+@article{smithmiles2023instance,
+  title   = {Instance Space Analysis for Algorithm Testing: Methodology and Software Tools},
+  author  = {Smith-Miles, Kate and Mu{\~n}oz, Mario Andr{\'e}s},
+  journal = {ACM Computing Surveys},
+  volume  = {55},
+  number  = {12},
+  pages   = {255},
+  year    = {2023},
+  doi     = {10.1145/3572895}
+}
+
+@article{guzel2025instancespace,
+  title   = {instancespace: A Python package for insightful algorithm testing through Instance Space Analysis},
+  author  = {G{\"u}zel, Y. B. and Khare, K. and Harvey, N. and Dsouza, K. and Jang, D. H. and Chen, J. and Lam, C. Z. and Mu{\~n}oz, M. A.},
+  journal = {SoftwareX},
+  volume  = {31},
+  pages   = {102246},
+  year    = {2025},
+  doi     = {10.1016/j.softx.2025.102246}
+}
+```
+
 ## Data and licenses
 
 The REQreate code is released under the [MIT License](LICENSE).
@@ -269,6 +312,12 @@ instances generated with REQreate are derived from OpenStreetMap data:
 
 If you publish generated networks or instances, keep this attribution and
 follow the ODbL terms for the derived data. See [`NOTICE`](NOTICE) for details.
+
+`instancespace` is not distributed with REQreate and no part of its code is
+included here. It has its own licence, the
+[PolyForm Noncommercial License 1.0.0](https://pypi.org/project/instancespace/)
+(version 0.2.1 and earlier were GPL-3.0). Anyone who installs it for the ISA
+step must follow its terms, which do not allow commercial use.
 
 The [`legacy/`](legacy/README.md) folder holds archived research scripts
 that analysed third-party trip datasets (NYC TLC, Chicago TNP, Uber Movement
