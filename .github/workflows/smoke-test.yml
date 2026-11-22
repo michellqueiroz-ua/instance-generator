@@ -98,6 +98,11 @@ jobs:
         id: generate
         # Never fail the step directly - the outcome is reported on an issue
         # below, and the log is needed either way.
+        env:
+          # The package runs from site-packages, so point the ISA hook at the
+          # checkout and keep features.csv with the other outputs.
+          ISA_FEATURES_DIR: ${{ github.workspace }}/isa-features-plan-implementation
+          ISA_FEATURES_CSV: ${{ github.workspace }}/run/features.csv
         run: |
           set +e
           cd run
@@ -136,6 +141,17 @@ jobs:
           path: run/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Fail the run if no ISA features row was written
+        if: always() && steps.generate.outputs.exit_code == '0'
+        run: |
+          cd run
+          grep -F "[features.csv]" generate.log || true
+          if ! grep -qF "[features.csv] wrote row" generate.log || [ ! -s features.csv ]; then
+            echo "ISA feature export did not write a row to features.csv."
+            exit 1
+          fi
+          echo "features.csv:"; cat features.csv
 
       - name: Fail the run if the instance was not produced
         if: always() && (steps.generate.outputs.exit_code != '0' || steps.inspect.outputs.csv_count == '0')

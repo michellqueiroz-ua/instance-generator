@@ -5,9 +5,10 @@ import pandas as pd
 from shapely.geometry import Polygon
 from osmnx.distance import great_circle
 from .nearest import centroid_coordinates, nearest_edge_endpoints
+from .osm_features import features_in_area
 
 
-def retrieve_hospitals(G_walk, G_drive, place_name, save_dir, output_folder_base):
+def retrieve_hospitals(G_walk, G_drive, place_name, save_dir, output_folder_base, polygon=None):
     '''
     Retrieve information of hospitals from OpenStreetMap.
     Includes hospitals, clinics, and other healthcare facilities.
@@ -38,7 +39,7 @@ def retrieve_hospitals(G_walk, G_drive, place_name, save_dir, output_folder_base
         }
         
         try:
-            poi_hospitals = ox.features_from_place(place_name, tags=tags)
+            poi_hospitals = features_in_area(place_name, tags, polygon)
             print(f'Found {len(poi_hospitals)} healthcare facilities')
             
             if len(poi_hospitals) > 0:

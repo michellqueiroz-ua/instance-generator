@@ -1,0 +1,98 @@
+\section{Study design}
+
+\subsection{Network, period, and instance settings}
+
+The study network is the whole Capital Region of Denmark without Bornholm.
+Instances use a two-hour planning period beginning between 12:00 and 19:30.
+The current design draws 50--500 requests per hour (100--1000 in each
+instance). All instance ranges below are the present values in
+\sourcepath{isa_set/design.json}; the settings document describes them as
+\tagprop unless stated otherwise.
+
+\begin{longtable}{@{}p{0.19\linewidth}p{0.22\linewidth}p{0.32\linewidth}p{0.18\linewidth}@{}}
+\caption{Study settings, comparison with the earlier papers, and current status. [H] and [P] refer to the two papers in \cite{queiroz2026evaluation,queiroz2026parallel}.}\\
+\toprule
+Setting & Study range & Paper range & Status\\
+\midrule
+\endfirsthead
+\toprule
+Setting & Study range & Paper range & Status\\
+\midrule
+\endhead
+Network & Capital Region, excluding Bornholm & Chicago [H]; city scenarios [P] & \tagprop\\
+Planning period & 2 hours & 1 hour [H]; 2--7 hours [P] & \tagprop\\
+Start time & 12:00--19:30 & Commuting and event windows [P] & \tagprop\\
+Requests & 50--500 per hour (100--1000 per instance) & 300--3000 per hour [H]; 5000--20000 per scenario [P] & \tagprop; \tagopen[S1]\\
+Peak spread & 10--60 min standard deviation & About 15 min plus 40\% uniform in one [P] scenario & \tagprop\\
+Urgency mean & 5--40 min & 5, 10, 15, 30 min [H] & \tagprop\\
+Urgency standard deviation & 1--10 min & 0, 5, 10 min [H] & \tagprop\\
+Arrival slack & 5--60 min & Not varied & \tagprop\\
+Maximum walking time & 550--600 s & Generator default; 550--600 s in earlier settings & \tagprop; \tagopen[S2]\\
+Walking speed & 1.38889 m/s & Same & \tagprop\\
+Direct trip time & 300--3600 s & Same lower bound; study upper bound raised for suburbs & \tagprop\\
+Vehicle speed & 20 km/h & Same & \tagprop\\
+Fleet size & 5--40\% of requests & 10--21\% [H] & \tagprop\\
+Eight-seat share & 0--100\%; remainder four-seat & Four- and eight-seat mix performed well [H] & \tagprop\\
+Fleet draws & 3 per generated instance & Fleet fixed per instance [P] & \tagprop\\
+Depot & One station unused by requests, selected after generation & Several depots [H] & \tagdone; \tagopen[S3]\\
+\bottomrule
+\end{longtable}
+
+The network build produced 3515 stations and no station on Bornholm. The
+station-to-station travel-time matrix is intended to be computed once for the
+network, in a separate HPC job. The number of batches is not fixed: batches of
+100 are proposed until fewer than about 5\% of new instances are far from
+existing ones, or a cap is reached. The cap remains \tagopen[S4].
+
+\subsection{Axes of the instance space}
+
+The feature list confirms 18 features for the static ISA. The last three
+features in the list are dynamic-only; the two network features at the end are
+not implemented for this study.
+
+\begin{longtable}{@{}p{0.30\linewidth}p{0.63\linewidth}@{}}
+\caption{Static ISA features and their short definitions.}\\
+\toprule
+Feature & Definition\\
+\midrule
+\endfirsthead
+\toprule
+Feature & Definition\\
+\midrule
+\endhead
+\texttt{n\_requests} & Number of requests.\\
+\texttt{demand\_density} & Requests per square kilometre of service area.\\
+\texttt{spatial\_cluster\_coeff} & Clark--Evans nearest-neighbour ratio for request origins.\\
+\texttt{od\_distance\_mean} & Mean origin--destination driving distance.\\
+\texttt{od\_distance\_std} & Standard deviation of origin--destination driving distance.\\
+\texttt{tw\_width\_mean} & Mean time-window width.\\
+\texttt{tw\_width\_std} & Standard deviation of time-window width.\\
+\texttt{tw\_overlap\_ratio} & Fraction of request pairs with overlapping time windows.\\
+\texttt{tight\_tw\_fraction} & Fraction of requests with window width below 20 minutes.\\
+\texttt{tw\_tightness\_factor} & Mean time-window width divided by minimum trip time.\\
+\texttt{fleet\_size} & Number of vehicles relative to request count.\\
+\texttt{capacity\_cv} & Standard deviation of vehicle capacities divided by their mean.\\
+\texttt{fleet\_utilization\_ratio} & Total fleet capacity divided by request count.\\
+\texttt{request\_vehicle\_ratio} & Request count divided by fleet size.\\
+\texttt{station\_density} & Bus stops per square kilometre.\\
+\texttt{bsa\_flexibility} & Mean available pick-up or drop-off stops per passenger.\\
+\texttt{avg\_station\_degree} & Mean degree of bus stops in the road graph.\\
+\texttt{coverage\_ratio} & Fraction of the service area within 500 m of a bus stop.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Fleets, algorithms, and performance}
+
+Each generated request instance is paired with three fleets. Fleet size is
+drawn from 5--40\% of requests; the eight-seat share is drawn from 0--100\%,
+with the remainder in four-seat vehicles. The depot is selected after
+generation at a station not used by a request.
+
+The objective is total passenger ride time plus four times direct travel time
+for each request sent to a third party. Operator cost is not in the objective;
+vehicle use and driving time may be recorded as post-hoc measures.
+
+The performance matrix currently compares SA with GR. The exact Gurobi model
+is used only for validation on 5--15 requests. A third ISA algorithm is
+\tagopen: the options are another SA configuration or a max-ALNS variant. The
+matheuristic is not a candidate ISA algorithm.

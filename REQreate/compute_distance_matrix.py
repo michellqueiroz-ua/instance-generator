@@ -101,10 +101,17 @@ if RAY_AVAILABLE:
 
 
 # Rows kept in memory per matrix. A row is one float32/int32 per graph node,
-# so 5000 rows of a 26k-node city take about 500 MB.
+# so 5000 rows of a 26k-node city take about 500 MB. The cache is also capped in bytes: on a
+# graph of several hundred thousand nodes (a walk network of a whole region) 5000 rows would
+# need several GB per matrix and a generation job is killed by the memory limit.
 MAX_CACHED_ROWS = 5000
+MAX_CACHE_BYTES = 400 * 1024 * 1024
 
 _UNREACHABLE_INT = -1
+
+
+def _byte_capped_rows(node_count):
+    return max(32, MAX_CACHE_BYTES // (4 * max(1, node_count)))
 
 
 def _node_key(node):
@@ -142,12 +149,14 @@ class LazyDistanceMatrix:
     exactly. Distances are stored as float32 (sub-millimetre differences).
     """
 
-    def __init__(self, G, weight, value_type=float, max_rows=MAX_CACHED_ROWS):
+    def __init__(self, G, weight, value_type=float, max_rows=None):
         self.weight = weight
         self.value_type = value_type
-        self.max_rows = max_rows
         self.directed = G.is_directed()
         self.nodes = list(G.nodes)
+        if max_rows is None:
+            max_rows = min(MAX_CACHED_ROWS, _byte_capped_rows(len(self.nodes)))
+        self.max_rows = max_rows
         self.node_to_index = {node: index for index, node in enumerate(self.nodes)}
 
         # Parallel edges collapse to the cheapest one.
@@ -213,6 +222,8 @@ class LazyDistanceMatrix:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        # A network pickled before the byte cap carries max_rows=5000; apply the cap on load.
+        self.max_rows = min(self.max_rows, _byte_capped_rows(len(self.nodes)))
         self.loc = _Loc(self)
 
     def __getattr__(self, name):
@@ -223,6 +234,34 @@ class LazyDistanceMatrix:
                 "longer materialised; look up values with .loc[origin, dest]."
             )
         raise AttributeError(name)
+
+
+def travel_times_between(G, nodes, weight="travel_time", chunk=64, progress=None):
+    """Whole-second shortest-path times between ``nodes`` (one row and column per entry).
+
+    Same values as ``LazyDistanceMatrix(G, weight, int).get``: edge weights are summed in
+    float64 and truncated to whole seconds. Instead of caching one full-graph row per origin
+    (about 4 MB per origin on a 1M-node graph, so 3500 stations need ~14 GB), the searches run
+    ``chunk`` origins at a time and only the columns of ``nodes`` are kept.
+
+    Returns an int32 array; unreachable pairs are -1.
+    """
+    lazy = LazyDistanceMatrix(G, weight, int)
+    unique = list(dict.fromkeys(_node_key(n) for n in nodes))
+    position = {node: i for i, node in enumerate(unique)}
+    columns = np.array([lazy.node_to_index[node] for node in unique])
+    small = np.full((len(unique), len(unique)), _UNREACHABLE_INT, dtype=np.int32)
+    for start in range(0, len(unique), chunk):
+        indices = columns[start:start + chunk]
+        rows = dijkstra(lazy.graph, directed=lazy.directed, indices=indices)[:, columns]
+        reachable = np.isfinite(rows)
+        block = np.full(rows.shape, _UNREACHABLE_INT, dtype=np.int32)
+        block[reachable] = np.trunc(rows[reachable]).astype(np.int32)
+        small[start:start + len(indices)] = block
+        if progress:
+            progress(min(start + chunk, len(unique)), len(unique))
+    order = np.array([position[_node_key(n)] for n in nodes])
+    return small[np.ix_(order, order)]
 
 
 def _update_distance_matrix_walk(G_walk, bus_stops_fr, save_dir, output_file_base):
