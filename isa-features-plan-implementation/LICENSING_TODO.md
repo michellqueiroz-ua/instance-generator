@@ -1,7 +1,7 @@
 # Licensing to-do before merging to master
 
 The MATILDA step (T14, `src/isa_pipeline.py`) uses
-[`instancespace`](https://pypi.org/project/instancespace/) (CI still pins 0.2.1), which is
+[`instancespace`](https://pypi.org/project/instancespace/) 0.4.1 (pinned in CI), which is
 now licensed **PolyForm Noncommercial 1.0.0** (0.2.1 was GPL-3.0; the chapter runs used 0.4.1). REQreate is MIT.
 
 Before this branch is merged, the main README must say:
