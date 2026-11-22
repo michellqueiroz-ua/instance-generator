@@ -41,7 +41,9 @@ def nearest_node(G, lon, lat):
     is built once per graph here and kept; request sampling asks for ~25 nodes
     per request.
     """
-    if ox.projection.is_projected(G.graph["crs"]):
+    # A graph without a crs (hand-built, e.g. in tests) is taken as unprojected
+    # longitude/latitude, which is what OSMnx downloads are.
+    if ox.projection.is_projected(G.graph.get("crs", "epsg:4326")):
         return ox.nearest_nodes(G, lon, lat)
     entry = _NODE_INDEX.get(id(G))
     if entry is None or entry[0] is not G:  # the stored graph keeps its id from being reused

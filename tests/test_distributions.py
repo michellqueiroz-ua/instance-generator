@@ -80,7 +80,7 @@ class SpatialDistributionTests(unittest.TestCase):
 
     def test_default_zone_coordinates_stay_inside_the_zone(self):
         network = Network.__new__(Network)
-        network.G_drive = nx.MultiDiGraph()
+        network.G_drive = nx.MultiDiGraph(crs="epsg:4326")
         network.G_drive.add_node(0, x=0, y=0)
         zone = Polygon([(-0.001, -0.001), (0.001, -0.001),
                         (0.001, 0.001), (-0.001, 0.001)])
